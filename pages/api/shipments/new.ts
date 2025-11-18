@@ -42,6 +42,9 @@ type Body = Partial<{
   service: string;
   priceAED: number;
   customerEmail: string;
+
+  // NEW: currency for schema
+  currency: string;
 }>;
 
 export default async function handler(
@@ -100,6 +103,9 @@ export default async function handler(
       });
     }
 
+    // NEW: currency (default AED if not provided)
+    const currency = body.currency || "AED";
+
     // 2) Build document to satisfy BOTH old and new schemas
     const shipment = await Shipment.create({
       from,
@@ -108,6 +114,9 @@ export default async function handler(
       carrier: body.carrier,
       service: body.service,
       priceAED: body.priceAED,
+
+      // currency required by schema
+      currency,
 
       // NEW schema field
       parcel: {
