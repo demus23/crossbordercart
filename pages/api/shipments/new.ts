@@ -1,4 +1,3 @@
-// pages/api/shipments/new.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { dbConnect } from "@/lib/mongoose";
 import { Shipment } from "@/lib/models/Shipment";
@@ -45,111 +44,88 @@ type Body = Partial<{
   customerEmail: string;
 }>;
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "Method Not Allowed" });
+    return res
+      .status(405)
+      .json({ ok: false, error: "Method Not Allowed" });
   }
 
-  const enabled = process.env.SHIPMENTS_ENABLED === "true";
-  if (!enabled) {
-    return res
-      .status(403)
-      .json({ ok: false, error: "Shipment creation is disabled for this environment." });
-  }
+  await dbConnect();
 
   try {
-    await dbConnect();
+    const body = req.body as Body;
 
-    const body = (req.body || {}) as Body;
+    const { from, to } = body;
 
-    if (!body.from || !body.to) {
-      return res.status(400).json({ ok: false, error: "from/to are required" });
+    if (!from || !to) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Both from and to addresses are required." });
     }
 
-    // ---------- Build parcel from BOTH possible formats ----------
-    let weight =
-      body.parcel?.weight ??
-      body.weightKg ??
-      body.weight;
+    // 1) Normalize parcel dimensions
+    let weight: number | undefined;
+    let length: number | undefined;
+    let width: number | undefined;
+    let height: number | undefined;
 
-    let length =
-      body.parcel?.length ??
-      body.dims?.L ??
-      body.dims?.length;
+    // Prefer NEW shape if present
+    if (
+      body.parcel?.weight &&
+      body.parcel.length &&
+      body.parcel.width &&
+      body.parcel.height
+    ) {
+      weight = body.parcel.weight;
+      length = body.parcel.length;
+      width = body.parcel.width;
+      height = body.parcel.height;
+    } else if (body.weightKg && body.dims) {
+      // Fall back to OLD shape
+      weight = body.weightKg;
+      length = body.dims.length ?? body.dims.L;
+      width = body.dims.width ?? body.dims.W;
+      height = body.dims.height ?? body.dims.H;
+    }
 
-    let width =
-      body.parcel?.width ??
-      body.dims?.W ??
-      body.dims?.width;
-
-    let height =
-      body.parcel?.height ??
-      body.dims?.H ??
-      body.dims?.height;
-
-    weight = Number(weight);
-    length = Number(length);
-    width  = Number(width);
-    height = Number(height);
-
-    if (![weight, length, width, height].every(v => Number.isFinite(v) && v > 0)) {
+    if (!weight || !length || !width || !height) {
       return res.status(400).json({
         ok: false,
-        error: "Invalid parcel – weight, length, width, height are required and must be > 0",
+        error:
+          "Invalid parcel - weight, length, width, height are required.",
       });
     }
 
-    const priceAED = Number(body.priceAED);
-    if (!Number.isFinite(priceAED) || priceAED <= 0) {
-      return res.status(400).json({ ok: false, error: "Invalid price" });
-    }
-
-    const userId =
-      (req as any)?.user?.id ||
-      (req as any)?.session?.user?.id ||
-      (req as any)?.auth?.userId ||
-      "guest";
-
-    const doc = {
-      userId,
-      currency: "AED",
-      from: body.from,
-      to: body.to,
-      parcel: { weight, length, width, height },
+    // 2) Build document to satisfy BOTH old and new schemas
+    const shipment = await Shipment.create({
+      from,
+      to,
+      speed: body.speed,
       carrier: body.carrier,
-      service: body.service ?? body.speed,
-      status: "rated" as const,
-      customerEmail: body.customerEmail ?? null,
-      activity: [
-        {
-          at: new Date(),
-          type: "created_via_api",
-          payload: {
-            source: "shipments/new",
-            speed: body.speed,
-            priceAED,
-          },
-        },
-      ],
-      ratesSnapshot: [
-        {
-          carrier: body.carrier,
-          service: body.service ?? body.speed,
-          amount: priceAED,
-          currency: "AED",
-        },
-      ],
-    };
+      service: body.service,
+      priceAED: body.priceAED,
 
-    const created = await Shipment.create(doc);
+      // NEW schema field
+      parcel: {
+        weight,
+        length,
+        width,
+        height,
+      },
 
-    return res.status(200).json({ ok: true, id: String(created._id) });
+      // OLD schema field (so Mongo doesn't complain)
+      weightKg: weight,
+    });
+
+    return res.status(200).json({ ok: true, id: shipment._id });
   } catch (err: any) {
-    console.error("Create shipment failed:", err);
-    const msg =
-      err?.message && typeof err.message === "string"
-        ? err.message
-        : "Create shipment failed";
-    return res.status(500).json({ ok: false, error: msg });
+    console.error("Error creating shipment", err);
+    return res
+      .status(500)
+      .json({ ok: false, error: err.message ?? "Unknown error" });
   }
 }
