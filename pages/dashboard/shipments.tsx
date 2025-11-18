@@ -1,4 +1,6 @@
 import { useEffect, useState, FormEvent } from "react";
+import Link from "next/link";
+
 
 type Address = {
   name?: string;
@@ -18,7 +20,9 @@ type Shipment = {
   currency?: string;
   status?: string;
   createdAt?: string;
+  weightKg?: number;      // 👈 add this line
 };
+
 
 export default function DashboardShipmentsPage() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -420,8 +424,14 @@ export default function DashboardShipmentsPage() {
               {shipments.map((s) => (
                 <tr key={s._id}>
                   <td style={{ padding: "0.4rem 0.5rem" }}>
-                    {s._id.slice(-6)}
-                  </td>
+  <Link
+    href={`/dashboard/shipments/${s._id}`}
+    style={{ color: "#0f766e", textDecoration: "none", fontWeight: 500 }}
+  >
+    {s._id.slice(-6)}
+  </Link>
+</td>
+
                   <td style={{ padding: "0.4rem 0.5rem" }}>
                     {s.createdAt
                       ? new Date(s.createdAt).toLocaleString()
@@ -448,6 +458,10 @@ export default function DashboardShipmentsPage() {
                   <td style={{ padding: "0.4rem 0.5rem" }}>
                     {s.status || "created"}
                   </td>
+                  <td style={{ padding: "0.4rem 0.5rem" }}>
+  {s.weightKg != null ? `${s.weightKg} kg` : "—"}
+</td>
+
                 </tr>
               ))}
             </tbody>
