@@ -125,6 +125,18 @@ export default function ShipmentDetailPage() {
             />
           </section>
 
+          <p className="text-sm">
+  Public tracking link:{" "}
+  <a
+    href={`/track/${shipment._id}`}
+    target="_blank"
+    rel="noreferrer"
+  >
+    https://crossbordercart.com/track/{shipment._id}
+  </a>
+</p>
+
+
           {/* From / To */}
           <section
             style={{

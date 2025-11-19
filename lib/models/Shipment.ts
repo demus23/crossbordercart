@@ -16,6 +16,7 @@ export interface IShipment {
   _id: Types.ObjectId;
   orderId?: string;
   currency: string;
+  priceAED?: number; 
 
   to: {
     name?: string;

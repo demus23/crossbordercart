@@ -8,7 +8,7 @@ export default function HomePage() {
       {/* NAV */}
       <nav style={nav}>
         <div style={brand}>
-          <span style={{ color: colors.mint }}>Croose Border</span> CART
+          <span style={{ color: colors.mint }}>Cross Border</span> CART
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <Link href="/login" style={{ ...pillBtn, background: "transparent", color: "#fff", border: "1px solid #5a6b8f" }} className="btn">
