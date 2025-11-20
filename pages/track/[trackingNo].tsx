@@ -28,6 +28,8 @@ type PackageSummary = {
   location: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+   price?: number | null;        
+  currency?: string | null; 
 };
 
 type TrackApiOk = {
@@ -182,6 +184,16 @@ export default function TrackPage() {
           </div>
         ) : pkg ? (
           <>
+
+          <div className="mb-2">
+  <div className="text-muted small">Price</div>
+  <div className="fs-6">
+    {pkg.price != null
+      ? `${pkg.price} ${pkg.currency || "AED"}`
+      : "—"}
+  </div>
+</div>
+
             {/* Summary */}
             <Card className="shadow-sm mb-3">
               <Card.Header style={{ background: "white" }}>

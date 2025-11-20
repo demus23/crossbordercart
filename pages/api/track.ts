@@ -4,7 +4,7 @@ import { dbConnect } from "@/lib/mongoose";
 import { Shipment } from "@/lib/models/Shipment";
 
 type TrackEventDTO = {
-  time: string;               // ISO
+  time: string; // ISO
   status?: string;
   location?: string | null;
   message?: string | null;
@@ -21,6 +21,8 @@ type TrackOk = {
     location: string | null;
     createdAt: string | null;
     updatedAt: string | null;
+    price: number | null;
+    currency: string | null;
   };
   events: TrackEventDTO[];
 };
@@ -33,8 +35,10 @@ function normalizeStatus(s?: string | null) {
   if (t.includes("out") && t.includes("deliver")) return "Out for Delivery";
   if (t.includes("deliver")) return "Delivered";
   if (t.includes("transit") || t.includes("in-transit")) return "In Transit";
-  if (t.includes("exception") || t.includes("fail") || t.includes("problem")) return "Problem";
-  if (t.includes("pending") || t.includes("created") || t.includes("label")) return "Pending";
+  if (t.includes("exception") || t.includes("fail") || t.includes("problem"))
+    return "Problem";
+  if (t.includes("pending") || t.includes("created") || t.includes("label"))
+    return "Pending";
   return s[0].toUpperCase() + s.slice(1);
 }
 
@@ -81,10 +85,7 @@ export default async function handler(
 
     // Base "Shipment created" event
     events.push({
-      time: (shipment.createdAt
-        ? new Date(shipment.createdAt)
-        : new Date()
-      ).toISOString(),
+      time: (shipment.createdAt ? new Date(shipment.createdAt) : new Date()).toISOString(),
       status: normalizeStatus(shipment.status) || "Created",
       location:
         shipment.to?.city && shipment.to?.country
@@ -106,7 +107,7 @@ export default async function handler(
           status: normalizeStatus(act.status),
           location: act.location ?? null,
           message: act.message ?? act.note ?? null,
-          trackingNo: trackingNo,
+          trackingNo,
           createdAt: act.createdAt
             ? new Date(act.createdAt).toISOString()
             : undefined,
@@ -114,10 +115,9 @@ export default async function handler(
       }
     }
 
-    // newest first (your React page also sorts, but this keeps it clean)
+    // newest first
     events.sort(
-      (a, b) =>
-        new Date(b.time).getTime() - new Date(a.time).getTime()
+      (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
     );
 
     // ---------- Package summary ----------
@@ -135,6 +135,12 @@ export default async function handler(
       updatedAt: shipment.updatedAt
         ? new Date(shipment.updatedAt).toISOString()
         : null,
+      // NEW: pricing info
+      price:
+        typeof shipment.priceAED === "number"
+          ? shipment.priceAED
+          : shipment.price ?? null,
+      currency: shipment.currency ?? "AED",
     };
 
     return res.status(200).json({ ok: true, package: pkgOut, events });
