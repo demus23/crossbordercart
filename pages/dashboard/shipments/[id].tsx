@@ -40,6 +40,36 @@ export default function ShipmentDetailPage() {
     fetchShipment();
   }, [id]);
 
+  const [updating, setUpdating] = useState(false);
+
+async function handleStatusUpdate(newStatus: string) {
+  if (!shipment?._id) return;
+
+  const confirmMsg = `Mark this shipment as "${newStatus}"?`;
+  if (!window.confirm(confirmMsg)) return;
+
+  try {
+    setUpdating(true);
+    const res = await fetch("/api/shipments/update-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: shipment._id, status: newStatus }),
+    });
+
+    const json = await res.json();
+    if (!json.ok) {
+      throw new Error(json.error || "Failed to update status");
+    }
+
+    alert("Status updated. Refresh this page to see the latest status & timeline.");
+  } catch (err: any) {
+    alert(err?.message || "Failed to update status");
+  } finally {
+    setUpdating(false);
+  }
+}
+
+
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1rem" }}>
       <div style={{ marginBottom: "1rem" }}>
@@ -135,6 +165,116 @@ export default function ShipmentDetailPage() {
     https://crossbordercart.com/track/{shipment._id}
   </a>
 </p>
+
+{/* Status update controls */}
+<section
+  style={{
+    marginTop: "1.5rem",
+    padding: "1rem",
+    borderRadius: 12,
+    border: "1px solid #e5e7eb",
+  }}
+>
+  <h2
+    style={{
+      fontSize: "1rem",
+      marginBottom: "0.75rem",
+      fontWeight: 600,
+    }}
+  >
+    Update Status
+  </h2>
+
+  <p style={{ fontSize: "0.9rem", marginBottom: "0.75rem", color: "#6b7280" }}>
+    Use these buttons while processing the shipment. Each change will appear on
+    the public tracking timeline.
+  </p>
+
+  <div
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "0.5rem",
+    }}
+  >
+    <button
+      type="button"
+      onClick={() => handleStatusUpdate("Picked Up")}
+      disabled={updating}
+      style={{
+        padding: "0.4rem 0.8rem",
+        borderRadius: 999,
+        border: "1px solid #e5e7eb",
+        background: "white",
+        cursor: "pointer",
+      }}
+    >
+      Picked Up
+    </button>
+
+    <button
+      type="button"
+      onClick={() => handleStatusUpdate("In Transit")}
+      disabled={updating}
+      style={{
+        padding: "0.4rem 0.8rem",
+        borderRadius: 999,
+        border: "1px solid #e5e7eb",
+        background: "white",
+        cursor: "pointer",
+      }}
+    >
+      In Transit
+    </button>
+
+    <button
+      type="button"
+      onClick={() => handleStatusUpdate("Out for Delivery")}
+      disabled={updating}
+      style={{
+        padding: "0.4rem 0.8rem",
+        borderRadius: 999,
+        border: "1px solid #e5e7eb",
+        background: "white",
+        cursor: "pointer",
+      }}
+    >
+      Out for Delivery
+    </button>
+
+    <button
+      type="button"
+      onClick={() => handleStatusUpdate("Delivered")}
+      disabled={updating}
+      style={{
+        padding: "0.4rem 0.8rem",
+        borderRadius: 999,
+        border: "1px solid #16a34a",
+        background: "#22c55e",
+        color: "white",
+        cursor: "pointer",
+      }}
+    >
+      Delivered
+    </button>
+
+    <button
+      type="button"
+      onClick={() => handleStatusUpdate("Problem")}
+      disabled={updating}
+      style={{
+        padding: "0.4rem 0.8rem",
+        borderRadius: 999,
+        border: "1px solid #f97373",
+        background: "#fee2e2",
+        color: "#b91c1c",
+        cursor: "pointer",
+      }}
+    >
+      Problem
+    </button>
+  </div>
+</section>
 
 
           {/* From / To */}

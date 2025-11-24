@@ -16,7 +16,7 @@ export interface IShipment {
   _id: Types.ObjectId;
   orderId?: string;
   currency: string;
-  priceAED?: number; 
+  priceAED?: number;
 
   to: {
     name?: string;
@@ -31,11 +31,8 @@ export interface IShipment {
     phone?: string; email?: string;
   };
 
-  // NEW FIELDS (what /api/shipments/new uses)
   weightKg: number;
   dims?: { L?: number; W?: number; H?: number };
-
-  // Make parcel optional + fields optional, used only for legacy/other flows
   parcel?: { length?: number; width?: number; height?: number; weight?: number };
 
   providerShipmentId?: string;
@@ -56,12 +53,12 @@ export interface IShipment {
   updatedAt: Date;
 }
 
-
 const ShipmentSchema = new Schema<IShipment>(
   {
     orderId: { type: String, index: true },
 
     currency: { type: String, required: true, uppercase: true },
+    priceAED: { type: Number, required: false },
 
     to: {
       name: String,
@@ -85,37 +82,34 @@ const ShipmentSchema = new Schema<IShipment>(
       email: String,
     },
 
-   // Main dimensions used by the new /api/shipments/new
-weightKg: { type: Number, required: true, min: 0 },
+    weightKg: { type: Number, required: true, min: 0 },
 
-dims: {
-  L: { type: Number, min: 0 },
-  W: { type: Number, min: 0 },
-  H: { type: Number, min: 0 },
-},
+    dims: {
+      L: { type: Number, min: 0 },
+      W: { type: Number, min: 0 },
+      H: { type: Number, min: 0 },
+    },
 
-// Optional legacy parcel object – NOT required anymore
-parcel: {
-  length: { type: Number, required: false, min: 0 },
-  width:  { type: Number, required: false, min: 0 },
-  height: { type: Number, required: false, min: 0 },
-  weight: { type: Number, required: false, min: 0 },
-},
+    parcel: {
+      length: { type: Number, required: false, min: 0 },
+      width:  { type: Number, required: false, min: 0 },
+      height: { type: Number, required: false, min: 0 },
+      weight: { type: Number, required: false, min: 0 },
+    },
 
-    // NOTE: removed field-level index to avoid duplicate with schema.index below
     providerShipmentId: { type: String },
 
     selectedRateId: { type: String },
     carrier:        { type: String },
     service:        { type: String },
 
-    // Keep trackingNumber indexed; sparse allows docs without it
     trackingNumber: { type: String, index: true, sparse: true },
 
     labelUrl: { type: String },
 
     customerEmail: { type: String, index: true, sparse: true },
 
+    // ✅ STORE CANONICAL SNAKE_CASE (matches TS type + API)
     status: {
       type: String,
       enum: [
@@ -130,15 +124,21 @@ parcel: {
         "cancelled",
       ],
       default: "draft",
-      // (Optional) Remove single-field index if you keep compound below
-      // index: true,
     },
 
     ratesSnapshot: { type: Array },
+
     activity: [
       {
         at: { type: Date, default: Date.now },
-        type: { type: String, required: true },
+
+        // ✅ make safe: default + not required
+        type: {
+          type: String,
+          default: "status",
+          required: false,
+        },
+
         payload: Schema.Types.Mixed,
       },
     ],
@@ -146,7 +146,6 @@ parcel: {
   { timestamps: true }
 );
 
-// Helpful indexes (keep these; remove duplicates elsewhere)
 ShipmentSchema.index({ status: 1, createdAt: -1 });
 ShipmentSchema.index({ providerShipmentId: 1 }, { sparse: true });
 
