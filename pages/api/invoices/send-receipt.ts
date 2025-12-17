@@ -42,7 +42,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   const subj = subject || `Receipt • Invoice #${invoiceNo}`;
 
   try {
-    await sendMail(recipient, subj, html);
+    await sendMail({
+  to: recipient,
+  subject: subj,
+  html,
+});
+
     return res.status(200).json({ ok: true, message: "Receipt sent" });
   } catch (err: any) {
     return res.status(500).json({ ok: false, error: err?.message || "Failed to send email" });

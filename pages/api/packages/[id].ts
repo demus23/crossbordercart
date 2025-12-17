@@ -22,9 +22,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const isOwner = pkg.user?.toString() === session?.user?.id;
   const isAdmin = session?.user?.role === "admin";
 
-  if (req.method === "GET") {
-    if (!isOwner && !isAdmin) return res.status(403).json({ error: "Forbidden" });
-    return res.status(200).json({ package: pkg });
+    if (req.method === "GET") {
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const pkgOut = {
+      _id: pkg._id.toString(),
+      title: pkg.title,
+      status: pkg.status,
+      tracking: pkg.tracking ?? null,
+      courier: pkg.courier ?? null,
+      value: pkg.value ?? null,
+      userEmail: pkg.userEmail ?? null,
+      suiteId: pkg.suiteId ?? null,
+      lastLocation: pkg.lastLocation ?? null,
+      lastNote: pkg.lastNote ?? null,
+      adminCreatedBy: pkg.adminCreatedBy ?? null,
+
+      // 👇 shipment link fields (we will show these to the user)
+      shipmentId: (pkg as any).shipmentId ?? null,
+      shipmentTracking: (pkg as any).shipmentTracking ?? null,
+      shipmentCarrier: (pkg as any).shipmentCarrier ?? null,
+
+      createdAt: pkg.createdAt ?? null,
+      updatedAt: pkg.updatedAt ?? null,
+    };
+
+    return res.status(200).json({ package: pkgOut });
   }
 
   if (req.method === "PATCH") {

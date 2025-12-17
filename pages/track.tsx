@@ -10,24 +10,20 @@ type TrackingEvent = {
   at?: string; // ISO date
 };
 
+type RawEvent = {
+  time?: string;
+  status?: string;
+  location?: string | null;
+  message?: string | null;
+  trackingNo?: string;
+  createdAt?: string;
+};
+
 type ApiOk = {
   ok: true;
-  package: {
-    tracking: string;
-    courier: string | null;
-    status: string;
-    location: string | null;
-    createdAt: string | null;
-    updatedAt: string | null;
-  };
-  events: Array<{
-    time: string;
-    status?: string;
-    location?: string | null;
-    message?: string | null;
-    trackingNo?: string;
-    createdAt?: string;
-  }>;
+  shipment?: any;          // new API shape
+  package?: any;           // legacy support
+  events?: RawEvent[];
 };
 
 type ApiErr = { ok: false; error: string };
@@ -38,7 +34,7 @@ export default function TrackPage() {
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<TrackingEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pkgStatus, setPkgStatus] = useState<string | null>(null); // optional badge uses package status
+  const [pkgStatus, setPkgStatus] = useState<string | null>(null); // current package status badge
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const errorBox: React.CSSProperties = {
@@ -57,7 +53,10 @@ export default function TrackPage() {
     }
   }
 
-  async function fetchEvents(tNo: string, { silent = false }: { silent?: boolean } = {}) {
+  async function fetchEvents(
+    tNo: string,
+    { silent = false }: { silent?: boolean } = {}
+  ) {
     if (!tNo.trim()) return;
     if (!silent) {
       setLoading(true);
@@ -67,6 +66,7 @@ export default function TrackPage() {
     }
 
     const ac = new AbortController();
+
     try {
       const res = await fetch(
         `/api/track?trackingNo=${encodeURIComponent(tNo)}&limit=50`,
@@ -74,31 +74,70 @@ export default function TrackPage() {
       );
 
       const text = await res.text();
-      let json: ApiOk | ApiErr;
+      let json: any;
       try {
         json = JSON.parse(text);
       } catch {
         throw new Error(`Invalid JSON from server (${res.status})`);
       }
 
-      if (!res.ok || (json as ApiErr)?.ok === false) {
-        throw new Error((json as ApiErr).error || `Request failed (${res.status})`);
+      // New API: { ok, shipment, events } OR legacy { ok, package, events }
+      if ("ok" in json) {
+        const data = json as ApiOk | ApiErr;
+
+        if (!data.ok) {
+          throw new Error((data as ApiErr).error || `Request failed (${res.status})`);
+        }
+
+        const ok = data as ApiOk;
+
+        // Prefer explicit "package", otherwise use "shipment"
+        const shipment = ok.package ?? ok.shipment;
+        if (!shipment) {
+          throw new Error("Not found");
+        }
+
+        // Use shipment.status for the badge
+        setPkgStatus(shipment.status || "Pending");
+
+        // Build raw events list from several possible sources
+        let raw: RawEvent[] = [];
+
+        if (Array.isArray(ok.events) && ok.events.length > 0) {
+          raw = ok.events;
+        } else if (Array.isArray(shipment.events) && shipment.events.length > 0) {
+          raw = shipment.events as RawEvent[];
+        } else if (Array.isArray(shipment.activity)) {
+          // Convert activity[] into RawEvent[]
+          raw = shipment.activity.map((a: any) => ({
+            time: a.at,
+            status: a.payload?.to ?? a.status ?? shipment.status,
+            location: a.location ?? null,
+            message:
+              a.type === "status_change"
+                ? `Status changed from ${a.payload?.from} to ${a.payload?.to}`
+                : a.message ?? a.type,
+          }));
+        }
+
+        const list: TrackingEvent[] = (raw || []).map((e: RawEvent) => ({
+          status: e.status ?? "update",
+          message: e.message ?? "",
+          location: e.location ?? "",
+          at: e.time ?? e.createdAt ?? undefined,
+        }));
+
+        list.sort(
+          (a, b) =>
+            new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime()
+        );
+
+        setEvents(list);
+      } else {
+        // Really old legacy endpoint (without "ok") – we don't expect it now,
+        // but keep a nice message instead of crashing.
+        throw new Error("Unsupported response from server");
       }
-
-      const ok = json as ApiOk;
-      setPkgStatus(ok.package?.status ?? null);
-
-      const list: TrackingEvent[] = (ok.events || []).map((e: any) => ({
-        status: e.status ?? "update",
-        message: e.message ?? "",
-        location: e.location ?? "",
-        at: e.time ?? e.createdAt ?? null,
-      }));
-
-      list.sort(
-        (a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime()
-      );
-      setEvents(list);
     } catch (err: any) {
       setError(err?.message || "Something went wrong");
       setEvents(null);
@@ -114,7 +153,10 @@ export default function TrackPage() {
     clearPoll();
     await fetchEvents(trackingNo);
     // start 15s polling after a successful load
-    pollRef.current = setInterval(() => fetchEvents(trackingNo, { silent: true }), 15000);
+    pollRef.current = setInterval(
+      () => fetchEvents(trackingNo, { silent: true }),
+      15000
+    );
   }
 
   // Seed from URL: /track?no=.. or ?id=.. or ?tracking=.. or ?trackingNo=..
@@ -137,19 +179,36 @@ export default function TrackPage() {
     // Clear poll on unmount
     return () => clearPoll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.query.no, router.query.id, router.query.tracking, router.query.trackingNo]);
+  }, [
+    router.query.no,
+    router.query.id,
+    router.query.tracking,
+    router.query.trackingNo,
+  ]);
 
-  const latest = useMemo(() => (events?.[0] ? events[0] : null), [events]);
+  const latest = useMemo(
+    () => (events?.[0] ? events[0] : null),
+    [events]
+  );
 
   return (
     <>
       <Head>
         <title>Track your shipment | MyUS Delivery</title>
-        <meta name="description" content="Track any MyUS Delivery shipment in real-time." />
+        <meta
+          name="description"
+          content="Track any MyUS Delivery shipment in real-time."
+        />
         <meta name="robots" content="noindex" />
       </Head>
 
-      <div style={{ background: "#f7fafc", minHeight: "100vh", fontFamily: "Inter, Arial, sans-serif" }}>
+      <div
+        style={{
+          background: "#f7fafc",
+          minHeight: "100vh",
+          fontFamily: "Inter, Arial, sans-serif",
+        }}
+      >
         {/* Top bar */}
         <nav style={nav}>
           <div style={brand}>
@@ -158,7 +217,11 @@ export default function TrackPage() {
           {trackingNo && (
             <a
               href={`/track/${encodeURIComponent(trackingNo)}`}
-              style={{ color: "#cfe8ff", fontWeight: 800, textDecoration: "none" }}
+              style={{
+                color: "#cfe8ff",
+                fontWeight: 800,
+                textDecoration: "none",
+              }}
               title="Open detailed tracking page"
             >
               View full details →
@@ -167,9 +230,21 @@ export default function TrackPage() {
         </nav>
 
         {/* Content */}
-        <main style={{ maxWidth: 980, margin: "0 auto", padding: "32px 20px 80px" }}>
+        <main
+          style={{
+            maxWidth: 980,
+            margin: "0 auto",
+            padding: "32px 20px 80px",
+          }}
+        >
           <h1 style={h1}>Track your shipment</h1>
-          <p style={{ color: "#4a5d83", marginTop: -8, marginBottom: 18 }}>
+          <p
+            style={{
+              color: "#4a5d83",
+              marginTop: -8,
+              marginBottom: 18,
+            }}
+          >
             Enter your tracking number to see live updates and delivery history.
           </p>
 
@@ -188,7 +263,13 @@ export default function TrackPage() {
 
           {/* Helper */}
           {trackingNo ? (
-            <div style={{ marginTop: 8, fontSize: 13, color: "#6a7aa0" }}>
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 13,
+                color: "#6a7aa0",
+              }}
+            >
               Tracking #: <code style={code}>{trackingNo}</code>{" "}
               <button
                 type="button"
@@ -212,23 +293,61 @@ export default function TrackPage() {
           {events && (
             <>
               <section style={summaryCard}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
                   <StatusBadge status={pkgStatus ?? latest?.status} />
-                  <div style={{ fontWeight: 900, color: "#1b2a46", fontSize: 18 }}>
+                  <div
+                    style={{
+                      fontWeight: 900,
+                      color: "#1b2a46",
+                      fontSize: 18,
+                    }}
+                  >
                     {prettyStatus(pkgStatus ?? latest?.status)}{" "}
-                    <span style={{ color: "#6b7ba4", fontWeight: 700 }}>&middot;</span>{" "}
-                    <span style={{ color: "#6b7ba4", fontWeight: 600 }}>
-                      {latest?.at ? new Date(latest.at).toLocaleString() : "—"}
+                    <span
+                      style={{
+                        color: "#6b7ba4",
+                        fontWeight: 700,
+                      }}
+                    >
+                      &middot;
+                    </span>{" "}
+                    <span
+                      style={{
+                        color: "#6b7ba4",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {latest?.at
+                        ? new Date(latest.at).toLocaleString()
+                        : "—"}
                     </span>
                   </div>
                 </div>
                 {latest?.location ? (
-                  <div style={{ color: "#6b7ba4", marginTop: 6 }}>
+                  <div
+                    style={{
+                      color: "#6b7ba4",
+                      marginTop: 6,
+                    }}
+                  >
                     Last location: {latest.location}
                   </div>
                 ) : null}
                 {latest?.message ? (
-                  <div style={{ color: "#334769", marginTop: 8 }}>{latest.message}</div>
+                  <div
+                    style={{
+                      color: "#334769",
+                      marginTop: 8,
+                    }}
+                  >
+                    {latest.message}
+                  </div>
                 ) : null}
               </section>
 
@@ -238,22 +357,50 @@ export default function TrackPage() {
                   <li key={i} style={timelineItem}>
                     <div style={dot} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          flexWrap: "wrap",
+                        }}
+                      >
                         <StatusBadge status={e.status} />
-                        <div style={{ fontWeight: 800, color: "#1b2a46" }}>
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            color: "#1b2a46",
+                          }}
+                        >
                           {prettyStatus(e.status)}
                         </div>
-                        <div style={{ color: "#7083ad" }}>
-                          {e.at ? new Date(e.at).toLocaleString() : "—"}
+                        <div
+                          style={{
+                            color: "#7083ad",
+                          }}
+                        >
+                          {e.at
+                            ? new Date(e.at).toLocaleString()
+                            : "—"}
                         </div>
                       </div>
                       {e.location ? (
-                        <div style={{ color: "#5c6f98", marginTop: 4 }}>
+                        <div
+                          style={{
+                            color: "#5c6f98",
+                            marginTop: 4,
+                          }}
+                        >
                           Location: {e.location}
                         </div>
                       ) : null}
                       {e.message ? (
-                        <div style={{ color: "#2a3958", marginTop: 6 }}>
+                        <div
+                          style={{
+                            color: "#2a3958",
+                            marginTop: 6,
+                          }}
+                        >
                           {e.message}
                         </div>
                       ) : null}
@@ -264,7 +411,7 @@ export default function TrackPage() {
             </>
           )}
 
-          {/* Empty */}
+          {/* Empty state */}
           {!events && !error && !loading && (
             <div style={emptyCard}>
               <div style={{ fontSize: 28, marginBottom: 10 }}>🔎</div>
@@ -295,15 +442,28 @@ export default function TrackPage() {
 /* --- components --- */
 function StatusBadge({ status }: { status?: string | null }) {
   const s = (status || "").toLowerCase();
-  let bg = "#eef3ff", fg = "#2160e0", border = "#dbe6ff";
+  let bg = "#eef3ff",
+    fg = "#2160e0",
+    border = "#dbe6ff";
   if (s.includes("out") || s.includes("transit")) {
-    bg = "#ecfff8"; fg = "#1b9a84"; border = "#bff4e5";
+    bg = "#ecfff8";
+    fg = "#1b9a84";
+    border = "#bff4e5";
   }
-  if (s.includes("failed") || s.includes("exception") || s.includes("return") || s.includes("problem")) {
-    bg = "#fff1f1"; fg = "#c0392b"; border = "#ffd7d7";
+  if (
+    s.includes("failed") ||
+    s.includes("exception") ||
+    s.includes("return") ||
+    s.includes("problem")
+  ) {
+    bg = "#fff1f1";
+    fg = "#c0392b";
+    border = "#ffd7d7";
   }
   if (s.includes("delivered")) {
-    bg = "#eefdff"; fg = "#0c8ea6"; border = "#c7f5ff";
+    bg = "#eefdff";
+    fg = "#0c8ea6";
+    border = "#c7f5ff";
   }
   return (
     <span
@@ -340,9 +500,22 @@ const nav: React.CSSProperties = {
   justifyContent: "space-between",
   boxShadow: "0 8px 28px rgba(9, 32, 58, 0.28)",
 };
-const brand: React.CSSProperties = { fontWeight: 900, fontSize: 24, letterSpacing: 0.5 };
-const h1: React.CSSProperties = { fontWeight: 900, fontSize: 36, color: "#1b2a46", marginTop: 12 };
-const h2: React.CSSProperties = { fontWeight: 900, fontSize: 20, color: "#1b2a46" };
+const brand: React.CSSProperties = {
+  fontWeight: 900,
+  fontSize: 24,
+  letterSpacing: 0.5,
+};
+const h1: React.CSSProperties = {
+  fontWeight: 900,
+  fontSize: 36,
+  color: "#1b2a46",
+  marginTop: 12,
+};
+const h2: React.CSSProperties = {
+  fontWeight: 900,
+  fontSize: 20,
+  color: "#1b2a46",
+};
 
 const formRow: React.CSSProperties = {
   display: "flex",
@@ -397,7 +570,11 @@ const summaryCard: React.CSSProperties = {
   boxShadow: "0 8px 22px rgba(26, 42, 68, 0.08)",
   padding: 16,
 };
-const timeline: React.CSSProperties = { listStyle: "none", padding: 0, margin: "12px 0 0 0" };
+const timeline: React.CSSProperties = {
+  listStyle: "none",
+  padding: 0,
+  margin: "12px 0 0 0",
+};
 const timelineItem: React.CSSProperties = {
   display: "flex",
   gap: 14,

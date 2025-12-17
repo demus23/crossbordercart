@@ -1,18 +1,19 @@
+// pages/api/account/packages.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth/next";
 import type { Session } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]";
 import dbConnect from "@/lib/dbConnect";
-import mongoose from "mongoose";
 import UserModel, { type IUser } from "@/lib/models/User";
+import PackageModel from "@/lib/models/Package";
 
 type PackageDoc = {
   _id: any;
-  tracking: string;
+  tracking?: string;
   courier?: string;
   value?: number;
   status?: string;
-  userId?: any;
+  user?: any;
   userEmail?: string;
   suiteId?: string;
   createdAt?: Date;
@@ -28,17 +29,24 @@ export default async function handler(
 ) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
-    return res.status(405).json({ ok: false, error: `Method ${req.method} Not Allowed` });
+    return res
+      .status(405)
+      .json({ ok: false, error: `Method ${req.method} Not Allowed` });
   }
 
-  const session = (await getServerSession(req, res, authOptions as any)) as Session | null;
+  const session = (await getServerSession(
+    req,
+    res,
+    authOptions as any
+  )) as Session | null;
+
   if (!session?.user?.email) {
     return res.status(401).json({ ok: false, error: "Unauthorized" });
   }
 
   await dbConnect();
 
-  // Always match user by normalized email + suiteId (when present)
+  // normalize email
   const emailLc = String(session.user.email).trim().toLowerCase();
 
   const user = await UserModel.findOne({ email: emailLc })
@@ -49,24 +57,25 @@ export default async function handler(
     return res.status(404).json({ ok: false, error: "User not found" });
   }
 
-  const db = mongoose.connection.db;
-  if (!db) {
-    return res.status(500).json({ ok: false, error: "Database not connected" });
+  // Build OR query:
+  const or: Record<string, any>[] = [];
+
+  // 1) match by user ObjectId (main way)
+  if (user._id) or.push({ user: user._id });
+
+  // 2) match by suiteId, if present
+  if ((user as any).suiteId) {
+    or.push({ suiteId: (user as any).suiteId });
   }
 
-  const or: Record<string, any>[] = [];
-  if (user._id) or.push({ userId: user._id });
-  if (user.suiteId) or.push({ suiteId: user.suiteId });
-  // IMPORTANT: force lower-case for matching
+  // 3) match by lowercased email
   or.push({ userEmail: emailLc });
 
   const query = { $or: or };
 
-  const packages = (await db
-    .collection("packages")
-    .find(query)
+  const packages = (await PackageModel.find(query)
     .sort({ updatedAt: -1, createdAt: -1 })
-    .toArray()) as unknown as PackageDoc[];
+    .lean()) as unknown as PackageDoc[];
 
   return res.status(200).json({ ok: true, packages });
 }

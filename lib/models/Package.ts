@@ -25,6 +25,10 @@ export interface IPackage extends Document {
   adminCreatedBy?: string;       // matches admin API
   createdAt?: Date;
   updatedAt?: Date;
+  shipmentId?: Types.ObjectId;
+  shipmentTracking?: string;
+  shipmentCarrier?: string;
+
 }
 
 const PackageSchema = new Schema<IPackage>(
@@ -45,6 +49,10 @@ const PackageSchema = new Schema<IPackage>(
       default: undefined,
       index: true,  
     },
+
+    shipmentId: { type: Schema.Types.ObjectId, ref: "Shipment" },
+    shipmentTracking: { type: String, trim: true },
+    shipmentCarrier: { type: String, trim: true },
 
     status: {
       type: String,

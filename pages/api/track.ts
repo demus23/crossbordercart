@@ -1,151 +1,147 @@
 // pages/api/track.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { dbConnect } from "@/lib/mongoose";
+import dbConnect from "@/lib/dbConnect";
 import { Shipment } from "@/lib/models/Shipment";
+import PackageModel from "@/lib/models/Package";
 
-type TrackEventDTO = {
-  time: string; // ISO
-  status?: string;
-  location?: string | null;
-  message?: string | null;
-  trackingNo?: string;
-  createdAt?: string;
+type TimelineEvent = {
+  at: string;              // ISO date
+  status: string;
+  source: "shipment" | "package" | "system";
+  raw?: any;
 };
 
-type TrackOk = {
-  ok: true;
-  package: {
-    tracking: string;
-    courier: string | null;
-    status: string;
-    location: string | null;
-    createdAt: string | null;
-    updatedAt: string | null;
-    price: number | null;
-    currency: string | null;
-  };
-  events: TrackEventDTO[];
+type TrackResponse = {
+  ok: boolean;
+  tracking: string;
+  shipment: any | null;
+  package: any | null;
+  events: TimelineEvent[];
+  error?: string;
 };
-
-type TrackErr = { ok: false; error: string };
-
-function normalizeStatus(s?: string | null) {
-  if (!s) return "Pending";
-  const t = s.toLowerCase();
-  if (t.includes("out") && t.includes("deliver")) return "Out for Delivery";
-  if (t.includes("deliver")) return "Delivered";
-  if (t.includes("transit") || t.includes("in-transit")) return "In Transit";
-  if (t.includes("exception") || t.includes("fail") || t.includes("problem"))
-    return "Problem";
-  if (t.includes("pending") || t.includes("created") || t.includes("label"))
-    return "Pending";
-  return s[0].toUpperCase() + s.slice(1);
-}
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<TrackOk | TrackErr>
+  res: NextApiResponse<TrackResponse | { error: string }>
 ) {
-  // no cache for live tracking
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
-
   if (req.method !== "GET") {
-    res.setHeader("Allow", ["GET"]);
-    return res
-      .status(405)
-      .json({ ok: false, error: `Method ${req.method} Not Allowed` });
+    res.setHeader("Allow", "GET");
+    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
+  // Accept both ?trackingNo= and ?tracking=
+  const { trackingNo, tracking, limit } = req.query;
+
+  const trackingNumber =
+    (Array.isArray(trackingNo) ? trackingNo[0] : trackingNo) ||
+    (Array.isArray(tracking) ? tracking[0] : tracking) ||
+    "";
+
+  if (!trackingNumber || !trackingNumber.toString().trim()) {
+    return res.status(400).json({ error: "Missing tracking parameter" });
+  }
+
+  const maxLimit =
+    typeof limit === "string" ? Math.min(parseInt(limit, 10) || 50, 100) : 50;
+
+  await dbConnect();
+
+  let shipmentDoc: any | null = null;
+  let packageDoc: any | null = null;
+  const events: TimelineEvent[] = [];
+
+  // 1️⃣ Try to find a Shipment by trackingNumber
   try {
-    // support ?trackingNo=<id> or ?tracking=<id>
-    const trackingNo =
-      typeof req.query.trackingNo === "string"
-        ? req.query.trackingNo.trim()
-        : typeof req.query.tracking === "string"
-        ? req.query.tracking.trim()
-        : "";
+    shipmentDoc = (await Shipment.findOne({
+      trackingNumber: trackingNumber,
+    }).lean()) as any | null;
+  } catch (e) {
+    // ignore DB error, we'll still try packages
+  }
 
-    if (!trackingNo) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "trackingNo is required" });
+  if (shipmentDoc) {
+    const activity = Array.isArray(shipmentDoc.activity)
+      ? shipmentDoc.activity
+      : [];
+
+    for (const a of activity.slice(0, maxLimit)) {
+      const at = a?.at
+        ? new Date(a.at)
+        : shipmentDoc.updatedAt || shipmentDoc.createdAt || new Date();
+
+      events.push({
+        at: at.toISOString(),
+        status: a?.type || shipmentDoc.status || "created",
+        source: "shipment",
+        raw: a,
+      });
+    }
+  }
+
+  // 2️⃣ If no shipment found, try a Package by tracking
+  if (!shipmentDoc) {
+    try {
+      packageDoc = (await PackageModel.findOne({
+        tracking: trackingNumber,
+      }).lean()) as any | null;
+    } catch (e) {
+      // ignore DB error here as well
     }
 
-    await dbConnect();
+    if (packageDoc) {
+      const activity = Array.isArray(packageDoc.activity)
+        ? packageDoc.activity
+        : [];
 
-    // For now we use Mongo _id as tracking number
-    const shipment: any = await Shipment.findById(trackingNo).lean();
+      for (const a of activity.slice(0, maxLimit)) {
+        const at = a?.at
+          ? new Date(a.at)
+          : packageDoc.updatedAt || packageDoc.createdAt || new Date();
 
-    if (!shipment) {
-      return res.status(404).json({ ok: false, error: "Not found" });
-    }
-
-    // ---------- Build events from shipment.activity ----------
-    const events: TrackEventDTO[] = [];
-
-    // Base "Shipment created" event
-    events.push({
-      time: (shipment.createdAt ? new Date(shipment.createdAt) : new Date()).toISOString(),
-      status: normalizeStatus(shipment.status) || "Created",
-      location:
-        shipment.to?.city && shipment.to?.country
-          ? `${shipment.to.city}, ${shipment.to.country}`
-          : null,
-      message: "Shipment created",
-      trackingNo,
-      createdAt: shipment.createdAt
-        ? new Date(shipment.createdAt).toISOString()
-        : undefined,
-    });
-
-    // If you later start saving events in shipment.activity, they’ll show up here
-    if (Array.isArray(shipment.activity)) {
-      for (const act of shipment.activity) {
-        const when = act.time || act.createdAt || shipment.createdAt || new Date();
         events.push({
-          time: new Date(when).toISOString(),
-          status: normalizeStatus(act.status),
-          location: act.location ?? null,
-          message: act.message ?? act.note ?? null,
-          trackingNo,
-          createdAt: act.createdAt
-            ? new Date(act.createdAt).toISOString()
-            : undefined,
+          at: at.toISOString(),
+          status: a?.status || packageDoc.status || "created",
+          source: "package",
+          raw: a,
         });
       }
     }
-
-    // newest first
-    events.sort(
-      (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
-    );
-
-    // ---------- Package summary ----------
-    const pkgOut: TrackOk["package"] = {
-      tracking: trackingNo,
-      courier: (shipment.carrier as any) ?? null,
-      status: normalizeStatus(shipment.status),
-      location:
-        shipment.to?.city && shipment.to?.country
-          ? `${shipment.to.city}, ${shipment.to.country}`
-          : null,
-      createdAt: shipment.createdAt
-        ? new Date(shipment.createdAt).toISOString()
-        : null,
-      updatedAt: shipment.updatedAt
-        ? new Date(shipment.updatedAt).toISOString()
-        : null,
-      // NEW: pricing info
-      price:
-        typeof shipment.priceAED === "number"
-          ? shipment.priceAED
-          : shipment.price ?? null,
-      currency: shipment.currency ?? "AED",
-    };
-
-    return res.status(200).json({ ok: true, package: pkgOut, events });
-  } catch (err) {
-    console.error("GET /api/track error:", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
   }
+
+  // 3️⃣ Fallback: if we have a doc but zero events, synthesize one
+  if (events.length === 0) {
+    const doc: any = shipmentDoc || packageDoc;
+
+    if (doc) {
+      const at =
+        doc.updatedAt || doc.createdAt ? new Date(doc.updatedAt || doc.createdAt) : new Date();
+
+      events.push({
+        at: at.toISOString(),
+        status: doc.status || "created",
+        source: shipmentDoc ? "shipment" : "package",
+      });
+    }
+  }
+
+  // 4️⃣ Nothing found at all
+  if (!shipmentDoc && !packageDoc) {
+    return res.status(200).json({
+      ok: false,
+      tracking: trackingNumber.toString(),
+      shipment: null,
+      package: null,
+      events: [],
+      error: "Shipment not found",
+    });
+  }
+
+  // 5️⃣ Normal success
+  return res.status(200).json({
+    ok: true,
+    tracking: trackingNumber.toString(),
+    shipment: shipmentDoc,
+    package: packageDoc,
+    events,
+  });
 }

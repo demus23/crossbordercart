@@ -1,3 +1,4 @@
+//lib\models\TrackingEvent.ts
 import mongoose, { Schema, InferSchemaType, model, models } from "mongoose";
 
 const trackingEventSchema = new Schema(

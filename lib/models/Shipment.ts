@@ -12,23 +12,46 @@ export type ShipmentStatus =
   | "exception"
   | "cancelled";
 
+// 👇 One tracking event entry
+export interface IShipmentEvent {
+  _id?: Types.ObjectId;
+  code?: string;        // e.g. "IN_TRANSIT"
+  status: string;       // e.g. "In transit"
+  description?: string; // e.g. "Left Dubai hub"
+  location?: string;    // e.g. "DXB, United Arab Emirates"
+  createdAt: Date;
+}
+
 export interface IShipment {
   _id: Types.ObjectId;
   orderId?: string;
   currency: string;
   priceAED?: number;
+  packageIds?: Types.ObjectId[];
+  userId?: Types.ObjectId;
+  isPaid?: boolean;
+  paidAt?: Date;
 
   to: {
     name?: string;
-    line1: string; line2?: string;
-    city: string; postalCode?: string; country: string;
-    phone?: string; email?: string;
+    line1: string;
+    line2?: string;
+    city: string;
+    postalCode?: string;
+    country: string;
+    phone?: string;
+    email?: string;
   };
+
   from: {
     name?: string;
-    line1: string; line2?: string;
-    city: string; postalCode?: string; country: string;
-    phone?: string; email?: string;
+    line1: string;
+    line2?: string;
+    city: string;
+    postalCode?: string;
+    country: string;
+    phone?: string;
+    email?: string;
   };
 
   weightKg: number;
@@ -49,6 +72,9 @@ export interface IShipment {
   ratesSnapshot?: any[];
   activity?: Array<{ at: Date; type: string; payload?: any }>;
 
+  // 👇 NEW: tracking timeline events
+  events?: IShipmentEvent[];
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +85,8 @@ const ShipmentSchema = new Schema<IShipment>(
 
     currency: { type: String, required: true, uppercase: true },
     priceAED: { type: Number, required: false },
+    isPaid: { type: Boolean, default: false },
+    paidAt: { type: Date },
 
     to: {
       name: String,
@@ -92,7 +120,7 @@ const ShipmentSchema = new Schema<IShipment>(
 
     parcel: {
       length: { type: Number, required: false, min: 0 },
-      width:  { type: Number, required: false, min: 0 },
+      width: { type: Number, required: false, min: 0 },
       height: { type: Number, required: false, min: 0 },
       weight: { type: Number, required: false, min: 0 },
     },
@@ -100,8 +128,8 @@ const ShipmentSchema = new Schema<IShipment>(
     providerShipmentId: { type: String },
 
     selectedRateId: { type: String },
-    carrier:        { type: String },
-    service:        { type: String },
+    carrier: { type: String },
+    service: { type: String },
 
     trackingNumber: { type: String, index: true, sparse: true },
 
@@ -109,21 +137,27 @@ const ShipmentSchema = new Schema<IShipment>(
 
     customerEmail: { type: String, index: true, sparse: true },
 
+    packageIds: [{ type: Schema.Types.ObjectId, ref: "Package" }],
+    userId: { type: Schema.Types.ObjectId, ref: "User" },
+
     // ✅ STORE CANONICAL SNAKE_CASE (matches TS type + API)
     status: {
       type: String,
-      enum: [
-        "draft",
-        "rated",
-        "label_purchased",
-        "in_transit",
-        "out_for_delivery",
-        "delivered",
-        "return_to_sender",
-        "exception",
-        "cancelled",
-      ],
       default: "draft",
+    },
+
+    // 👇 NEW: tracking timeline events
+    events: {
+      type: [
+        {
+          code: { type: String },
+          status: { type: String, required: true },
+          description: { type: String },
+          location: { type: String },
+          createdAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
     },
 
     ratesSnapshot: { type: Array },

@@ -13,7 +13,7 @@ import {
 } from "react-bootstrap";
 
 type TimelineItem = {
-  time: string;                // ISO string
+  time?: string; // ISO string
   status?: string;
   location?: string | null;
   message?: string | null;
@@ -28,14 +28,16 @@ type PackageSummary = {
   location: string | null;
   createdAt: string | null;
   updatedAt: string | null;
-   price?: number | null;        
-  currency?: string | null; 
+  price?: number | null;
+  currency?: string | null;
 };
 
+// New API shape: { ok, shipment, events }
 type TrackApiOk = {
   ok: true;
-  package: PackageSummary;
-  events: TimelineItem[];
+  shipment?: any; // raw shipment from API
+  package?: PackageSummary; // legacy support if backend ever returns "package"
+  events?: TimelineItem[];
 };
 
 type TrackApiErr = { ok: false; error: string };
@@ -77,58 +79,111 @@ export default function TrackPage() {
 
   async function load() {
     if (!trackingNo) return;
+
     setLoading(true);
     setErr("");
     setPkg(null);
     setEvents([]);
 
     try {
-      const r = await fetch(`/api/track?trackingNo=${encodeURIComponent(trackingNo)}`);
+      // API accepts both ?trackingNo= and ?tracking=
+      const r = await fetch(
+        `/api/track?trackingNo=${encodeURIComponent(trackingNo)}`
+      );
       const text = await r.text();
 
-      // Try new shape first
+      let json: any;
       try {
-        const json = JSON.parse(text) as TrackApiOk | TrackApiErr;
-        if ("ok" in json) {
-          if (!json.ok) {
-            setErr(json.error || "Not found");
-          } else {
-            setPkg(json.package);
-            setEvents(Array.isArray(json.events) ? json.events : []);
-          }
-          setLoading(false);
-          return;
-        }
-      } catch {
-        // fall through and try legacy parsing
-      }
-
-      // Legacy support
-      try {
-        const legacy = JSON.parse(text) as LegacyTrackResponse;
-        if (legacy && legacy.tracking) {
-          setPkg({
-            tracking: legacy.tracking,
-            courier: null,
-            status: legacy.status || "Pending",
-            location: legacy.location ?? null,
-            createdAt: legacy.lastUpdate ?? null,
-            updatedAt: legacy.lastUpdate ?? null,
-          });
-          setEvents([]); // legacy endpoint didn’t return timeline
-        } else {
-          setErr("Not found");
-        }
+        json = JSON.parse(text);
       } catch {
         setErr("Failed to parse response");
+        return;
       }
-   } catch (err: unknown) {
-  const msg = err instanceof Error ? err.message : String(err);
-  setErr(msg || "Failed to load");
-} finally {
-  setLoading(false);
-}
 
+      // New API: { ok, shipment, events } or { ok, package, events }
+      if ("ok" in json) {
+        const data = json as TrackApiOk | TrackApiErr;
+
+        if (!data.ok) {
+          setErr((data as TrackApiErr).error || "Not found");
+          return;
+        }
+
+        // Prefer explicit "package", else fall back to "shipment"
+        const shipment = (data as TrackApiOk).package ?? (data as TrackApiOk).shipment;
+        if (!shipment) {
+          setErr("Not found");
+          return;
+        }
+
+        const mappedPkg: PackageSummary = {
+          tracking:
+            shipment.trackingNo ||
+            shipment.orderId ||
+            shipment.tracking ||
+            shipment._id,
+          courier: shipment.carrier ?? null,
+          status: shipment.status || "Pending",
+          location:
+            shipment.currentLocation ??
+            shipment.location ??
+            shipment.to?.city ??
+            shipment.to?.line1 ??
+            null,
+          createdAt: shipment.createdAt ?? null,
+          updatedAt: shipment.updatedAt ?? null,
+          price: shipment.priceAED ?? shipment.price ?? null,
+          currency: shipment.currency ?? null,
+        };
+
+        setPkg(mappedPkg);
+
+        // Build timeline from events, shipment.events, or shipment.activity
+        let timeline: TimelineItem[] = [];
+
+        if (Array.isArray((data as TrackApiOk).events) && (data as TrackApiOk).events!.length > 0) {
+          timeline = (data as TrackApiOk).events as TimelineItem[];
+        } else if (Array.isArray(shipment.events) && shipment.events.length > 0) {
+          timeline = shipment.events as TimelineItem[];
+        } else if (Array.isArray(shipment.activity)) {
+          timeline = shipment.activity.map((a: any) => ({
+            time: a.at,
+            status: a.payload?.to ?? a.status ?? mappedPkg.status,
+            location: a.location ?? null,
+            message:
+              a.type === "status_change"
+                ? `Status changed from ${a.payload?.from} to ${a.payload?.to}`
+                : a.message ?? a.type,
+          }));
+        }
+
+        setEvents(timeline);
+        return;
+      }
+
+      // Legacy support (old endpoint)
+      const legacy = json as LegacyTrackResponse;
+      if (legacy && legacy.tracking) {
+        setPkg({
+          tracking: legacy.tracking,
+          courier: null,
+          status: legacy.status || "Pending",
+          location: legacy.location ?? null,
+          createdAt: legacy.lastUpdate ?? null,
+          updatedAt: legacy.lastUpdate ?? null,
+          price: null,
+          currency: null,
+        });
+        setEvents([]);
+      } else {
+        setErr("Not found");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setErr(msg || "Failed to load");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -143,7 +198,6 @@ export default function TrackPage() {
   }, [pkg?.status]);
 
   const sortedEvents = useMemo(() => {
-    // Ensure stable, newest first
     const copy = [...events];
     copy.sort((a: TimelineItem, b: TimelineItem) => {
       const ta = new Date(a.time ?? a.createdAt ?? 0).getTime();
@@ -173,26 +227,35 @@ export default function TrackPage() {
         </div>
 
         {!trackingNo && (
-          <Alert variant="warning">No tracking number provided in the URL.</Alert>
+          <Alert variant="warning">
+            No tracking number provided in the URL.
+          </Alert>
         )}
 
-        {err && <Alert variant="danger" className="mb-3">{err}</Alert>}
+        {err && (
+          <Alert variant="danger" className="mb-3">
+            {err}
+          </Alert>
+        )}
 
         {loading ? (
-          <div className="d-flex justify-content-center align-items-center" style={{ height: 240 }}>
+          <div
+            className="d-flex justify-content-center align-items-center"
+            style={{ height: 240 }}
+          >
             <Spinner animation="border" />
           </div>
         ) : pkg ? (
           <>
-
-          <div className="mb-2">
-  <div className="text-muted small">Price</div>
-  <div className="fs-6">
-    {pkg.price != null
-      ? `${pkg.price} ${pkg.currency || "AED"}`
-      : "—"}
-  </div>
-</div>
+            {/* Price */}
+            <div className="mb-2">
+              <div className="text-muted small">Price</div>
+              <div className="fs-6">
+                {pkg.price != null
+                  ? `${pkg.price} ${pkg.currency || "AED"}`
+                  : "—"}
+              </div>
+            </div>
 
             {/* Summary */}
             <Card className="shadow-sm mb-3">
@@ -239,7 +302,7 @@ export default function TrackPage() {
                   </ListGroup.Item>
                 ) : (
                   sortedEvents.map((e, idx) => (
-                    <ListGroup.Item key={`${e.time}-${idx}`}>
+                    <ListGroup.Item key={`${e.time || e.createdAt}-${idx}`}>
                       <div className="d-flex flex-wrap justify-content-between">
                         <div className="me-3">
                           <div className="fw-semibold">
@@ -261,9 +324,7 @@ export default function TrackPage() {
             </Card>
           </>
         ) : (
-          !err && (
-            <Alert variant="warning">Package not found.</Alert>
-          )
+          !err && <Alert variant="warning">Package not found.</Alert>
         )}
       </Container>
     </>

@@ -1,164 +1,88 @@
-import React, { useEffect, useMemo, useState } from "react";
-import StatusBadge from "./StatusBadge";
-import Timeline, { TrackingEvent } from "./Timeline";
+// components/tracking/TrackingSearchCard.tsx
+import React, { useState } from "react";
+import { useRouter } from "next/router";
 
-type Props = {
-  initialTrackingNo?: string;
-  compact?: boolean;      // smaller header for admin sidebar cards
-  enablePolling?: boolean; // auto-refresh
-  pollMs?: number;         // default 30s
-};
+type Props = any; // keep loose so existing usages don't break
 
-async function fetchEvents(trackingNo: string): Promise<TrackingEvent[]> {
-  const res = await fetch(`/api/tracking/events?trackingNo=${encodeURIComponent(trackingNo)}&limit=50`);
-  if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-  const list: TrackingEvent[] = (data?.events || data || []).map((e: any) => ({
-    status: e.status ?? e.event ?? "update",
-    message: e.message ?? e.desc ?? e.description ?? "",
-    location: e.location ?? e.where ?? "",
-    at: e.at ?? e.createdAt ?? e.time ?? e.ts ?? null,
-  }));
-  list.sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime());
-  return list;
-}
+export default function TrackingSearchCard(_props: Props) {
+  const router = useRouter();
+  const [tracking, setTracking] = useState("");
 
-export default function TrackingSearchCard({
-  initialTrackingNo = "",
-  compact,
-  enablePolling = false,
-  pollMs = 30000,
-}: Props) {
-  const [trackingNo, setTrackingNo] = useState(initialTrackingNo);
-  const [loading, setLoading] = useState(false);
-  const [events, setEvents] = useState<TrackingEvent[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const trimmed = tracking.trim();
+  const hasTracking = trimmed.length > 0;
 
-  const latest = useMemo(() => (events?.[0] ? events[0] : null), [events]);
+  const trackingPath = () => `/track/${encodeURIComponent(trimmed)}`;
 
-  async function run() {
-    if (!trackingNo.trim()) return;
-    setLoading(true); setError(null);
-    try {
-      const list = await fetchEvents(trackingNo.trim());
-      setEvents(list);
-    } catch (e: unknown) {
-  const msg =
-    e instanceof Error ? e.message :
-    typeof e === "string" ? e :
-    "Failed to load tracking";
-  setError(msg);    
-    } finally {
-      setLoading(false);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hasTracking) {
+      alert("Please enter a tracking number");
+      return;
     }
-  }
+    // Go to the public tracking page
+    router.push(trackingPath());
+  };
 
-  // Enter to search
-  function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") run();
-  }
+  const handleCopy = async () => {
+    if (!hasTracking) {
+      alert("Please enter a tracking number first");
+      return;
+    }
+    try {
+      const url = `${window.location.origin}${trackingPath()}`;
+      await navigator.clipboard.writeText(url);
+      alert("Tracking link copied");
+    } catch {
+      alert("Failed to copy tracking link");
+    }
+  };
 
-  // Optional polling
-  useEffect(() => {
-    if (!enablePolling || !events || !trackingNo) return;
-    const id = setInterval(run, pollMs);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enablePolling, pollMs, trackingNo, !!events]);
+  const handleOpenNewTab = () => {
+    if (!hasTracking) {
+      alert("Please enter a tracking number");
+      return;
+    }
+    window.open(trackingPath(), "_blank", "noopener,noreferrer");
+  };
 
   return (
-    <section style={{
-      background: "#fff", border: "1px solid #e8eef7", borderRadius: 14,
-      boxShadow: "0 8px 18px rgba(26,42,68,0.08)", padding: 16
-    }}>
-      {/* Search Row */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        {!compact && <h3 style={{ margin: 0, fontWeight: 900, color: "#1b2a46" }}>Quick Track</h3>}
-        <div style={{ flex: "1 1 260px", display: "flex", gap: 8 }}>
-          <input
-            value={trackingNo}
-            onChange={(e) => setTrackingNo(e.target.value)}
-            onKeyDown={onKey}
-            placeholder="Enter tracking #"
-            style={{
-              flex: 1, minWidth: 220, height: 42, borderRadius: 10, border: "1px solid #dbe4f2",
-              padding: "0 12px", fontSize: 15, outline: "none"
-            }}
-          />
-          <button onClick={run} disabled={loading} style={btnPrimary}>
-            {loading ? "Searching…" : "Track"}
+    <form onSubmit={handleSubmit} className="quick-track-card">
+      <div className="flex flex-col gap-4">
+        <h2 className="text-2xl font-bold">Quick Track</h2>
+
+        <input
+          type="text"
+          placeholder="Enter tracking number"
+          value={tracking}
+          onChange={(e) => setTracking(e.target.value)}
+          className="w-full rounded-lg border px-4 py-3 text-lg"
+        />
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            className="rounded-lg bg-blue-600 px-6 py-2 text-white font-semibold"
+          >
+            Track
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="rounded-lg border px-6 py-2 font-semibold"
+          >
+            Copy
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenNewTab}
+            className="rounded-lg border px-6 py-2 font-semibold"
+          >
+            Open
           </button>
         </div>
-
-        {/* Copy/share mini actions */}
-        {trackingNo && (
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => navigator.clipboard.writeText(trackingNo)}
-              style={btnGhost}
-              title="Copy tracking number"
-            >
-              Copy
-            </button>
-            <a
-              href={`/track?no=${encodeURIComponent(trackingNo)}`}
-              style={{ ...btnGhost, textDecoration: "none" }}
-              title="Open public tracker"
-            >
-              Open
-            </a>
-          </div>
-        )}
       </div>
-
-      {/* Error */}
-      {error && (
-        <div style={{
-          marginTop: 12, padding: 10, borderRadius: 10,
-          background: "#fff4f4", border: "1px solid #ffd9d9", color: "#a33"
-        }}>
-          {error}
-        </div>
-      )}
-
-      {/* Summary */}
-      {events && (
-        <div style={{
-          marginTop: 12, padding: 12, borderRadius: 12, border: "1px solid #e8eef7",
-          background: "#fbfdff"
-        }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <StatusBadge status={latest?.status} />
-            <div style={{ fontWeight: 900, color: "#1b2a46" }}>
-              {latest?.status?.replace(/_/g, " ").replace(/\b\w/g, m => m.toUpperCase()) || "Update"}
-            </div>
-            <div style={{ color: "#6b7ba4" }}>
-              {latest?.at ? new Date(latest.at).toLocaleString() : "—"}
-            </div>
-          </div>
-          {latest?.location && <div style={{ color: "#5c6f98", marginTop: 6 }}>Location: {latest.location}</div>}
-          {latest?.message && <div style={{ color: "#2a3958", marginTop: 8 }}>{latest.message}</div>}
-        </div>
-      )}
-
-      {/* Timeline */}
-      {events && <div style={{ marginTop: 12 }}><Timeline events={events} /></div>}
-
-      {/* Empty state */}
-      {!events && !error && !loading && (
-        <div style={{ marginTop: 12, color: "#5a6d92" }}>Enter a tracking number to see updates.</div>
-      )}
-    </section>
+    </form>
   );
 }
-
-const btnPrimary: React.CSSProperties = {
-  border: "none", borderRadius: 10, background: "#2179e8", color: "#fff",
-  fontWeight: 800, height: 42, padding: "0 14px", cursor: "pointer",
-  boxShadow: "0 10px 24px rgba(33,121,232,0.22)"
-};
-
-const btnGhost: React.CSSProperties = {
-  border: "1px solid #dbe4f2", background: "#fff", color: "#2a3a5a",
-  fontWeight: 800, height: 40, padding: "0 12px", borderRadius: 10, cursor: "pointer"
-};

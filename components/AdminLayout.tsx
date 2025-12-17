@@ -17,6 +17,9 @@ const SIDEBAR_GROUPS = [
       { label: "Packages", icon: "bi-box-seam", href: "/admin/packages" },
       { label: "Drivers", icon: "bi-truck", href: "/admin/drivers" },
       { label: "Stores", icon: "bi-shop", href: "/admin/stores" },
+      { label: "Shipments", icon: "bi-box-seam", href: "/dashboard/shipments" },
+       { label: "Shipments", icon: "bi-send", href: "/admin/shipments" }
+      
     ],
   },
   {

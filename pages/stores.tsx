@@ -1,208 +1,277 @@
+// pages/stores.tsx
+import React from "react";
+import Head from "next/head";
 import Link from "next/link";
-import { Container, Row, Col, Card, Badge } from "react-bootstrap";
+import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
 
-// 1. Store Data
-const STORES = [
+const pageShell: React.CSSProperties = {
+  background: "#f5f7fb",
+  minHeight: "100vh",
+  fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+};
+
+const mainStyle: React.CSSProperties = {
+  maxWidth: 1100,
+  margin: "30px auto",
+  padding: "0 20px 40px",
+};
+
+const heading: React.CSSProperties = {
+  fontSize: 30,
+  fontWeight: 800,
+  color: "#0f172a",
+  marginBottom: 6,
+};
+
+const subheading: React.CSSProperties = {
+  fontSize: 14,
+  color: "#64748b",
+  marginBottom: 24,
+};
+
+const grid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: 18,
+} as any;
+
+const card: React.CSSProperties = {
+  borderRadius: 18,
+  background: "#ffffff",
+  padding: "14px 14px 16px",
+  boxShadow: "0 12px 30px rgba(15,23,42,0.10)",
+  border: "1px solid #e5e7eb",
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+};
+
+const nameStyle: React.CSSProperties = {
+  fontSize: 15,
+  fontWeight: 700,
+  color: "#0f172a",
+};
+
+const tagStyle: React.CSSProperties = {
+  fontSize: 13,
+  color: "#6b7280",
+};
+
+const badge: React.CSSProperties = {
+  display: "inline-block",
+  padding: "3px 8px",
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 600,
+  background: "#eef2ff",
+  color: "#4338ca",
+};
+
+const dealText: React.CSSProperties = {
+  fontSize: 12,
+  color: "#16a34a",
+};
+
+const externalLink: React.CSSProperties = {
+  marginTop: 6,
+  fontSize: 13,
+  fontWeight: 600,
+  color: "#2563eb",
+  textDecoration: "none",
+};
+
+type Store = {
+  name: string;
+  category: string;
+  deal?: string;
+  note?: string;
+  href: string;
+  highlight?: boolean;
+};
+
+const STORES: Store[] = [
   {
-    name: "Amazon",
-    url: "https://www.amazon.ae/",
-    logo: "/amazon-logo.svg",
-    deal: "Today's Deals on Amazon",
+    name: "Amazon UAE",
+    category: "Everything / electronics / home",
+    deal: "Great for electronics and mixed carts",
+    note: "Use Cross Border Cart to consolidate multiple Amazon sellers into one shipment.",
+    href: "#",
+    highlight: true,
   },
   {
-    name: "Noon",
-    url: "https://www.noon.com/uae-en/",
-    logo: "/noon-logo.png",
-    deal: "Noon's Yellow Friday Flash Sale",
+    name: "Shein",
+    category: "Fashion, shoes & home decor",
+    deal: "Frequent discount codes and bundles",
+    href: "#",
   },
   {
-    name: "Carrefour",
-    url: "https://www.carrefouruae.com/",
-    logo: "/carrefour-logo.svg",
-    deal: "Grocery Mega Deals",
+    name: "Sephora Middle East",
+    category: "Beauty & fragrance",
+    deal: "Exclusive sets & GCC launches",
+    href: "#",
   },
   {
     name: "Namshi",
-    url: "https://en-ae.namshi.com/",
-    logo: "/namshi-logo.png",
-    deal: "70% Off On Fashion!",
+    category: "Fashion & shoes",
+    deal: "Great for Gulf brands & sneakers",
+    href: "#",
   },
   {
-    name: "Sharaf DG",
-    url: "https://uae.sharafdg.com/",
-    logo: "/sharafdg-logo.png",
-    deal: "Electronics Hot Sale",
+    name: "Noon",
+    category: "Electronics, home & toys",
+    deal: "Flash deals & big sale events",
+    href: "#",
   },
   {
-    name: "Ounass",
-    url: "https://www.ounass.ae/",
-    logo: "/ounass-logo.png",
-    deal: "Luxury Sale – Free Shipping",
+    name: "Carrefour UAE",
+    category: "Groceries & bulk household",
+    note: "Useful for resellers shipping food / household to Africa.",
+    href: "#",
+  },
+];
+
+const DEALS_THIS_MONTH: Store[] = [
+  {
+    name: "Shein",
+    category: "Fashion",
+    deal: "Extra 15% off on orders over 250 AED (example)",
+    href: "#",
+    highlight: true,
   },
   {
-    name: "Sivvi",
-    url: "https://www.sivvi.com/ae/en/",
-    logo: "/sivvi-logo.png",
-    deal: "Sneaker Fest Offers",
+    name: "Amazon UAE",
+    category: "Electronics",
+    deal: "Deals on phones & laptops this week",
+    href: "#",
   },
-  {
-    name: "eBay",
-    url: "https://www.ebay.com/",
-    logo: "/ebay-logo.svg",
-    deal: "Daily Auctions",
-  },
-  {
-    name: "Amazon US",
-    url: "https://www.amazon.com/",
-    logo: "/amazon-logo.svg",
-    deal: "International Shipping Deals",
-  }
 ];
 
 export default function StoresPage() {
   return (
-    <div className="stores-bg">
-      <Container className="pt-4 pb-0">
-        <div className="mb-3 small text-muted">
-          <Link href="/" className="text-primary" style={{ textDecoration: "underline" }}>Home</Link>
-          {" // "}
-          <span>Shopping Benefits</span>
-          {" // "}
-          <span className="text-dark fw-bold">Deals & Coupons</span>
-        </div>
-      </Container>
+    <div style={pageShell}>
+      <Head>
+        <title>Stores – Cross Border Cart</title>
+        <meta
+          name="description"
+          content="Discover popular UAE stores you can ship from using Cross Border Cart – including Amazon, Shein, Namshi, Noon and more."
+        />
+      </Head>
 
-      {/* Header Section */}
-      <Container className="pb-2">
-        <h1 className="fw-bold mb-2" style={{ color: "#1392e6", fontSize: "2.1rem", letterSpacing: "-0.5px" }}>
-          Shop Store & Brand Sales
-        </h1>
-        <p className="lead mb-4" style={{ color: "#333", fontWeight: 500 }}>
-          Save with Cross Border Cart — discover exclusive sales from top UAE brands!
+      <SiteHeader />
+
+      <main style={mainStyle}>
+        <h1 style={heading}>Stores you can shop from</h1>
+        <p style={subheading}>
+          Shop from your favourite UAE &amp; global online stores, send
+          everything to your Cross Border Cart address in Dubai, and ship in one
+          simple, tracked shipment to your country.
         </p>
-      </Container>
 
-      {/* Info Row */}
-      <Container className="mb-4">
-        <Row xs={1} md={2} lg={4} className="g-3">
-          <Col>
-            <Card className="info-card h-100 shadow-sm">
-              <Card.Body className="text-center">
-                <span style={{ fontSize: 30 }}>🛍️</span>
-                <div className="fw-semibold mt-2">Shop Store & Brand Sales</div>
-                <div className="text-muted small">Exclusive offers on the best items.</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col>
-            <Card className="info-card h-100 shadow-sm">
-              <Card.Body className="text-center">
-                <span style={{ fontSize: 30 }}>💡</span>
-                <div className="fw-semibold mt-2">Shop Featured Products</div>
-                <div className="text-muted small">Limited-time deals every week.</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col>
-            <Card className="info-card h-100 shadow-sm">
-              <Card.Body className="text-center">
-                <span style={{ fontSize: 30 }}>🎟️</span>
-                <div className="fw-semibold mt-2">Find Coupon Codes</div>
-                <div className="text-muted small">Get latest promo codes for extra savings.</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col>
-            <Card className="info-card h-100 shadow-sm">
-              <Card.Body className="text-center">
-                <span style={{ fontSize: 30 }}>🆕</span>
-                <div className="fw-semibold mt-2">Discover New Stores</div>
-                <div className="text-muted small">Explore rising UAE e-commerce brands.</div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      </Container>
-
-      {/* Stores Grid */}
-      <Container className="py-3">
-        <Row xs={2} sm={3} md={4} lg={6} className="g-4 justify-content-center">
-          {STORES.map(store => (
-            <Col key={store.name}>
-              <div className="d-flex flex-column align-items-center px-1">
-                <a href={store.url} target="_blank" rel="noopener noreferrer" title={store.name}>
-                  <img
-                    src={store.logo}
-                    alt={store.name}
-                    style={{
-                      maxWidth: 86,
-                      maxHeight: 48,
-                      objectFit: "contain",
-                      marginBottom: 8,
-                      background: "#fff",
-                      borderRadius: 10,
-                      boxShadow: "0 2px 16px #0099ff13"
-                    }}
-                    onError={e => (e.currentTarget.src = "/default-logo.png")}
-                  />
+        {/* Deals of the month */}
+        <section style={{ marginBottom: 26 }}>
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              color: "#0f172a",
+              marginBottom: 8,
+            }}
+          >
+            Deals of the month
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: 14,
+            } as any}
+          >
+            {DEALS_THIS_MONTH.map((store) => (
+              <div
+                key={store.name}
+                style={{
+                  ...card,
+                  borderColor: "#22c55e",
+                  boxShadow: "0 16px 36px rgba(34,197,94,0.25)",
+                }}
+              >
+                <span style={badge}>Top deal</span>
+                <div style={nameStyle}>{store.name}</div>
+                <div style={tagStyle}>{store.category}</div>
+                {store.deal && <div style={dealText}>{store.deal}</div>}
+                <a
+                  href={store.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={externalLink}
+                >
+                  Shop this store →
                 </a>
-                <div className="fw-semibold text-center" style={{ fontSize: 16, color: "#182e40" }}>
-                  {store.name}
-                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* All stores */}
+        <section>
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              color: "#0f172a",
+              marginBottom: 8,
+            }}
+          >
+            Popular UAE stores for Cross Border Cart
+          </h2>
+          <div style={grid}>
+            {STORES.map((store) => (
+              <div
+                key={store.name}
+                style={{
+                  ...card,
+                  borderColor: store.highlight ? "#a5b4fc" : "#e5e7eb",
+                }}
+              >
+                {store.highlight && <span style={badge}>Recommended</span>}
+                <div style={nameStyle}>{store.name}</div>
+                <div style={tagStyle}>{store.category}</div>
                 {store.deal && (
-                  <div className="text-info text-center small fw-bold" style={{ minHeight: 18 }}>
+                  <div style={dealText}>
                     {store.deal}
                   </div>
                 )}
+                {store.note && (
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>{store.note}</div>
+                )}
+                <a
+                  href={store.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={externalLink}
+                >
+                  Visit store →
+                </a>
               </div>
-            </Col>
-          ))}
-        </Row>
-      </Container>
-
-      {/* Footer */}
-      <footer style={{
-        background: "linear-gradient(90deg, #1392e6 0%, #2ec8c0 100%)",
-        borderTop: "none",
-        padding: "32px 0",
-        marginTop: 60,
-        color: "#fff"
-      }}>
-        <Container>
-          <div className="d-flex flex-column flex-md-row align-items-center justify-content-between">
-            <div className="mb-2 mb-md-0 fw-bold" style={{ letterSpacing: 0.5 }}>
-              &copy; {new Date().getFullYear()} Cross Border Cart &mdash; All rights reserved.
-            </div>
-            <div className="small">
-              <Link href="/about" className="me-3 text-white-50" style={{ textDecoration: "underline" }}>About</Link>
-              <Link href="/contact" className="me-3 text-white-50" style={{ textDecoration: "underline" }}>Contact</Link>
-              <Link href="/terms" className="me-3 text-white-50" style={{ textDecoration: "underline" }}>Terms</Link>
-              <Link href="/privacy" className="text-white-50" style={{ textDecoration: "underline" }}>Privacy</Link>
-            </div>
+            ))}
           </div>
-        </Container>
-      </footer>
 
-      <style jsx>{`
-        .stores-bg {
-          min-height: 100vh;
-          background: linear-gradient(135deg, #f8fbff 0%, #e3f6fb 90%);
-        }
-        .info-card {
-          border: none;
-          background: #e9f6ff;
-        }
-        .info-card .fw-semibold {
-          color: #098bde;
-        }
-        img {
-          transition: box-shadow 0.2s, transform 0.1s;
-        }
-        img:hover {
-          box-shadow: 0 6px 32px #0099ff33;
-          transform: scale(1.06);
-        }
-      `}</style>
+          <p
+            style={{
+              fontSize: 12,
+              color: "#6b7280",
+              marginTop: 12,
+            }}
+          >
+            Store names and deals above are examples. Always check the store
+            website for the latest offers. Later you can plug in real affiliate
+            links and live deals.
+          </p>
+        </section>
+      </main>
+
+      <SiteFooter />
     </div>
   );
 }

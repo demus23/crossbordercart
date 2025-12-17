@@ -1,68 +1,44 @@
+// components/TrackWidget.tsx
 import { useState } from "react";
-
-type TrackEvent = {
-  _id: string;
-  status: string;
-  location?: string;
-  note?: string;
-  createdAt: string;
-};
+import { useRouter } from "next/router";
 
 export default function TrackWidget() {
+  const router = useRouter();
   const [trackingNo, setTrackingNo] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [last, setLast] = useState<TrackEvent | null>(null);
   const [error, setError] = useState("");
 
-  async function doTrack() {
+  async function doTrack(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     setError("");
-    setLast(null);
-    if (!trackingNo.trim()) {
+
+    const trimmed = trackingNo.trim();
+    if (!trimmed) {
       setError("Enter a tracking number");
       return;
     }
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/tracking/events?trackingNo=${encodeURIComponent(trackingNo)}&limit=1`);
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      const events: TrackEvent[] = data?.events || [];
-      setLast(events[0] || null);
-      if (!events.length) setError("No updates yet for this tracking number.");
-    } catch (e: unknown) {
-  const msg =
-    e instanceof Error ? e.message :
-    typeof e === "string" ? e :
-    "Failed to fetch tracking info";
-  setError(msg); 
-    } finally {
-      setLoading(false);
-    }
+
+    // ✅ Use the new tracking page that we already fixed
+    router.push(`/track/${encodeURIComponent(trimmed)}`);
   }
 
   return (
-    <div className="d-flex align-items-center gap-3 p-3 border rounded">
+    <form
+      onSubmit={doTrack}
+      className="d-flex align-items-center gap-3 p-3 border rounded"
+    >
       <div className="fw-semibold">Track Package:</div>
       <input
         className="form-control"
         style={{ maxWidth: 220 }}
-        placeholder="e.g., AB23456"
+        placeholder="e.g., 69299ad9ff1ee7fffce05caa"
         value={trackingNo}
         onChange={(e) => setTrackingNo(e.target.value)}
       />
-      <button className="btn btn-secondary" onClick={doTrack} disabled={loading}>
-        {loading ? "..." : "Track"}
+      <button className="btn btn-secondary" type="submit">
+        Track
       </button>
 
-      {/* Result block */}
-      {last && (
-        <div className="ms-4">
-          <div><span className="fw-semibold">Status:</span> {last.status?.replaceAll("_", " ") || "—"}</div>
-          <div><span className="fw-semibold">Location:</span> {last.location || "—"}</div>
-        </div>
-      )}
-
       {error && <div className="ms-4 text-danger small">{error}</div>}
-    </div>
+    </form>
   );
 }

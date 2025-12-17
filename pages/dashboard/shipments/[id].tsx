@@ -1,3 +1,4 @@
+//pages\dashboard\shipments\[id].tsx
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -11,6 +12,8 @@ export default function ShipmentDetailPage() {
   const [shipment, setShipment] = useState<ShipmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sendingStatusEmail, setSendingStatusEmail] = useState(false);
+  const [statusEmailMessage, setStatusEmailMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -53,7 +56,10 @@ async function handleStatusUpdate(newStatus: string) {
     const res = await fetch("/api/shipments/update-status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: shipment._id, status: newStatus }),
+      body: JSON.stringify({
+        shipmentId: shipment._id,   // ✅ use shipmentId, not id
+        status: newStatus,
+      }),
     });
 
     const json = await res.json();
@@ -68,6 +74,177 @@ async function handleStatusUpdate(newStatus: string) {
     setUpdating(false);
   }
 }
+
+const handleSendLabelEmail = async () => {
+  if (!shipment?._id) {
+    alert("No shipment ID found.");
+    return;
+  }
+
+  const defaultEmail =
+    shipment.customerEmail ||
+    shipment.to?.email ||
+    "";
+
+  const toEmail = window.prompt(
+    "Enter email address to send the shipping label:",
+    defaultEmail
+  );
+
+  if (!toEmail) return;
+
+  try {
+    const res = await fetch("/api/admin/shipments/send-label-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shipmentId: shipment._id,
+        toEmail,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data.ok === false) {
+      console.error("Send label error:", data);
+      alert(
+        "Failed to send label email: " +
+          (data?.error || res.statusText || "Unknown error")
+      );
+      return;
+    }
+
+    alert("Shipping label email sent successfully ✅");
+  } catch (err) {
+    console.error("Send label email error:", err);
+    alert("Network error while sending label email.");
+  }
+};
+
+const handleSendStatusEmail = async () => {
+  if (!shipment?._id) {
+    alert("No shipment ID found.");
+    return;
+  }
+
+  const defaultEmail =
+    shipment.customerEmail ||
+    shipment.to?.email ||
+    "";
+
+  const toEmail = window.prompt(
+    "Enter email address to send the status update:",
+    defaultEmail
+  );
+
+  if (!toEmail) return;
+
+  try {
+    const res = await fetch("/api/admin/shipments/send-status-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shipmentId: shipment._id,
+        toEmail,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data.ok === false) {
+      console.error("Send status email error:", data);
+      alert(
+        "Failed to send status email: " +
+          (data?.error || res.statusText || "Unknown error")
+      );
+      return;
+    }
+
+    alert("Status email sent successfully ✅");
+  } catch (err) {
+    console.error("Send status email error:", err);
+    alert("Network error while sending status email.");
+  }
+};
+
+const handleMarkDeliveredAndEmail = async () => {
+  if (!shipment?._id) {
+    alert("No shipment ID found.");
+    return;
+  }
+
+  const defaultEmail =
+    shipment.customerEmail || shipment.to?.email || "";
+
+  const toEmail = window.prompt(
+    "Enter email to notify (leave as is if correct):",
+    defaultEmail
+  );
+
+  if (toEmail === null) return; // user cancelled
+
+  try {
+    const res = await fetch("/api/admin/shipments/update-status-and-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shipmentId: shipment._id,
+        status: "delivered",        // 👈 you can change this to any status
+        toEmail,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data.ok === false) {
+      console.error("Update+email error:", data);
+      alert(
+        "Failed to update status or send email: " +
+          (data?.error || res.statusText || "Unknown error")
+      );
+      return;
+    }
+
+    if (data.warning) {
+      alert(data.warning);
+    } else {
+      alert("Status updated & email sent ✅");
+    }
+
+    // Optional: reload page to see new status
+    window.location.reload();
+  } catch (err) {
+    console.error("Update+email error:", err);
+    alert("Network error while updating status.");
+  }
+};
+
+const handleMarkPaid = async () => {
+  if (!shipment?._id) {
+    alert("No shipment loaded");
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/admin/shipments/mark-paid", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shipmentId: shipment._id, isPaid: true }),
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      throw new Error(json.error || "Failed to mark as paid");
+    }
+
+    alert("Shipment marked as PAID ✅");
+    // simple reload to refresh data
+    window.location.reload();
+  } catch (err) {
+    console.error(err);
+    alert("Error marking as paid");
+  }
+};
 
 
   return (
@@ -96,6 +273,65 @@ async function handleStatusUpdate(newStatus: string) {
           {error}
         </div>
       )}
+<div className="d-flex flex-wrap gap-2 mt-3">
+  <button
+    type="button"
+    className="btn btn-outline-dark btn-sm"
+    onClick={handleSendLabelEmail}
+  >
+    Send label by email
+  </button>
+
+  <button
+    type="button"
+    className="btn btn-outline-primary btn-sm"
+    onClick={handleSendStatusEmail}
+  >
+    Send status email
+  </button>
+
+  <button
+    type="button"
+    className="btn btn-success btn-sm"
+    onClick={handleMarkDeliveredAndEmail}
+  >
+    Mark delivered & email client
+  </button>
+</div>
+
+<div className="mt-3">
+  <h5>Payment</h5>
+  <p className="mb-1">
+    Status:{" "}
+    {shipment?.isPaid ? (
+      <span className="badge bg-success">Paid</span>
+    ) : (
+      <span className="badge bg-warning text-dark">Unpaid</span>
+    )}
+  </p>
+
+  {!shipment?.isPaid && (
+    <button
+      type="button"
+      className="btn btn-sm btn-outline-success"
+      onClick={handleMarkPaid}
+    >
+      Mark as paid
+    </button>
+  )}
+
+  {shipment?.isPaid && shipment?.paidAt && (
+    <small className="text-muted d-block">
+      Paid at: {new Date(shipment.paidAt).toLocaleString()}
+    </small>
+  )}
+</div>
+
+                    
+
+{statusEmailMessage && (
+  <p className="mt-1 text-xs text-gray-600">{statusEmailMessage}</p>
+)}
 
       {shipment && !loading && !error && (
         <div

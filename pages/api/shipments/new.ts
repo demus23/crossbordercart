@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { dbConnect } from "@/lib/mongoose";
 import { Shipment } from "@/lib/models/Shipment";
+import mongoose from "mongoose";
+import PackageModel from "@/lib/models/Package";
+
 
 type Address = {
   name?: string;
@@ -16,6 +19,10 @@ type Address = {
 type Body = Partial<{
   from: Address;
   to: Address;
+  packageIds: string[];
+  userId: string;
+  packageId: string;  
+
 
   // NEW schema
   parcel: {
@@ -114,6 +121,8 @@ export default async function handler(
       carrier: body.carrier,
       service: body.service,
       priceAED: body.priceAED,
+       packageIds: body.packageIds || [],
+  userId: body.userId || null,
 
       // currency required by schema
       currency,
@@ -129,6 +138,101 @@ export default async function handler(
       // OLD schema field (so Mongo doesn't complain)
       weightKg: weight,
     });
+
+    // ✅ Optional link: if admin passed a packageId, tie this shipment to that package
+const rawPackageId =
+  typeof req.body.packageId === "string" ? req.body.packageId.trim() : "";
+
+if (rawPackageId) {
+  // if it's not a proper ObjectId, return a clean 400 instead of crashing
+  if (!mongoose.Types.ObjectId.isValid(rawPackageId)) {
+    return res
+      .status(400)
+      .json({ ok: false, error: "Invalid packageId (must be Mongo ObjectId)" });
+  }
+
+  const packageObjectId = new mongoose.Types.ObjectId(rawPackageId);
+
+  await PackageModel.findByIdAndUpdate(
+    packageObjectId,
+    {
+      $set: {
+        tracking: shipment._id.toString(),           // public tracking number
+        courier: shipment.carrier ?? null,
+        status: "Shipped",                           // your PackageStatus enum
+        lastNote: "Shipment created",
+        lastLocation: shipment.from?.city ?? "",
+        userEmail: shipment.customerEmail ?? undefined,
+      },
+    },
+    { new: true }
+  );
+}
+
+
+    // link packages → shipment
+if (Array.isArray(req.body.packageIds) && req.body.packageIds.length > 0) {
+  await PackageModel.updateMany(
+    { _id: { $in: req.body.packageIds } },
+    {
+      $set: {
+        shipmentId: shipment._id,
+        shipmentTracking: shipment._id.toString(), // using shipment id as tracking for now
+        shipmentCarrier: shipment.carrier ?? null,
+        status: "Shipped",
+      },
+    }
+  );
+}
+ // 👇 If this shipment is for an existing Package, link it
+if (body.packageId && typeof body.packageId === "string") {
+  const pkgId = body.packageId.trim();
+
+  try {
+    await PackageModel.findByIdAndUpdate(
+      pkgId,
+      {
+        $set: {
+          shipmentId: shipment._id,
+          shipmentTracking: shipment._id.toString(),    // we use shipment _id as tracking number
+          shipmentCarrier: shipment.carrier ?? undefined,
+
+          // also keep old fields in sync
+          tracking: shipment._id.toString(),
+          courier: shipment.carrier ?? undefined,
+          status: "Shipped",                            // from your PackageStatus enum
+          lastNote: "Shipment created",
+          lastLocation: shipment.to?.city || "",
+        },
+      },
+      { new: true }
+    );
+  } catch (e) {
+    console.error("Failed to link shipment to package:", e);
+  }
+}
+
+
+    // ✅ If admin passed a packageId, link it to this shipment
+const packageId =
+  typeof req.body.packageId === "string" ? req.body.packageId.trim() : "";
+
+if (packageId) {
+  await PackageModel.findByIdAndUpdate(
+    packageId,
+    {
+      $set: {
+        tracking: shipment._id.toString(),      // public tracking number
+        courier: shipment.carrier ?? null,
+        status: "Shipped",                      // from your PackageStatus enum
+        lastNote: "Shipment created",
+        lastLocation: shipment.from?.city ?? "",
+        userEmail: shipment.customerEmail ?? undefined,
+      },
+    },
+    { new: true }
+  );
+}
 
     return res.status(200).json({ ok: true, id: shipment._id });
   } catch (err: any) {

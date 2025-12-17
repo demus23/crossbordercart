@@ -1,66 +1,86 @@
 // pages/api/shipments/update-status.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { dbConnect } from "@/lib/mongoose";
-import { Shipment, ShipmentStatus } from "@/lib/models/Shipment";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]";
+import dbConnect from "@/lib/dbConnect";
+import { Shipment, type ShipmentStatus } from "@/lib/models/Shipment";
+import PackageModel from "@/lib/models/Package";
 
-type Body = {
-  id?: string;
-  status?: ShipmentStatus;
-  location?: string | null;
-  message?: string | null;
-};
+type AdminStatus = "Picked Up" | "In Transit" | "Out for Delivery" | "Delivered" | "Problem";
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<{ ok: true } | { ok: false; error: string }>
-) {
+function mapAdminToShipmentStatus(s: AdminStatus): ShipmentStatus {
+  switch (s) {
+    case "Picked Up":
+      return "in_transit";
+    case "In Transit":
+      return "in_transit";
+    case "Out for Delivery":
+      return "out_for_delivery";
+    case "Delivered":
+      return "delivered";
+    case "Problem":
+      return "exception";
+    default:
+      return "draft";
+  }
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
-    res.setHeader("Allow", ["POST"]);
-    return res
-      .status(405)
-      .json({ ok: false, error: `Method ${req.method} Not Allowed` });
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
-  try {
-    const { id, status, location, message } = (req.body || {}) as Body;
+  // 👇 This is the bit that fixes the TS error
+  const session = await getServerSession(req, res, authOptions as any);
+  const user = (session as any)?.user;
 
-    if (!id) {
-      return res.status(400).json({ ok: false, error: "id is required" });
-    }
-    if (!status) {
-      return res.status(400).json({ ok: false, error: "status is required" });
-    }
+  if (!user || user.role !== "admin") {
+    return res.status(401).json({ ok: false, error: "Unauthorized" });
+  }
 
-    await dbConnect();
+  const { shipmentId, status } = req.body as { shipmentId?: string; status?: AdminStatus };
 
-    const shipment = await Shipment.findById(id);
-    if (!shipment) {
-      return res.status(404).json({ ok: false, error: "Shipment not found" });
-    }
+  if (!shipmentId || !status) {
+    return res.status(400).json({ ok: false, error: "shipmentId and status are required" });
+  }
 
-    // ✅ update canonical status (snake_case)
-    shipment.status = status;
+  await dbConnect();
 
-    // ✅ push activity item that matches schema:
-    // { at, type, payload }
-    shipment.activity = shipment.activity || [];
-    shipment.activity.unshift({
-      at: new Date(),
-      type: "status",
-      payload: {
-        status,
-        location: location ?? null,
-        message: message ?? null,
+  const shipment = await Shipment.findById(shipmentId);
+  if (!shipment) {
+    return res.status(404).json({ ok: false, error: "Shipment not found" });
+  }
+
+  const newStatus: ShipmentStatus = mapAdminToShipmentStatus(status);
+  const now = new Date();
+
+  shipment.status = newStatus;
+  shipment.activity = shipment.activity || [];
+  shipment.activity.push({
+    at: now,
+    type: "status_change",
+    payload: { from: shipment.status, to: newStatus },
+  });
+
+  await shipment.save();
+
+  await PackageModel.updateMany(
+    { tracking: shipment._id.toString() },
+    {
+      $set: {
+        status:
+          status === "Problem"
+            ? "Problem"
+            : status === "Delivered"
+            ? "Delivered"
+            : "Shipped",
+        lastNote: `Status updated to ${status}`,
+        lastLocation: shipment.to?.city ?? "",
+        updatedAt: now,
       },
-    });
+    }
+  );
 
-    await shipment.save();
-
-    return res.status(200).json({ ok: true });
-  } catch (err: any) {
-    console.error("POST /api/shipments/update-status error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: err?.message || "Server error" });
-  }
+  return res.status(200).json({ ok: true });
 }

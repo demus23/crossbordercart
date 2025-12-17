@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from "react";
+import type { FormEvent } from "react";
+
 import { useRouter } from "next/router";
 import { useSession, signOut } from "next-auth/react";
 import axios from "axios";
 
 import { api, getAxiosErrorMessage } from "@/lib/api";
+
 import {
   Button,
   Card,
@@ -20,7 +23,9 @@ import {
   Alert,
   Badge,
 } from "react-bootstrap";
+
 import { useDropzone } from "react-dropzone";
+
 import {
   FiBell,
   FiLogOut,
@@ -45,12 +50,15 @@ import {
   FiDollarSign,
   FiSend,
 } from "react-icons/fi";
+
 import BillingSummary from "@/components/account/BillingSummary";
 import OutstandingInvoicesCard from "@/components/account/OutstandingInvoicesCard";
 import TrackingTimeline, { TrackingEvent } from "@/components/TrackingTimeline";
-//import ShippingQuoteModal from "@/components/ShippingQuoteModal";
+// import ShippingQuoteModal from "@/components/ShippingQuoteModal";
 import ShippingQuoteSimple from "@/components/ShippingQuoteSimple";
 import TrackingSearchCard from "@/components/tracking/TrackingSearchCard";
+import QuickTrackHome from "@/components/tracking/QuickTrackHome";
+import AIChatbotModal from "@/components/AIChatbotModal";
 
 // -------------- Theme --------------
 const MAIN_COLOR = "#0ea5a2"; // teal
@@ -146,9 +154,11 @@ const useDashboardData = () => {
   const [deals, setDeals] = useState<DealType[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [documents, setDocuments] = useState<DocItem[]>([]);
+  
 
   useEffect(() => {
     let cancelled = false;
+
     const load = async () => {
       if (!session?.user?.id) return;
 
@@ -214,9 +224,12 @@ const useDashboardData = () => {
 
   const refetchTransactions = async () => {
     if (!session?.user?.id) return;
-    const r = await api.get<{ transactions: TransactionType[] }>("transactions", {
-      params: { user: session.user.id },
-    });
+    const r = await api.get<{ transactions: TransactionType[] }>(
+      "transactions",
+      {
+        params: { user: session.user.id },
+      }
+    );
     setTransactions(r.data.transactions ?? []);
   };
 
@@ -236,21 +249,26 @@ const useDashboardData = () => {
     const t = (tracking || "").trim();
     if (!t) throw new Error("Tracking number is required");
 
+    // ✅ use the real tracking API
     const res = await fetch(
-      `/api/tracking/events?trackingNo=${encodeURIComponent(t)}&limit=1`
+      `/api/track?trackingNo=${encodeURIComponent(t)}&limit=1`
     );
     if (!res.ok) throw new Error("Tracking lookup failed");
 
     const data = await res.json();
-    const ev = data?.events?.[0];
 
-    if (!ev) return { tracking: t, status: "Not found" };
+    // /api/track returns { ok, package, events: [...] }
+    const ev = Array.isArray(data.events) ? data.events[0] : null;
+
+    if (!ev) {
+      return { tracking: t, status: "Not found" };
+    }
 
     return {
       tracking: t,
-      status: ev.status,
+      status: ev.status || "Pending",
       location: ev.location || "",
-      lastUpdate: ev.createdAt,
+      lastUpdate: ev.time || ev.createdAt || "",
     };
   };
 
@@ -388,8 +406,7 @@ function AIChatModal({ show, onHide }: BasicModalProps) {
   >([
     {
       role: "assistant",
-      content:
-        "Hi! I can help with shipping, tracking, and store suggestions.",
+      content: "Hi! I can help with shipping, tracking, and store suggestions.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -491,10 +508,12 @@ function AIChatModal({ show, onHide }: BasicModalProps) {
 type PassModalProps = BasicModalProps & {
   onChangePass: (cur: string, next: string) => Promise<void>;
 };
+
 function SupportModal({ show, onHide }: BasicModalProps) {
   const [topic, setTopic] = useState("General");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
+
   useEffect(() => {
     if (!show) {
       setTopic("General");
@@ -502,6 +521,7 @@ function SupportModal({ show, onHide }: BasicModalProps) {
       setSent(false);
     }
   }, [show]);
+
   return (
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
@@ -555,9 +575,11 @@ type ProfileModalProps = BasicModalProps & {
   profile: ProfileType | null;
   onSave: (p: Partial<ProfileType>) => Promise<void>;
 };
+
 function ProfileModal({ show, onHide, profile, onSave }: ProfileModalProps) {
   const [form, setForm] = useState<Partial<ProfileType>>({});
   const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     if (show && profile)
       setForm({
@@ -651,12 +673,14 @@ function PassModal({ show, onHide, onChangePass }: PassModalProps) {
             try {
               await onChangePass(cur, next);
               setMsg("Password updated.");
-           } catch (e: unknown) {
-  const msg =
-    e instanceof Error ? e.message :
-    typeof e === "string" ? e :
-    "Failed";
-  setMsg(msg);     
+            } catch (e: unknown) {
+              const errMsg =
+                e instanceof Error
+                  ? e.message
+                  : typeof e === "string"
+                  ? e
+                  : "Failed";
+              setMsg(errMsg);
             } finally {
               setSaving(false);
             }
@@ -693,12 +717,12 @@ function PassModal({ show, onHide, onChangePass }: PassModalProps) {
   );
 }
 
-
 // Membership
 type MembershipModalProps = BasicModalProps & {
   profile: ProfileType | null;
   onSave: (p: Partial<ProfileType>) => Promise<void>;
 };
+
 function MembershipModal({
   show,
   onHide,
@@ -707,9 +731,11 @@ function MembershipModal({
 }: MembershipModalProps) {
   const [plan, setPlan] = useState<ProfileType["membership"]>("Free");
   const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     if (show) setPlan(profile?.membership ?? "Free");
   }, [show, profile]);
+
   return (
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
@@ -978,28 +1004,36 @@ function PaymentModal({
                 <Form.Label>Address Line 1 *</Form.Label>
                 <Form.Control
                   value={addr.line1}
-                  onChange={(e) => setAddr({ ...addr, line1: e.target.value })}
+                  onChange={(e) =>
+                    setAddr({ ...addr, line1: e.target.value })
+                  }
                 />
               </Col>
               <Col md={12}>
                 <Form.Label>Address Line 2</Form.Label>
                 <Form.Control
                   value={addr.line2 || ""}
-                  onChange={(e) => setAddr({ ...addr, line2: e.target.value })}
+                  onChange={(e) =>
+                    setAddr({ ...addr, line2: e.target.value })
+                  }
                 />
               </Col>
               <Col md={6}>
                 <Form.Label>State / Province</Form.Label>
                 <Form.Control
                   value={addr.state || ""}
-                  onChange={(e) => setAddr({ ...addr, state: e.target.value })}
+                  onChange={(e) =>
+                    setAddr({ ...addr, state: e.target.value })
+                  }
                 />
               </Col>
               <Col md={3}>
                 <Form.Label>City *</Form.Label>
                 <Form.Control
                   value={addr.city}
-                  onChange={(e) => setAddr({ ...addr, city: e.target.value })}
+                  onChange={(e) =>
+                    setAddr({ ...addr, city: e.target.value })
+                  }
                 />
               </Col>
               <Col md={3}>
@@ -1040,7 +1074,7 @@ function PaymentModal({
 
             {type === "card" && (
               <Form className="mt-2">
-                <Form.Label>First & Last Name on Card *</Form.Label>
+                <Form.Label>First &amp; Last Name on Card *</Form.Label>
                 <Form.Control
                   value={cardName}
                   onChange={(e) => setCardName(e.target.value)}
@@ -1177,7 +1211,13 @@ function AddressModal({
 
   useEffect(() => {
     setForm(
-      initial ?? { label: "", address: "", city: "", country: "", postalCode: "" }
+      initial ?? {
+        label: "",
+        address: "",
+        city: "",
+        country: "",
+        postalCode: "",
+      }
     );
   }, [initial, show]);
 
@@ -1204,7 +1244,9 @@ function AddressModal({
           <Form.Control
             placeholder="Street / Building / Apt"
             value={form.address}
-            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, address: e.target.value }))
+            }
             required
           />
           <Form.Label className="mt-2">City</Form.Label>
@@ -1215,7 +1257,9 @@ function AddressModal({
           <Form.Label className="mt-2">Country</Form.Label>
           <Form.Control
             value={form.country ?? ""}
-            onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, country: e.target.value }))
+            }
           />
           <Form.Label className="mt-2">Postal Code</Form.Label>
           <Form.Control
@@ -1330,12 +1374,14 @@ function NewChargeModal({
 
       onHide();
       onCreated?.(r.data?.data?.invoiceNo);
-   } catch (e: unknown) {
-  const msg =
-    e instanceof Error ? e.message :
-    typeof e === "string" ? e :
-    "Charge failed";
-  alert(msg);
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === "string"
+          ? e
+          : "Charge failed";
+      alert(msg);
     } finally {
       setSubmitting(false);
     }
@@ -1547,7 +1593,7 @@ export default function DashboardPage() {
 
   // UI state
   const [showAI, setShowAI] = useState<boolean>(false);
-  const [showQuote, setShowQuote] = useState<boolean>(false); // ⬅ shipping quote modal
+  const [showQuote, setShowQuote] = useState<boolean>(false); // currently unused
   const [showSupport, setShowSupport] = useState<boolean>(false);
   const [showProfile, setShowProfile] = useState<boolean>(false);
   const [showPass, setShowPass] = useState<boolean>(false);
@@ -1566,27 +1612,33 @@ export default function DashboardPage() {
   const [trackEvents, setTrackEvents] = useState<TrackingEvent[]>([]);
   const [trackBusy, setTrackBusy] = useState(false);
   const [showUserQuote, setShowUserQuote] = useState(false);
-
+  
 
   async function loadTrack(trackingNo: string) {
     setTrackBusy(true);
     try {
+      // ✅ use /api/track instead of /api/tracking/events
       const r = await fetch(
-        `/api/tracking/events?trackingNo=${encodeURIComponent(trackingNo)}`
+        `/api/track?trackingNo=${encodeURIComponent(trackingNo)}`
       );
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok || !data?.ok)
-        throw new Error(data?.error || "Failed to load events");
+      const data = await r.json().catch(() => ({} as any));
+
+      if (!r.ok || data.ok === false) {
+        throw new Error(data.error || "Failed to load events");
+      }
+
+      // /api/track gives { ok, package, events: [...] }
       setTrackEvents(Array.isArray(data.events) ? data.events : []);
+      setTrackPkg(data.package ?? null);
     } catch (e: unknown) {
-  setTrackEvents([]);
-  const msg =
-    e instanceof Error ? e.message :
-    typeof e === "string" ? e :
-    "Failed to load tracking";
-  alert(msg);
-
-
+      setTrackEvents([]);
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === "string"
+          ? e
+          : "Failed to load tracking";
+      alert(msg);
     } finally {
       setTrackBusy(false);
     }
@@ -1606,11 +1658,13 @@ export default function DashboardPage() {
     try {
       await uploadDocuments(files);
     } catch (e: unknown) {
-  const msg =
-    e instanceof Error ? e.message :
-    typeof e === "string" ? e :
-    "Upload failed";
-  alert(msg);
+      const msg =
+        e instanceof Error
+          ? e.message
+          : typeof e === "string"
+          ? e
+          : "Upload failed";
+      alert(msg);
     } finally {
       setDocUploading(false);
     }
@@ -1620,8 +1674,9 @@ export default function DashboardPage() {
   // Address modal state
   const [addrModalOpen, setAddrModalOpen] = useState(false);
   const [addrEditingIndex, setAddrEditingIndex] = useState<number | null>(null);
-  const [addrInitial, setAddrInitial] =
-    useState<AddressForm | undefined>(undefined);
+  const [addrInitial, setAddrInitial] = useState<AddressForm | undefined>(
+    undefined
+  );
   const [addrSaving, setAddrSaving] = useState(false);
 
   async function saveAddress(form: AddressForm) {
@@ -1648,7 +1703,9 @@ export default function DashboardPage() {
   // Pretty status helper
   function prettyStatus(s?: string) {
     if (!s) return "";
-    return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    return s
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   if (status === "loading") {
@@ -1663,7 +1720,7 @@ export default function DashboardPage() {
   }
 
   // ---- Handlers ----
-  const doTrack = async (e: React.FormEvent) => {
+  const doTrack = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!tracking.trim()) return;
     setTrackLoading(true);
@@ -1699,7 +1756,10 @@ Business Bay, Dubai, UAE
           <div className="d-flex align-items-center justify-content-between">
             <div className="d-flex align-items-center gap-3">
               <Image src="/logo.svg" alt="logo" height={36} />
-              <h5 className="mb-0" style={{ color: MAIN_COLOR, fontWeight: 800 }}>
+              <h5
+                className="mb-0"
+                style={{ color: MAIN_COLOR, fontWeight: 800 }}
+              >
                 CrossBorderChart
               </h5>
               <Badge bg="light" text="dark">
@@ -1792,7 +1852,8 @@ Business Bay, Dubai, UAE
                 </Dropdown.Menu>
               </Dropdown>
 
-              {(profile?.role === "admin" || profile?.role === "superadmin") && (
+              {(profile?.role === "admin" ||
+                profile?.role === "superadmin") && (
                 <a
                   href="/admin/dashboard"
                   className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
@@ -1863,10 +1924,9 @@ Business Bay, Dubai, UAE
           </div>
         </Container>
       </div>
-      
 
       <Container className="py-4">
-        {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
+        {error && <Alert variant="danger">{error}</Alert>}
 
         {/* Quick actions */}
         <Row className="g-3">
@@ -1875,7 +1935,9 @@ Business Bay, Dubai, UAE
               <Card.Body>
                 <div className="d-flex align-items-center justify-content-between">
                   <div>
-                    <div className="text-muted small">Recently Arrived / Shipped</div>
+                    <div className="text-muted small">
+                      Recently Arrived / Shipped
+                    </div>
                     <h5 className="mb-0">{packages.length}</h5>
                   </div>
                   <div
@@ -1938,9 +2000,9 @@ Business Bay, Dubai, UAE
           </Col>
         </Row>
 
-          <div style={{ marginTop: 16 }}>
-        <TrackingSearchCard initialTrackingNo="AB23456" />
-      </div>
+        <div style={{ marginTop: 16 }}>
+          <TrackingSearchCard initialTrackingNo="AB23456" />
+        </div>
 
         {/* Track (mobile quick) */}
         <Form onSubmit={doTrack} className="d-md-none mt-3">
@@ -1950,7 +2012,11 @@ Business Bay, Dubai, UAE
               value={tracking}
               onChange={(e) => setTracking(e.target.value)}
             />
-            <Button type="submit" variant="outline-secondary" disabled={trackLoading}>
+            <Button
+              type="submit"
+              variant="outline-secondary"
+              disabled={trackLoading}
+            >
               {trackLoading ? <Spinner size="sm" /> : <FiSearch />}
             </Button>
           </InputGroup>
@@ -1962,7 +2028,10 @@ Business Bay, Dubai, UAE
               </div>
               {trackRes.location && <div>Location: {trackRes.location}</div>}
               {trackRes.lastUpdate && (
-                <div>Updated: {new Date(trackRes.lastUpdate).toLocaleString()}</div>
+                <div>
+                  Updated:{" "}
+                  {new Date(trackRes.lastUpdate).toLocaleString()}
+                </div>
               )}
             </Alert>
           )}
@@ -2099,7 +2168,7 @@ Business Bay, Dubai, UAE
                 >
                   <input {...getInputProps()} />
                   <div className="text-muted">
-                    Drag & drop documents here, or click to select files
+                    Drag &amp; drop documents here, or click to select files
                   </div>
                 </div>
 
@@ -2454,7 +2523,7 @@ Business Bay, Dubai, UAE
             <Card className="shadow-sm">
               <Card.Body className="d-flex align-items-center justify-content-between">
                 <div>
-                  <div className="text-muted small">Profile & Membership</div>
+                  <div className="text-muted small">Profile &amp; Membership</div>
                   <Button
                     size="sm"
                     className="me-2 mt-1"
@@ -2482,7 +2551,7 @@ Business Bay, Dubai, UAE
             <Card className="shadow-sm">
               <Card.Body className="d-flex align-items-center justify-content-between">
                 <div>
-                  <div className="text-muted small">Security & Payments</div>
+                  <div className="text-muted small">Security &amp; Payments</div>
                   <Button
                     size="sm"
                     className="me-2 mt-1"
@@ -2518,7 +2587,7 @@ Business Bay, Dubai, UAE
             <Card className="shadow-sm">
               <Card.Body className="d-flex align-items-center justify-content-between">
                 <div>
-                  <div className="text-muted small">Help & Support</div>
+                  <div className="text-muted small">Help &amp; Support</div>
                   <Button
                     size="sm"
                     className="me-2 mt-1"
@@ -2544,7 +2613,7 @@ Business Bay, Dubai, UAE
           </Col>
         </Row>
 
-        <h2 className="mb-3">Billing</h2>
+        <h2 className="mb-3 mt-4">Billing</h2>
         <BillingSummary />
 
         {/* Footer */}
@@ -2554,8 +2623,8 @@ Business Bay, Dubai, UAE
               <span className="fw-bold" style={{ color: MAIN_COLOR }}>
                 CrossBorderChart
               </span>{" "}
-              &copy; {new Date().getFullYear()} | <a href="/about">About Us</a> |{" "}
-              <a href="/privacy">Privacy</a>
+              &copy; {new Date().getFullYear()} | <a href="/about">About Us</a>{" "}
+              | <a href="/privacy">Privacy</a>
             </div>
             <div className="small">
               <a
@@ -2592,7 +2661,10 @@ Business Bay, Dubai, UAE
 
       {/* Modals */}
       <AIChatModal show={showAI} onHide={() => setShowAI(false)} />
-      <ShippingQuoteSimple show={showUserQuote} onHide={() => setShowUserQuote(false)} />
+      <ShippingQuoteSimple
+        show={showUserQuote}
+        onHide={() => setShowUserQuote(false)}
+      />
 
       <SupportModal show={showSupport} onHide={() => setShowSupport(false)} />
       <ProfileModal
@@ -2642,7 +2714,12 @@ Business Bay, Dubai, UAE
       />
 
       {/* Tracking timeline modal */}
-      <Modal show={trackOpen} onHide={() => setTrackOpen(false)} centered size="lg">
+      <Modal
+        show={trackOpen}
+        onHide={() => setTrackOpen(false)}
+        centered
+        size="lg"
+      >
         <Modal.Header closeButton>
           <Modal.Title>Tracking — {trackPkg?.tracking ?? ""}</Modal.Title>
         </Modal.Header>

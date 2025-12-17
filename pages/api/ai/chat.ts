@@ -1,78 +1,52 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import OpenAI from "openai";
+import { shippingFAQ } from "@/data/shippingFAQ";
 
-// Types for features and user roles
-type Feature = "chat" | "shipping" | "consolidation" | "product" | "translation";
-type UserType = "admin" | "user";
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const systemPrompts: Record<Feature, Record<UserType, string>> = {
-  chat: {
-    admin: `You are an AI assistant for logistics/delivery company admins. Answer questions, help with analytics, operational tips, and customer support guidance.`,
-    user: `You are an AI assistant for users of a package forwarding/delivery service. Help them track, ship, and optimize their shipping experience.`
-  },
-  shipping: {
-    admin: `You're an AI shipping cost optimizer for delivery business admins. Give actionable cost-saving tips based on origin, destination, and weight.`,
-    user: `You help users save money on shipping based on their route and package details.`
-  },
-  consolidation: {
-    admin: `You are an AI for package consolidation. Suggest optimal ways for admins to combine shipments for lowest cost and highest efficiency.`,
-    user: `You help users decide how to group packages for best savings and fewer shipments.`
-  },
-  product: {
-    admin: `You are an AI sourcing agent. Help admins or users find the best suppliers, compare prices, and summarize reviews.`,
-    user: `You help users search for products, compare prices, and make recommendations.`
-  },
-  translation: {
-    admin: `You are an AI language translator. Translate any text provided and detect the language. Respond with only the translation.`,
-    user: `You are an AI translator for users. Respond only with the translated text.`
+type ChatRole = "assistant" | "user";
+type ChatMessage = { role: ChatRole; content: string };
+
+function smartDemoReply(text: string) {
+  const t = (text || "").toLowerCase();
+  for (const item of shippingFAQ) {
+    if (item.keywords.some((k) => t.includes(k))) return item.answer;
   }
-};
-
-interface Message {
-  sender: string;
-  text: string;
+  return "I can help with:\n• Tracking\n• Pricing\n• Delivery time\n• Customs/VAT\n\nType: “track my shipment” or “price estimate”.";
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  const { messages, userType, feature } = req.body as {
-    messages: Message[];
-    userType: UserType;
-    feature: Feature;
-  };
 
-  let systemPrompt = (systemPrompts[feature]?.[userType]) || "You are a helpful assistant.";
-  let lastMsg = messages[messages.length - 1]?.text || "";
-
-  // For translation, allow user to specify language as "|LANG: Arabic"
-  if (feature === "translation" && lastMsg.includes("|LANG:")) {
-    const [text, lang] = lastMsg.split("|LANG:").map((s: string) => s.trim());
-    systemPrompt += `\nTranslate the following into ${lang}: "${text}". Reply only with the translation.`;
-    lastMsg = text;
+  const messages = req.body?.messages as ChatMessage[];
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: "Missing messages array" });
   }
 
-  const history = messages.map((m: Message) => ({
-    role: m.sender === "user" ? "user" : "assistant",
-    content: m.text
-  }));
+  const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
 
+  // ✅ FREE MODE if no key
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(200).json({ reply: smartDemoReply(lastUser), mode: "demo" });
+  }
+
+  // ✅ PAID MODE later (auto)
   try {
-    const result = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [{ role: "system", content: systemPrompt }, ...history],
-        max_tokens: 250,
-        temperature: 0.4
-      })
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.4,
+      messages: [
+        { role: "system", content: "You are a helpful logistics assistant. Be concise and practical." },
+        ...messages,
+      ],
     });
-    const data = await result.json();
-    const reply = data.choices?.[0]?.message?.content || "I'm not sure.";
-    res.status(200).json({ reply });
-  } catch (err) {
-    res.status(500).json({ reply: "AI service error." });
+
+    const reply =
+      completion.choices?.[0]?.message?.content?.trim() || smartDemoReply(lastUser);
+
+    return res.status(200).json({ reply, mode: "ai" });
+  } catch (err: any) {
+    // ✅ If quota exceeded / 429 / anything, fallback to demo
+    return res.status(200).json({ reply: smartDemoReply(lastUser), mode: "demo" });
   }
 }

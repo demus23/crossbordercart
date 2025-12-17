@@ -26,6 +26,18 @@ import AdminShippingSettingsTable from "@/components/AdminShippingSettingsTable"
 import ShippingQuoteSimple from "@/components/ShippingQuoteSimple";
 import TrackingSearchCard from "@/components/tracking/TrackingSearchCard";
 import dynamic from "next/dynamic";
+
+type ShipmentKpis = {
+  ok: true;
+  totalShipments: number;
+  inTransit: number;
+  delivered: number;
+  problems: number;
+  unpaidCount: number;
+  unpaidAmount: number;
+  paidAmount: number;
+};
+
 const ShipmentsWidget = dynamic(() => import("@/components/admin/ShipmentsWidget"), { ssr: false });
 
 
@@ -223,6 +235,9 @@ export default function AdminDashboard() {
   // Latest documents
   const [latestDocs, setLatestDocs] = useState<AdminDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState<boolean>(true);
+  const [shipKpis, setShipKpis] = useState<ShipmentKpis | null>(null);
+  const [shipKpisLoading, setShipKpisLoading] = useState(false);
+  const [shipKpisError, setShipKpisError] = useState<string | null>(null);
 
   // load stats
   useEffect(() => {
@@ -244,6 +259,30 @@ export default function AdminDashboard() {
       canceled = true;
     };
   }, []);
+
+    useEffect(() => {
+    const loadKpis = async () => {
+      try {
+        setShipKpisLoading(true);
+        setShipKpisError(null);
+        const res = await fetch("/api/admin/shipments/kpis");
+        if (!res.ok) throw new Error("Failed to load shipment KPIs");
+        const data = (await res.json()) as ShipmentKpis | { ok: false; error: string };
+        if (!("ok" in data) || data.ok === false) {
+          throw new Error((data as any).error || "Failed to load shipment KPIs");
+        }
+        setShipKpis(data);
+      } catch (e: any) {
+        console.error(e);
+        setShipKpisError(e?.message || "Failed to load shipment KPIs");
+      } finally {
+        setShipKpisLoading(false);
+      }
+    };
+
+    loadKpis();
+  }, []);
+
 
   const loadDocs = async () => {
     setDocsLoading(true);
@@ -275,35 +314,54 @@ export default function AdminDashboard() {
   };
 
   // unified tracking
-  const handleTrackingSearch = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const t = trackingNumber.trim();
-    if (!t) return;
-    setTrackingLoading(true);
-    setTrackingResult(null);
-    try {
-      const res = await fetch(
-        `/api/tracking/events?trackingNo=${encodeURIComponent(t)}&limit=1`
-      );
-      if (!res.ok) throw new Error("Not found");
-      const data = await res.json();
-      const ev = data?.events?.[0];
-      if (!ev) {
-        setTrackingResult("Not found");
-      } else {
-        setTrackingResult({
-          status: ev.status,
-          location: ev.location,
-          createdAt: ev.createdAt,
-          lastUpdate: ev.createdAt,
-        });
-      }
-    } catch {
-      setTrackingResult("Not found");
-    } finally {
-      setTrackingLoading(false);
+  const handleTrackingSearch = async (
+  e: React.FormEvent<HTMLFormElement>
+) => {
+  e.preventDefault();
+
+  const t = trackingNumber.trim();
+  if (!t) return;
+
+  setTrackingLoading(true);
+  setTrackingResult(null);
+
+  try {
+    // ✅ use the real tracking endpoint
+    const res = await fetch(
+      `/api/track?trackingNo=${encodeURIComponent(t)}&limit=1`
+    );
+
+    if (!res.ok) throw new Error("Not found");
+
+    const data = await res.json();
+
+    // /api/track returns: { ok, package, events: [...] }
+    if (data.ok === false) {
+      throw new Error(data.error || "Not found");
     }
-  };
+
+    const events = Array.isArray(data.events) ? data.events : [];
+    const ev = events[0]; // latest event
+
+    if (!ev) {
+      setTrackingResult("Not found");
+    } else {
+      setTrackingResult({
+        status: ev.status ?? data.package?.status ?? "Pending",
+        location: ev.location ?? data.package?.location ?? "",
+        createdAt:
+          data.package?.createdAt ?? ev.time ?? ev.createdAt ?? null,
+        lastUpdate:
+          data.package?.updatedAt ?? ev.time ?? ev.createdAt ?? null,
+      });
+    }
+  } catch {
+    setTrackingResult("Not found");
+  } finally {
+    setTrackingLoading(false);
+  }
+};
+
 
   if (loading) {
     return (
@@ -551,7 +609,94 @@ export default function AdminDashboard() {
           </Card>
         </Col>
       </Row>
-      
+       <div className="mt-4">
+        <h2 className="h5 mb-3">Shipment Overview</h2>
+
+        {shipKpisError && (
+          <div className="alert alert-danger">{shipKpisError}</div>
+        )}
+
+        <div className="row">
+          <div className="col-md-3 mb-3">
+            <div className="card shadow-sm">
+              <div className="card-body">
+                <div className="small text-muted">Total Shipments</div>
+                <div className="h4 mb-0">
+                  {shipKpisLoading ? "…" : shipKpis?.totalShipments ?? 0}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-3 mb-3">
+            <div className="card shadow-sm">
+              <div className="card-body">
+                <div className="small text-muted">In Transit</div>
+                <div className="h4 mb-0">
+                  {shipKpisLoading ? "…" : shipKpis?.inTransit ?? 0}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-3 mb-3">
+            <div className="card shadow-sm">
+              <div className="card-body">
+                <div className="small text-muted">Delivered</div>
+                <div className="h4 mb-0 text-success">
+                  {shipKpisLoading ? "…" : shipKpis?.delivered ?? 0}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-3 mb-3">
+            <div className="card shadow-sm">
+              <div className="card-body">
+                <div className="small text-muted">Problem/Returned</div>
+                <div className="h4 mb-0 text-danger">
+                  {shipKpisLoading ? "…" : shipKpis?.problems ?? 0}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-md-4 mb-3">
+            <div className="card shadow-sm">
+              <div className="card-body">
+                <div className="small text-muted">Unpaid Shipments</div>
+                <div className="h4 mb-0">
+                  {shipKpisLoading ? "…" : shipKpis?.unpaidCount ?? 0}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-4 mb-3">
+            <div className="card shadow-sm">
+              <div className="card-body">
+                <div className="small text-muted">Unpaid Amount</div>
+                <div className="h4 mb-0 text-warning">
+                  {shipKpisLoading ? "…" : `${shipKpis?.unpaidAmount ?? 0} AED`}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-4 mb-3">
+            <div className="card shadow-sm">
+              <div className="card-body">
+                <div className="small text-muted">Total Paid Amount</div>
+                <div className="h4 mb-0 text-success">
+                  {shipKpisLoading ? "…" : `${shipKpis?.paidAmount ?? 0} AED`}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Row 4: Chart + Transaction + Activity */}
       <Row className="mb-4 g-3">

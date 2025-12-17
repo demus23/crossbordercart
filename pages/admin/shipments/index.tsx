@@ -1,6 +1,12 @@
 // pages/admin/shipments/index.tsx
 import * as React from "react";
 import Head from "next/head";
+import Link from "next/link";
+import AdminLayout from "@/components/AdminLayout";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/pages/api/auth/[...nextauth]";
+import type { GetServerSideProps } from "next";
+import { Button, Table } from "react-bootstrap";
 
 type Rate = {
   objectId: string;
@@ -11,7 +17,7 @@ type Rate = {
   etaDays?: number;
 };
 
-export default function AdminShipments() {
+function AdminShipmentsPage() {
   const [loading, setLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
 
@@ -179,13 +185,13 @@ export default function AdminShipments() {
   }
 
   return (
-    <>
+    <AdminLayout>
       <Head><title>Admin · Shipments</title></Head>
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-6 max-w-5xl mx-auto">
         <h1 className="text-2xl font-semibold mb-4">Shipments</h1>
 
         {/* Create/Get rates form */}
-        <div className="space-y-3 p-4 border rounded-lg">
+        <div className="space-y-3 p-4 border rounded-lg bg-white">
           <div className="grid grid-cols-3 gap-3">
             <label className="text-sm">Order ID
               <input className="mt-1 w-full border rounded px-2 py-1"
@@ -248,7 +254,7 @@ export default function AdminShipments() {
 
         {/* Rates */}
         {rates.length > 0 && (
-          <div className="mt-6 p-4 border rounded-lg">
+          <div className="mt-6 p-4 border rounded-lg bg-white">
             <h2 className="font-medium mb-2">Rates</h2>
             <div className="grid gap-3 md:grid-cols-2">
               {rates.map(r => (
@@ -283,7 +289,7 @@ export default function AdminShipments() {
 
         {/* Result */}
         {(shipmentId || labelUrl || trackingNumber) && (
-          <div className="mt-6 p-4 border rounded-lg space-y-2">
+          <div className="mt-6 p-4 border rounded-lg bg-white space-y-2">
             <div className="text-sm">Shipment ID: {shipmentId ? <code>{shipmentId}</code> : "—"}</div>
             <div className="text-sm">Tracking: {trackingNumber ? <code>{trackingNumber}</code> : "—"}</div>
             <div className="text-sm">Carrier: <span className="font-medium">{carrier || "—"}</span></div>
@@ -316,11 +322,10 @@ export default function AdminShipments() {
         {message && <div className="mt-4 text-sm text-blue-700">{message}</div>}
 
         {/* Recent Shipments */}
-        <div className="mt-10 p-4 border rounded-lg">
+        <div className="mt-10 p-4 border rounded-lg bg-white">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-medium">Recent Shipments</h2>
 
-            {/* CSV button disabled until export API is added */}
             <div className="flex items-center gap-2">
               <input
                 className="border rounded px-2 py-1 text-sm"
@@ -341,21 +346,6 @@ export default function AdminShipments() {
                 value={exportTo}
                 onChange={(e) => setExportTo(e.target.value)}
               />
-              {/* Uncomment when /api/admin/shipments/export exists
-              <button
-                className="px-3 py-1 rounded border"
-                onClick={() => {
-                  const url = buildExportUrl({
-                    status: exportStatus || undefined,
-                    from: exportFrom || undefined,
-                    to: exportTo || undefined,
-                    limit: 2000,
-                  });
-                  window.open(url, "_blank");
-                }}
-              >
-                Download CSV
-              </button> */}
               <button className="px-3 py-1 rounded border" onClick={refreshList} disabled={loading}>
                 Refresh
               </button>
@@ -368,89 +358,176 @@ export default function AdminShipments() {
                 <tr className="text-left border-b">
                   <th className="py-2 pr-3">Created</th>
                   <th className="py-2 pr-3">Order</th>
-                  <th className="py-2 pr-3">Tracking</th>
+                  <th className="py-2 pr-3">Tracking #</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3">Label</th>
+                  <th className="py-2 pr-3">Track</th>
                   <th className="py-2">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {rows.map((r: any) => (
-                  <tr key={String(r._id)} className="border-b last:border-0">
-                    <td className="py-2 pr-3">{r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}</td>
-                    <td className="py-2 pr-3">{r.orderId || "-"}</td>
-                    <td className="py-2 pr-3">{r.trackingNumber ? <code>{r.trackingNumber}</code> : <span className="text-gray-500">—</span>}</td>
-                    <td className="py-2 pr-3">
-                      <span className="inline-flex items-center rounded px-2 py-0.5 border">{r.status || "-"}</span>
-                    </td>
-                    <td className="py-2 pr-3">
-                      {r.labelUrl ? (
-                        <a className="text-blue-700 underline" href={r.labelUrl} target="_blank" rel="noreferrer">
-                          open
-                        </a>
-                      ) : <span className="text-gray-500">—</span>}
-                    </td>
-                    <td className="py-2">
-                      <div className="flex gap-2">
-                        <button
-                          className="px-2 py-1 rounded border"
-                          onClick={async () => { try {
-                            await simulateTracking({ trackingNumber: r.trackingNumber, status: "in_transit" });
-                            await refreshList();
-                          } catch(e){ console.error(e); } }}
-                        >
-                          In-transit
-                        </button>
-                        <button
-                          className="px-2 py-1 rounded border"
-                          onClick={async () => { try {
-                            await simulateTracking({ trackingNumber: r.trackingNumber, status: "out_for_delivery" });
-                            await refreshList();
-                          } catch(e){ console.error(e); } }}
-                        >
-                          Out for delivery
-                        </button>
-                        <button
-                          className="px-2 py-1 rounded bg-green-600 text-white disabled:opacity-50"
-                          disabled={r.status === "delivered"}
-                          onClick={async () => { try {
-                            await simulateTracking({ trackingNumber: r.trackingNumber, status: "delivered" });
-                            await refreshList();
-                          } catch(e){ console.error(e); } }}
-                        >
-                          Delivered
-                        </button>
-                        <button
-                          className="px-2 py-1 rounded border"
-                          onClick={async () => { try {
-                            await simulateTracking({ trackingNumber: r.trackingNumber, status: "exception" });
-                            await refreshList();
-                          } catch(e){ console.error(e); } }}
-                        >
-                          Exception
-                        </button>
-                        <button
-                          className="px-2 py-1 rounded border"
-                          onClick={() => resendEmail(String(r._id))}
-                        >
-                          Resend email
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td className="py-4 text-gray-500" colSpan={6}>
-                      No shipments yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
+             <tbody>
+  {rows.map((r: any) => (
+    <tr key={String(r._id)} className="border-b last:border-0">
+      <td className="py-2 pr-3">
+        {r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}
+      </td>
+      <td className="py-2 pr-3">{r.orderId || "-"}</td>
+      <td className="py-2 pr-3">
+        {r.trackingNumber ? (
+          <code>{r.trackingNumber}</code>
+        ) : (
+          <span className="text-gray-500">—</span>
+        )}
+      </td>
+      <td className="py-2 pr-3">
+        <span className="inline-flex items-center rounded px-2 py-0.5 border">
+          {r.status || "-"}
+        </span>
+      </td>
+      <td className="py-2 pr-3">
+        {r.labelUrl ? (
+          <a
+            className="text-blue-700 underline"
+            href={r.labelUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            open
+          </a>
+        ) : (
+          <span className="text-gray-500">—</span>
+        )}
+      </td>
+
+      {/* ✅ Public tracking page */}
+      <td className="py-2 pr-3">
+        <Link href={`/track/${r._id}`} className="text-emerald-700 underline">
+          Track
+        </Link>
+      </td>
+
+      {/* ✅ Admin actions (including Timeline) */}
+      <td className="py-2">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/admin/shipment-timeline-test?id=${r._id}`}
+            className="px-2 py-1 rounded border text-xs font-medium text-blue-700 hover:bg-blue-50"
+          >
+            Timeline
+          </Link>
+
+          <button
+            className="px-2 py-1 rounded border"
+            onClick={async () => {
+              try {
+                await simulateTracking({
+                  trackingNumber: r.trackingNumber,
+                  status: "in_transit",
+                });
+                await refreshList();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          >
+            In-transit
+          </button>
+
+          <button
+            className="px-2 py-1 rounded border"
+            onClick={async () => {
+              try {
+                await simulateTracking({
+                  trackingNumber: r.trackingNumber,
+                  status: "out_for_delivery",
+                });
+                await refreshList();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          >
+            Out for delivery
+          </button>
+
+          <button
+            className="px-2 py-1 rounded bg-green-600 text-white disabled:opacity-50"
+            disabled={r.status === "delivered"}
+            onClick={async () => {
+              try {
+                await simulateTracking({
+                  trackingNumber: r.trackingNumber,
+                  status: "delivered",
+                });
+                await refreshList();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          >
+            Delivered
+          </button>
+
+          <button
+            className="px-2 py-1 rounded border"
+            onClick={async () => {
+              try {
+                await simulateTracking({
+                  trackingNumber: r.trackingNumber,
+                  status: "exception",
+                });
+                await refreshList();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          >
+            Exception
+          </button>
+
+          <button
+            className="px-2 py-1 rounded border"
+            onClick={() => resendEmail(String(r._id))}
+          >
+            Resend email
+          </button>
+        </div>
+      </td>
+    </tr>
+  ))}
+
+  {rows.length === 0 && (
+    <tr>
+      <td className="py-4 text-gray-500" colSpan={7}>
+        No shipments yet.
+      </td>
+    </tr>
+  )}
+</tbody>
+
             </table>
           </div>
         </div>
       </div>
-    </>
+    </AdminLayout>
   );
 }
+
+export default AdminShipmentsPage;
+
+// ✅ Admin-only guard
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const session = await getServerSession(ctx.req, ctx.res, authOptions);
+
+  const isAdmin =
+    (session as any)?.user?.role === "admin" ||
+    (session as any)?.user?.isAdmin === true;
+
+  if (!session || !isAdmin) {
+    return {
+      redirect: { destination: "/login", permanent: false },
+    };
+  }
+
+  return { props: {} };
+};

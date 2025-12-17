@@ -1,34 +1,39 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+type ChatRole = "assistant" | "user";
 
-  const { messages } = req.body; // array: [{role:"user"/"assistant", content:"..."}]
-  if (!Array.isArray(messages)) return res.status(400).json({ error: "No messages" });
+type ChatMessage = { role: ChatRole; content: string };
 
-  // --- Use your OpenAI API key securely ---
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "No API key" });
+type RequestBody = { messages: ChatMessage[] };
+
+type ResponseBody = { aiMessage: string } | { error: string };
+
+export default function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<ResponseBody>
+) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
   try {
-    const apiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages,
-        max_tokens: 600,
-        temperature: 0.5
-      }),
-    });
-    const data = await apiRes.json();
-    // Extract the assistant's reply
-    const reply = data?.choices?.[0]?.message?.content || "No response";
-    return res.status(200).json({ reply });
-  } catch (err) {
-    return res.status(500).json({ error: "AI error" });
+    const { messages } = req.body as RequestBody;
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: "Missing messages array." });
+    }
+
+    const lastUser =
+      [...messages].reverse().find((m) => m.role === "user")?.content ??
+      "nothing";
+
+    const reply = `Test reply from server: you said “${lastUser}”.`;
+
+    return res.status(200).json({ aiMessage: reply });
+  } catch (err: any) {
+    console.error("AI /chat error:", err);
+    return res
+      .status(500)
+      .json({ error: err?.message || "Internal server error." });
   }
 }

@@ -1,79 +1,118 @@
 // pages/api/admin/shipments/[id]/events.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../auth/[...nextauth]"; // 👈 adjust if your path differs
+import mongoose from "mongoose";
 import dbConnect from "@/lib/dbConnect";
-import TrackingEvent from "@/lib/models/TrackingEvent";
-import { createTrackingEvent } from "@/lib/server/tracking";
+import { Shipment } from "@/lib/models/Shipment";
 import { errorMessage } from "@/utils/errors";
 
-// Safe session typing to avoid TS2339 on session.user
-type SessionUser = { id?: string; name?: string; email?: string | null };
-type MySession = { user?: SessionUser } | null;
+function buildShipmentOrQuery(idOrTracking: string) {
+  const or: any[] = [];
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  await dbConnect();
+  // if it looks like a valid ObjectId, allow search by _id
+  if (mongoose.Types.ObjectId.isValid(idOrTracking)) {
+    or.push({ _id: idOrTracking });
+  }
 
-  const { id } = req.query as { id: string }; // treating this as packageId (OK even if your route is "shipments")
-  const session = (await getServerSession(req, res, authOptions as any)) as MySession;
+  // always allow search by trackingNumber
+  or.push({ trackingNumber: idOrTracking });
+
+  // if somehow neither, just return impossible query to be safe
+  return or.length > 0 ? { $or: or } : { _id: null };
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  try {
+    await dbConnect();
+  } catch (e) {
+    console.error("DB error in shipment events API:", e);
+    return res
+      .status(500)
+      .json({ ok: false, error: "Database connection error" });
+  }
+
+  const { id } = req.query as { id?: string };
+  if (!id) {
+    return res.status(400).json({
+      ok: false,
+      error: "Shipment identifier (:id in the route) is required",
+    });
+  }
+
+  const query = buildShipmentOrQuery(id);
 
   if (req.method === "POST") {
     try {
-      const { trackingNo, status, location = "", note = "" } = req.body || {};
+      const { status, description = "", location = "", code } = req.body || {};
 
-      if (!id || !trackingNo || !status) {
-        return res.status(400).json({
-          ok: false,
-          error: "packageId (from route :id), trackingNo, and status are required",
-        });
+      if (!status) {
+        return res
+          .status(400)
+          .json({ ok: false, error: "status is required" });
       }
 
-      const actorId = session?.user?.id ?? session?.user?.email ?? "system";
-      const actorName = session?.user?.name ?? session?.user?.email ?? "System";
+      const shipment = await Shipment.findOne(query);
+      if (!shipment) {
+        return res
+          .status(404)
+          .json({ ok: false, error: "Shipment not found" });
+      }
 
-      // Central helper also updates the Package snapshot fields
-      const ev = await createTrackingEvent({
-        packageId: id,
-        trackingNo,
+      const event = {
         status,
+        description,
         location,
-        note,
-        actorId,
-        actorName,
-      });
+        code,
+        createdAt: new Date(),
+      };
 
-      return res.status(201).json({ ok: true, event: ev });
+      // @ts-ignore – mongoose typing is not perfect here
+      shipment.events = shipment.events || [];
+      // @ts-ignore
+      shipment.events.push(event);
+
+      // keep main status in sync with last event
+      // @ts-ignore
+      shipment.status = status;
+
+      await shipment.save();
+
+      return res.status(201).json({ ok: true, event });
     } catch (e: unknown) {
-  return res
-    .status(500)
-    .json({ ok: false, error: errorMessage(e) || "Failed to create event" });
-}
+      console.error("Error adding shipment event:", e);
+      return res.status(500).json({
+        ok: false,
+        error: errorMessage(e) || "Failed to create event",
+      });
+    }
   }
 
   if (req.method === "GET") {
     try {
-      // You can also pass ?trackingNo=... to fetch by tracking number
-      const { trackingNo, limit = "50" } = req.query as { trackingNo?: string; limit?: string };
-
-      if (!id && !trackingNo) {
-        return res.status(400).json({ ok: false, error: "id or trackingNo required" });
+      const shipment = await Shipment.findOne(query).select("events");
+      if (!shipment) {
+        return res
+          .status(404)
+          .json({ ok: false, error: "Shipment not found" });
       }
 
-      const q: any = {};
-      if (trackingNo) q.trackingNo = trackingNo;
-      else q.packageId = id;
-
-      const events = await TrackingEvent.find(q)
-        .sort({ createdAt: -1 })
-        .limit(parseInt(String(limit), 10));
+      // @ts-ignore
+      const events = (shipment.events || []).slice().sort(
+        (a: any, b: any) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
       return res.status(200).json({ ok: true, events });
-   } catch (e: unknown) {
-  return res
-    .status(500)
-    .json({ ok: false, error: errorMessage(e) || "Failed to fetch events"  });
-} 
-    
+    } catch (e: unknown) {
+      console.error("Error fetching shipment events:", e);
+      return res.status(500).json({
+        ok: false,
+        error: errorMessage(e) || "Failed to fetch events",
+      });
+    }
   }
 
   res.setHeader("Allow", "GET, POST");
