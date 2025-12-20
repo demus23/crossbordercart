@@ -2,25 +2,13 @@
 
 /* ===== Global resets ===== */
 
-* {
+/* === Global reset to avoid horizontal scroll on mobile/tablet === */
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
-
-#__next {
-  width: 100%;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-img, svg, video, canvas {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Tailwind (keep before custom layout rules) */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 html,
 body {
@@ -28,8 +16,15 @@ body {
   padding: 0;
   width: 100%;
   max-width: 100%;
+  overflow-x: hidden;   /* hard stop for white strip / side scroll */
+}
+
+#__next {
+  width: 100%;
+  max-width: 100%;
   overflow-x: hidden;
 }
+
 
 /* ===== Background gradient for the whole app ===== */
 body {
@@ -159,11 +154,16 @@ h1, .dashboard-title {
   min-height: 100vh;
   background: #f5f7fb;
   color: #0f172a;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .page--light {
   padding: 4rem 1.5rem 5rem;
+  max-width: 100%;
+  overflow-x: hidden;
 }
+
 
 @media (min-width: 768px) {
   .page--light {
@@ -219,6 +219,13 @@ h1, .dashboard-title {
 .hero--about .hero__subtitle {
   color: rgba(241, 245, 249, 0.85);
 }
+
+.hero,
+.section {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 
 .badge {
   display: inline-flex;

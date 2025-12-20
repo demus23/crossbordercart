@@ -368,7 +368,9 @@ const [chatOpen, setChatOpen] = useState(false);
             ))}
           </div>
         </div>
-      </section>
+     
+      </section><StoresStrip stores={homeStores} />
+
 
 
       {/* PRICING TEASER */}
@@ -600,8 +602,8 @@ const [chatOpen, setChatOpen] = useState(false);
           </div>
         </div>
       </section>
-
-      <FloatingChatButton
+      
+            <FloatingChatButton
         isOpen={chatOpen}
         onOpen={() => setChatOpen(true)}
       />
@@ -609,7 +611,10 @@ const [chatOpen, setChatOpen] = useState(false);
       <AIChatbotModal
         open={chatOpen}
         onClose={() => setChatOpen(false)}
-      />
+        />
+
+
+      
 
       {/* FOOTER */}
        <SiteFooter/>

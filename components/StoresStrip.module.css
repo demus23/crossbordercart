@@ -1,0 +1,179 @@
+.wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden; /* avoids white strip on mobile */
+  margin: 3rem 0;
+}
+
+.inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  background: #f3f7ff;
+  border-radius: 24px;
+  padding: 2.5rem 1.5rem 2rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+/* Heading */
+
+.header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #0369a1;
+  margin-bottom: 0.4rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 0.4rem;
+}
+
+.subtitle {
+  font-size: 0.9rem;
+  color: #64748b;
+  max-width: 34rem;
+  margin: 0 auto;
+}
+
+/* Controls row */
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.controls {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.arrowBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: #e5edff;
+  color: #0f172a;
+  font-size: 1.2rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.arrowBtn:hover {
+  background: #d4e3ff;
+}
+
+/* Slider strip */
+
+.scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.scroller::-webkit-scrollbar {
+  height: 6px;
+}
+
+.scroller::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: 999px;
+}
+
+.track {
+  display: flex;
+  gap: 1rem;
+  padding: 0.25rem 0.1rem 0.25rem 0;
+}
+
+/* Cards like your old design */
+
+.card {
+  flex: 0 0 220px; /* width on desktop */
+  max-width: 240px;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 1.1rem 0.9rem 1.2rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.logoShell {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.logoCircle {
+  position: relative;
+  width: 80px;
+  height: 52px;
+  border-radius: 999px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cardText {
+  text-align: center;
+}
+
+.storeName {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.storeSub {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+/* Mobile tweaks */
+
+@media (max-width: 768px) {
+  .inner {
+    border-radius: 18px;
+    padding: 1.8rem 1.1rem 1.6rem;
+  }
+
+  .title {
+    font-size: 1.2rem;
+  }
+
+  .track {
+    gap: 0.75rem;
+  }
+
+  .card {
+    flex: 0 0 170px; /* a bit narrower on mobile */
+    padding: 0.9rem 0.7rem 1rem;
+  }
+}
