@@ -692,3 +692,64 @@ h1, .dashboard-title {
   padding-left: 1rem;
   padding-right: 1rem;
 }
+
+/* === FINAL MOBILE HARD-FIX: stop any horizontal overflow === */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Make sure the main roots never scroll sideways */
+html,
+body,
+#__next {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Images / media never overflow */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mobile specific: fix Bootstrap containers/rows + our sections */
+@media (max-width: 768px) {
+  body * {
+    max-width: 100%;
+  }
+
+  /* Bootstrap containers */
+  .container,
+  .container-fluid {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Bootstrap rows sometimes have negative margins that cause sideways scroll */
+  .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Our main layout sections */
+  .page,
+  .page--light,
+  .hero,
+  .section {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+}
