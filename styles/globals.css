@@ -1,836 +1,139 @@
-@import "tw-animate-css";
-
-/* ===== Global resets ===== */
-
-/* === Global reset to avoid horizontal scroll on mobile/tablet === */
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;   /* hard stop for white strip / side scroll */
-}
-
-#__next {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-
-/* ===== Background gradient for the whole app ===== */
-body {
-  min-height: 100vh;
-  background: linear-gradient(120deg, #f8fafc 0%, #e0e7ef 100%);
-  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-}
-
-/* ===== Dashboard sidebar modern style ===== */
-.sidebar {
-  background: linear-gradient(135deg, #1e293b 80%, #2563eb 100%);
-  color: #fff;
-  min-height: 100vh;
-  box-shadow: 2px 0 16px 0 rgba(30,41,59,.07);
-}
-.sidebar .active,
-.sidebar a:hover {
-  background: rgba(255,255,255,0.10);
-  border-radius: 10px;
-  color: #fff;
-  font-weight: 600;
-  transition: background 0.15s;
-}
-
-/* ===== Dashboard main cards ===== */
-.card {
-  box-shadow: 0 2px 12px 0 rgba(34,60,80,.09);
-  border-radius: 16px;
-  background: #fff;
-  border: none;
-  transition: box-shadow 0.2s;
-}
-.card:hover {
-  box-shadow: 0 6px 24px 0 rgba(34,60,80,.18);
-}
-
-/* ===== Heading styles ===== */
-h1, .dashboard-title {
-  font-size: 2.3rem;
-  font-weight: 800;
-  color: #1e293b;
-  letter-spacing: -1px;
-  margin-bottom: 0.6em;
-}
-
-/* ===== Quick stat cards ===== */
-.quick-stat {
-  border-radius: 16px;
-  background: linear-gradient(100deg, #e0eaff 50%, #fff 100%);
-  box-shadow: 0 1px 6px rgba(34,60,80,.08);
-  text-align: center;
-  padding: 1.3em 0.7em;
-  font-size: 1.2rem;
-}
-
-/* ====== Custom status badges ====== */
-.admin-row:hover {
-  background: #f0f6fa !important;
-  transition: background 0.2s;
-}
-.status-badge {
-  display: inline-block;
-  padding: 4px 14px;
-  border-radius: 1em;
-  font-size: 13px;
-  font-weight: bold;
-  margin-right: 8px;
-  vertical-align: middle;
-}
-.status-badge.pending {
-  background: #fffbe7;
-  color: #b99806;
-  border: 1px solid #ffe580;
-}
-.status-badge.shipped {
-  background: #e6f0ff;
-  color: #1754a1;
-  border: 1px solid #97c0fa;
-}
-.status-badge.delivered {
-  background: #e7ffe7;
-  color: #107c10;
-  border: 1px solid #7affaa;
-}
-.status-badge.cancelled {
-  background: #ffeaea;
-  color: #c82333;
-  border: 1px solid #ffa6a6;
-}
-
-/* ===== Avatar & Logo ===== */
-.avatar {
-  border-radius: 50%;
-  border: 2px solid #2563eb;
-  box-shadow: 0 1px 5px rgba(0,0,0,0.10);
-}
-
-/* ===== Nice button for sidebar ===== */
-.sidebar .btn {
-  background: rgba(255,255,255,0.07);
-  border-radius: 10px;
-  color: #fff;
-  font-weight: 500;
-  border: none;
-  transition: background .2s;
-}
-.sidebar .btn:hover {
-  background: rgba(37,99,235,0.3);
-  color: #fff;
-}
-
-/* ===== Main container padding (for spacing) ===== */
-.main-container {
-  padding: 2.5rem 2rem 1.5rem 2rem;
-}
-
-/* ===== Responsive tweaks ===== */
-@media (max-width: 700px) {
-  .sidebar { min-width: 56px; padding: 8px !important; }
-  .main-container { padding: 1rem 4vw; }
-  .card, .quick-stat { border-radius: 8px; }
-}
-
-/* ===== Public pages layout ===== */
-
-.page {
-  min-height: 100vh;
-  background: #f5f7fb;
-  color: #0f172a;
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-.page--light {
-  padding: 4rem 1.5rem 5rem;
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-
-@media (min-width: 768px) {
-  .page--light {
-    padding: 4.5rem 2.5rem 5rem;
-  }
-}
-
-.section {
-  max-width: 1080px;
-  margin: 0 auto 3rem;
-}
-
-.section h2 {
-  font-size: 1.6rem;
-  margin-bottom: 1rem;
-}
-
-/* Hero */
-
-.hero {
-  max-width: 1080px;
-  margin: 0 auto 3rem;
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
-  gap: 2.5rem;
-  align-items: center;
-}
-
-.hero--small {
-  grid-template-columns: minmax(0, 1fr);
-  text-align: left;
-}
-
-.hero--about {
-  background: radial-gradient(circle at top left, #06b6d4 0, #0f172a 60%);
-  color: #fff;
-  padding: 2.5rem 2.5rem 2.5rem;
-  border-radius: 1.25rem;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.35);
-}
-
-.hero__content h1 {
-  font-size: 2.2rem;
-  margin-bottom: 1rem;
-}
-
-.hero__subtitle {
-  margin-top: 0.75rem;
-  max-width: 40rem;
-  color: rgba(15, 23, 42, 0.7);
-}
-
-.hero--about .hero__subtitle {
-  color: rgba(241, 245, 249, 0.85);
-}
-
-.hero,
-.section {
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  background: rgba(15, 23, 42, 0.85);
-  color: #e0f2fe;
-  margin-bottom: 0.75rem;
-}
-
-/* Hero highlights */
-
-.hero__highlights {
-  margin-top: 1.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.pill {
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  background: rgba(15, 23, 42, 0.5);
-  color: #e0f2fe;
-}
-
-/* Hero image card */
-
-.hero__image {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.hero-card {
-  background: #0b1120;
-  border-radius: 1.2rem;
-  padding: 1.5rem 1.75rem;
-  color: #e5e7eb;
-  min-width: 260px;
-  max-width: 320px;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.7);
-}
-
-.hero-card__label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #38bdf8;
-}
-
-.hero-card__tracking {
-  margin-top: 0.6rem;
-  font-weight: 600;
-}
-
-.hero-card__bar {
-  margin-top: 1.2rem;
-  width: 100%;
-  height: 8px;
-  border-radius: 999px;
-  background: #020617;
-  overflow: hidden;
-  position: relative;
-}
-
-.hero-card__bar-fill {
-  position: absolute;
-  inset: 0;
-  width: 60%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #22c55e, #eab308);
-}
-
-.hero-card__meta {
-  margin-top: 1rem;
-  font-size: 0.8rem;
-  color: #9ca3af;
-}
-
-@media (max-width: 480px) {
-  .hero-card {
-    min-width: 0;
-    width: 100%;
-    max-width: 100%;
-  }
-}
-
-/* Sections + grids */
-
-.section--soft {
-  background: #ffffff;
-  border-radius: 1.25rem;
-  padding: 2.5rem;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-}
-
-.section--cta {
-  max-width: 1080px;
-  text-align: center;
-}
-
-.section__cta-inner {
-  background: linear-gradient(135deg, #0ea5e9, #22c55e);
-  color: #ecfeff;
-  border-radius: 1.25rem;
-  padding: 2.2rem 2rem;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.45);
-}
-
-.section__split {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr);
-  gap: 2rem;
-  align-items: flex-start;
-}
-
-.section__split--contact {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr);
-}
-
-.grid {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.grid--3 {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-
-.grid--2 {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-
-@media (max-width: 900px) {
-  .hero {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .section__split,
-  .section__split--contact {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* Cards, buttons, lists */
-
-.card--step h3 {
-  margin-top: 0.6rem;
-  margin-bottom: 0.4rem;
-}
-
-.card--stats h3 {
-  margin-bottom: 0.8rem;
-}
-
-.card--stats ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.card--stats li + li {
-  margin-top: 0.8rem;
-}
-
-.card--stats strong {
-  display: block;
-}
-
-.card--form h2 {
-  margin-bottom: 1rem;
-}
-
-.card--link {
-  text-decoration: none;
-  color: inherit;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.card--link:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.1);
-}
-
-.step-icon {
-  display: inline-flex;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  align-items: center;
-  justify-content: center;
-  background: #e0f2fe;
-  color: #0369a1;
-  font-weight: 600;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.7rem 1.5rem;
-  border-radius: 999px;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.btn--primary {
-  background: #0f172a;
-  color: #f9fafb;
-}
-
-.btn--full {
-  width: 100%;
-}
-
-/* Form fields */
-
-.field {
-  margin-bottom: 1rem;
-}
-
-.field label {
-  display: block;
-  font-size: 0.9rem;
-  margin-bottom: 0.35rem;
-  font-weight: 500;
-}
-
-.field input,
-.field textarea {
-  width: 100%;
-  padding: 0.6rem 0.8rem;
-  border-radius: 0.7rem;
-  border: 1px solid #cbd5e1;
-  font: inherit;
-  outline: none;
-}
-
-.field input:focus,
-.field textarea:focus {
-  border-color: #0ea5e9;
-  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.2);
-}
-
-/* Lists */
-
-.list {
-  padding-left: 1.1rem;
-}
-
-.list--check {
-  list-style: none;
-  padding-left: 0;
-}
-
-.list--check li {
-  position: relative;
-  padding-left: 1.4rem;
-  margin-bottom: 0.5rem;
-}
-
-.list--check li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  top: 0.1rem;
-  color: #22c55e;
-  font-weight: 700;
-}
-
-.list--links {
-  list-style: none;
-  padding-left: 0;
-}
-
-.list--links a {
-  color: #0ea5e9;
-  text-decoration: none;
-}
-
-.list--links a:hover {
-  text-decoration: underline;
-}
-
-/* Policies & FAQ */
-
-.policy h2 {
-  margin-top: 1.75rem;
-  margin-bottom: 0.6rem;
-}
-
-.policy p,
-.policy li {
-  line-height: 1.6;
-}
-
-.policy ul {
-  padding-left: 1.2rem;
-}
-
-.policy__note {
-  margin-top: 2rem;
-  font-size: 0.85rem;
-  color: #64748b;
-}
-
-.faq {
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.faq__item {
-  border-radius: 0.9rem;
-  background: #ffffff;
-  padding: 0.9rem 1.2rem;
-  margin-bottom: 0.6rem;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.05);
-}
-
-.faq__question {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.faq__answer {
-  margin-top: 0.4rem;
-  line-height: 1.5;
-}
-/* ===== User dashboard full-width shell ===== */
-
-.user-dashboard-root {
-  min-height: 100vh;
-  width: 100%;
-  max-width: 100%;
-  background: #f5f7fb;           /* soft light bg */
-  overflow-x: hidden;            /* kill the right white space */
-}
-
-/* inner content area, centered but still responsive */
-.user-dashboard-inner {
-  max-width: 1120px;             /* desktop max width */
-  margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
-}
-
-/* top bar: title + actions in one line */
-.user-dashboard-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-
-/* left side: "Dashboard" + suite */
-.user-dashboard-title {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.user-dashboard-title-main {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.user-dashboard-title-sub {
-  font-size: 0.8rem;
-  color: #64748b;
-}
-
-/* right: buttons (notifications, invoices, logout, AI, support…) */
-.user-dashboard-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.4rem;
-}
-
-.user-pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #0f172a;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.user-pill-btn svg {
-  font-size: 0.9rem;
-}
-
-/* main area: left + right columns */
-.user-dashboard-main {
-  display: grid;
-  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.2fr);
-  gap: 1.25rem;
-}
-
-/* full-width + stacked on mobile */
-@media (max-width: 768px) {
-  .user-dashboard-inner {
-    padding: 1.25rem 1rem 3rem;
-  }
-
-  .user-dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .user-dashboard-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .user-dashboard-main {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-/* === Dashboard layout shell === */
-
-.dashboard-shell {
-  min-height: 100vh;
-  background: #f6fbfb;
-  display: flex;
-  flex-direction: column;
-  max-width: 100%;
-  overflow-x: hidden;   /* extra safety for any wide tables */
-}
-
-.dashboard-header {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  background: #ffffff;
-  border-bottom: 1px solid #e8eef0;
-}
-
-.dashboard-main {
-  flex: 1;
-  width: 100%;
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-/* On very small screens, make sure containers don't leave a white strip */
-.dashboard-main .container,
-.dashboard-header .container {
-  padding-left: 1rem;
-  padding-right: 1rem;
-}
-
-/* === FINAL MOBILE HARD-FIX: stop any horizontal overflow === */
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-/* Make sure the main roots never scroll sideways */
-html,
-body,
-#__next {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-/* Images / media never overflow */
-img,
-svg,
-video,
-canvas {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Mobile specific: fix Bootstrap containers/rows + our sections */
-@media (max-width: 768px) {
-  body * {
-    max-width: 100%;
-  }
-
-  /* Bootstrap containers */
-  .container,
-  .container-fluid {
-    width: 100% !important;
-    max-width: 100% !important;
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    overflow-x: hidden !important;
-  }
-
-  /* Bootstrap rows sometimes have negative margins that cause sideways scroll */
-  .row {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-  }
-
-  /* Our main layout sections */
-  .page,
-  .page--light,
-  .hero,
-  .section {
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-  }
-}
-/* =========================================
-   MOBILE HORIZONTAL OVERFLOW - FINAL FIX
-   ========================================= */
-
-/* 1) Better box sizing */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================
+   GLOBAL MOBILE OVERFLOW / WHITE SPACE FIX (HARD STOP)
+   ========================================================= */
+
+/* 1) Better box sizing everywhere */
 *, *::before, *::after { box-sizing: border-box; }
 
-/* 2) Never allow root to exceed viewport */
+/* 2) Never allow the document to exceed viewport width */
 html, body {
+  margin: 0;
+  padding: 0;
   width: 100%;
   max-width: 100%;
-  overflow-x: clip; /* stronger than hidden on modern browsers */
+  overflow-x: hidden; /* fallback */
+}
+
+/* Use clip when supported (stronger than hidden) */
+@supports (overflow: clip) {
+  html, body { overflow-x: clip; }
 }
 
 #__next {
   width: 100%;
   max-width: 100%;
-  overflow-x: clip;
+  overflow-x: hidden;
+}
+@supports (overflow: clip) {
+  #__next { overflow-x: clip; }
 }
 
-/* 3) Any media should never push width */
-img, svg, video, canvas {
+/* 3) Media should never push width */
+img, video, canvas, svg {
   max-width: 100%;
   height: auto;
 }
 
-/* 4) Fix common "100vw causes overflow" bug (100vw includes scrollbar width) */
-[class*="container"],
-.section,
-.page,
-.hero {
+/* 4) Any long text must wrap (prevents long URLs forcing width) */
+* { overflow-wrap: anywhere; word-break: break-word; }
+
+/* 5) CRITICAL: flex/grid children must be allowed to shrink */
+.minw0 { min-width: 0 !important; }
+.row > *, 
+.d-flex > *, 
+[class*="d-flex"] > * {
+  min-width: 0;
+}
+
+/* 6) Bootstrap overflow fixes (rows + containers are common culprits) */
+.container,
+.container-fluid {
+  width: 100%;
   max-width: 100%;
 }
 
-/* 5) Bootstrap rows can cause overflow because of negative margins */
 .row {
   margin-left: 0 !important;
   margin-right: 0 !important;
 }
 
-/* 6) Ensure flex/grid children can shrink (VERY IMPORTANT) */
-.minw0, 
-.card, 
-.section *, 
-.hero *, 
-.page * {
-  min-width: 0;
-}
-
-/* Extra clamp for mobile */
+/* Keep padding on containers without causing overflow */
 @media (max-width: 768px) {
-  body { overflow-x: clip; }
-
-  /* Containers should not create side overflow */
   .container,
   .container-fluid {
-    width: 100% !important;
-    max-width: 100% !important;
     padding-left: 14px !important;
     padding-right: 14px !important;
-    overflow-x: clip !important;
   }
 }
-/* Make feature cards / columns behave on mobile */
+
+/* =========================================================
+   YOUR SITE BASE STYLES (safe)
+   ========================================================= */
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(120deg, #f8fafc 0%, #e0e7ef 100%);
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  color: #0f172a;
+}
+
+/* =========================================================
+   MOBILE NAV / HEADER FIX (wrap + no overflow)
+   ========================================================= */
+.navbar,
+.navbar .container,
+.navbar .container-fluid {
+  max-width: 100%;
+}
+
+.navbar .navbar-nav {
+  flex-wrap: wrap !important;
+  gap: 10px;
+}
+
+.navbar .nav-link {
+  white-space: nowrap;
+}
+
 @media (max-width: 768px) {
-  /* If your cards are in a grid */
-  .grid--3, .grid--2, .grid {
+  /* if your header uses flex-nowrap anywhere, this prevents “one long row” */
+  .flex-nowrap { flex-wrap: wrap !important; }
+}
+
+/* =========================================================
+   GRIDS / CARDS: stop “4 long thin cards” on mobile
+   ========================================================= */
+.grid,
+.grid--2,
+.grid--3 {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .grid,
+  .grid--2,
+  .grid--3 {
     grid-template-columns: 1fr !important;
   }
 
-  /* If they are Bootstrap columns */
-  .col, [class^="col-"], [class*=" col-"] {
-    max-width: 100% !important;
-    flex: 0 0 100% !important;
-  }
-
-  /* Cards should fill width */
+  /* cards should not overflow */
   .card {
     width: 100% !important;
+    max-width: 100% !important;
   }
+}
+
+/* =========================================================
+   OPTIONAL: tables are another common overflow source
+   ========================================================= */
+table {
+  max-width: 100%;
+}
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
