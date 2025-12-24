@@ -2,32 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-/* =========================================================
-   GLOBAL MOBILE OVERFLOW / WHITE SPACE FIX (HARD STOP)
-   ========================================================= */
+/* ✅ GLOBAL MOBILE OVERFLOW FIXES */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
-/* 1) Better box sizing everywhere */
-*, *::before, *::after { box-sizing: border-box; }
-
-/* 2) Never allow the document to exceed viewport width */
-html, body {
-  margin: 0;
-  padding: 0;
+html,
+body {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden; /* fallback */
+  overflow-x: clip; /* better than hidden on mobile */
+ 
 }
 
-/* Use clip when supported (stronger than hidden) */
-@supports (overflow: clip) {
-  html, body { overflow-x: clip; }
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
 }
 
+/* Bootstrap containers sometimes cause overflow on mobile */
+.container,
+.container-fluid {
+  max-width: 100% !important;
+  overflow-x: clip;
+}
+
+/* Next root */
 #__next {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
+
 @supports (overflow: clip) {
   #__next { overflow-x: clip; }
 }
