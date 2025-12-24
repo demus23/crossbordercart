@@ -753,3 +753,84 @@ canvas {
     overflow-x: hidden !important;
   }
 }
+/* =========================================
+   MOBILE HORIZONTAL OVERFLOW - FINAL FIX
+   ========================================= */
+
+/* 1) Better box sizing */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* 2) Never allow root to exceed viewport */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip; /* stronger than hidden on modern browsers */
+}
+
+#__next {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* 3) Any media should never push width */
+img, svg, video, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 4) Fix common "100vw causes overflow" bug (100vw includes scrollbar width) */
+[class*="container"],
+.section,
+.page,
+.hero {
+  max-width: 100%;
+}
+
+/* 5) Bootstrap rows can cause overflow because of negative margins */
+.row {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* 6) Ensure flex/grid children can shrink (VERY IMPORTANT) */
+.minw0, 
+.card, 
+.section *, 
+.hero *, 
+.page * {
+  min-width: 0;
+}
+
+/* Extra clamp for mobile */
+@media (max-width: 768px) {
+  body { overflow-x: clip; }
+
+  /* Containers should not create side overflow */
+  .container,
+  .container-fluid {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    overflow-x: clip !important;
+  }
+}
+/* Make feature cards / columns behave on mobile */
+@media (max-width: 768px) {
+  /* If your cards are in a grid */
+  .grid--3, .grid--2, .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* If they are Bootstrap columns */
+  .col, [class^="col-"], [class*=" col-"] {
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+
+  /* Cards should fill width */
+  .card {
+    width: 100% !important;
+  }
+}

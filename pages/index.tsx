@@ -323,53 +323,10 @@ const [chatOpen, setChatOpen] = useState(false);
         </div>
       </section>
 
-            {/* SHOWCASE – STORES / BRANDS */}
-      <section style={section} id="showcase">
-        <h2 style={sectionTitle}>
-          Shop your favourite stores with Cross Border Cart
-        </h2>
-        <p style={sectionSubtitle}>
-          If a store can ship to a UAE address, you can usually use it with Cross
-          Border Cart. Here are some popular examples.
-        </p>
-
-        <div style={showcaseGrid} className="store-slider">
-          <div className="store-track">
-            {homeStores.concat(homeStores).map((store, idx) => (
-              <a
-                key={`${store.name}-${idx}`}
-                href={store.url}
-                target="_blank"
-                rel="noreferrer"
-                style={showcaseItem}
-                className="store-item"
-              >
-                <div className="store-logo-wrapper">
-                  <Image
-                    src={store.logo}
-                    alt={store.name}
-                    width={70}
-                    height={40}
-                    style={{ objectFit: "contain" }}
-                  />
-                </div>
-                <span className="store-name">{store.name}</span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "#64748b",
-                    marginTop: 2,
-                    textAlign: "center",
-                  }}
-                >
-                  Compatible with Cross Border Cart
-                </span>
-              </a>
-            ))}
-          </div>
-        </div>
-     
-      </section><StoresStrip stores={homeStores} />
+      
+      <div style={{ width: "100%", maxWidth: "100%", overflow: "hidden" }}>
+      <StoresStrip stores={homeStores} />
+      </div>
 
 
 
@@ -637,58 +594,7 @@ const [chatOpen, setChatOpen] = useState(false);
         .btn-cta:hover {
           box-shadow: 0 14px 34px rgba(34, 197, 158, 0.4);
         }
-                  .store-slider {
-          position: relative;
-        }
-        .store-track {
-          display: flex;
-          align-items: center;
-          animation: storeMarquee 28s linear infinite;
-          will-change: transform;
-        }
-        .store-item {
-          text-decoration: none;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-        .store-item:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.15);
-        }
-        .store-logo-wrapper {
-          width: 70px;
-          height: 40px;
-          border-radius: 12px;
-          overflow: hidden;
-          background: #f1f5f9;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 6px;
-        }
-        .store-name {
-          font-size: 13px;
-          font-weight: 600;
-          color: #0f172a;
-        }
-        @keyframes storeMarquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-
-        @media (max-width: 1024px) {
-          .hero-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-        @media (max-width: 900px) {
-          h1 {
-            font-size: 32px !important;
-          }
-        }
+                
       `}</style>
     </div>
   );
