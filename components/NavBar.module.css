@@ -1,42 +1,50 @@
 /* components/NavBar.module.css */
 
+/* ===== Base ===== */
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: 50;
   width: 100%;
-  background: rgba(15, 23, 42, 0.94); /* slate-900 with slight opacity */
-  backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  max-width: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .navInner {
-  max-width: 1120px;
+  width: 100%;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 0.5rem 1rem;
+  padding: 10px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+
+  /* ✅ critical: prevents children from expanding width */
+  min-width: 0;
 }
 
-/* Brand */
-
+/* ===== Brand ===== */
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 10px;
   text-decoration: none;
-  color: #e5e7eb;
+  color: #0f172a;
+  min-width: 0;
 }
 
 .logoWrap {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   overflow: hidden;
-  background: radial-gradient(circle at 30% 20%, #22d3ee, #0f766e);
-  box-shadow: 0 10px 25px rgba(15, 118, 110, 0.55);
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  flex: 0 0 auto;
 }
 
 .logoImg {
@@ -47,170 +55,170 @@
   display: flex;
   flex-direction: column;
   line-height: 1.05;
+  min-width: 0;
 }
 
 .brandLineTop {
-  font-size: 0.8rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #a5f3fc;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
 }
 
 .brandLineBottom {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #f9fafb;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
 }
 
-/* Links */
-
+/* ===== Links row (desktop) ===== */
 .links {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .link {
-  position: relative;
-  font-size: 0.9rem;
-  padding: 0.45rem 0.75rem;
-  color: #e5e7eb;
-  text-decoration: none;
+  padding: 8px 10px;
   border-radius: 999px;
-  transition:
-    background 150ms ease,
-    color 150ms ease,
-    transform 150ms ease;
+  text-decoration: none;
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .link:hover {
-  background: rgba(148, 163, 184, 0.16);
-  transform: translateY(-1px);
+  background: rgba(15, 23, 42, 0.06);
 }
 
 .active {
-  background: rgba(45, 212, 191, 0.18);
-  color: #a5f3fc;
+  background: rgba(14, 165, 233, 0.12);
+  color: #075985;
 }
 
-/* CTA buttons */
-
 .cta {
-  border: 1px solid rgba(148, 163, 184, 0.6);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #ffffff;
 }
 
 .ctaFilled {
-  background: linear-gradient(135deg, #22d3ee, #14b8a6);
-  color: #0b1120;
-  font-weight: 600;
-  box-shadow: 0 8px 18px rgba(34, 211, 238, 0.4);
+  background: #16a34a;
+  color: #ffffff;
 }
 
 .ctaFilled:hover {
-  background: linear-gradient(135deg, #06b6d4, #0d9488);
+  background: #15803d;
 }
 
-/* Logout button */
-
 .logoutButton {
-  border: none;
-  background: transparent;
-  color: #e5e7eb;
-  font-size: 0.9rem;
-  padding: 0.4rem 0.75rem;
+  padding: 8px 12px;
   border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 150ms ease;
+  white-space: nowrap;
 }
 
 .logoutButton:hover {
-  background: rgba(248, 250, 252, 0.09);
+  background: rgba(15, 23, 42, 0.06);
 }
 
-/* Hamburger (mobile) */
-
+/* ===== Hamburger (hidden on desktop) ===== */
 .hamburger {
   display: none;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 999px;
-  border: none;
-  background: rgba(15, 23, 42, 0.9);
-  padding: 0;
-  margin-left: 0.25rem;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #fff;
   cursor: pointer;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  padding: 10px;
 }
 
 .hamburger span {
   display: block;
-  width: 18px;
   height: 2px;
   border-radius: 999px;
-  background: #e5e7eb;
-  transition: transform 150ms ease, opacity 150ms ease;
+  background: #0f172a;
 }
 
 .hamburger span + span {
-  margin-top: 3px;
+  margin-top: 6px;
 }
 
-/* Mobile menu behaviour */
-
-@media (max-width: 768px) {
+/* ===== Mobile layout ===== */
+@media (max-width: 900px) {
   .navInner {
-    padding-inline: 0.75rem;
+    padding: 10px 12px;
   }
 
+  .brandLineTop,
+  .brandLineBottom {
+    font-size: 14px;
+  }
+
+  /* show hamburger */
+  .hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ✅ collapse links into dropdown panel */
   .links {
-    position: fixed;
-    inset-inline: 0.75rem;
-    top: 64px;
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 64px; /* under navbar */
+    display: none;
     flex-direction: column;
     align-items: stretch;
-    gap: 0.5rem;
-    background: rgba(15, 23, 42, 0.98);
-    border-radius: 1rem;
-    padding: 0.75rem;
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.8);
-    transform-origin: top;
-    transform: scaleY(0.7);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 150ms ease, transform 150ms ease;
+    gap: 6px;
+
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 16px;
+    padding: 10px;
+    box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+
+    /* ✅ prevents the panel itself from causing horizontal overflow */
+    max-width: calc(100vw - 24px);
+    overflow: hidden;
   }
 
   .open {
-    transform: scaleY(1);
-    opacity: 1;
-    pointer-events: auto;
+    display: flex;
   }
 
-  .link,
-  .cta,
-  .ctaFilled,
+  .link {
+    width: 100%;
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+
   .logoutButton {
     width: 100%;
-    text-align: center;
-  }
-
-  .hamburger {
-    display: inline-flex;
+    border-radius: 12px;
+    padding: 10px 12px;
   }
 }
 
-/* Desktop only tweaks */
-
-@media (min-width: 769px) {
-  .links {
-    position: static;
-    transform: none !important;
-    opacity: 1 !important;
-    pointer-events: auto;
-    background: transparent;
-    box-shadow: none;
-    padding: 0;
+/* ✅ Ultra small phones */
+@media (max-width: 360px) {
+  .logoWrap {
+    width: 40px;
+    height: 40px;
+  }
+  .brandLineTop,
+  .brandLineBottom {
+    font-size: 13px;
   }
 }
