@@ -2,7 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ✅ GLOBAL MOBILE OVERFLOW FIXES */
+/* =========================================================
+   GLOBAL MOBILE STABILITY (safe)
+   ========================================================= */
+
 *,
 *::before,
 *::after {
@@ -11,68 +14,60 @@
 
 html,
 body {
+  margin: 0;
+  padding: 0;
   width: 100%;
   max-width: 100%;
-  overflow-x: clip; /* better than hidden on mobile */
- 
+  overflow-x: hidden; /* keeps the “no white strip” fix */
+  -webkit-text-size-adjust: 100%;
 }
 
+#__next {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Media never pushes layout */
 img,
-svg,
 video,
+svg,
 canvas {
   max-width: 100%;
   height: auto;
 }
 
-/* Bootstrap containers sometimes cause overflow on mobile */
-.container,
-.container-fluid {
-  max-width: 100% !important;
-  overflow-x: clip;
+/* ✅ Wrap ONLY real text blocks (NOT buttons/nav) */
+p,
+li {
+  overflow-wrap: break-word; /* normal wrapping */
+  word-break: normal;
 }
 
-/* Next root */
-#__next {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: clip;
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
-@supports (overflow: clip) {
-  #__next { overflow-x: clip; }
+/* If you have long URLs, wrap only links inside text */
+p a,
+li a {
+  overflow-wrap: anywhere;
 }
 
-/* 3) Media should never push width */
-img, video, canvas, svg {
-  max-width: 100%;
-  height: auto;
-}
-
-/* 4) Any long text must wrap (prevents long URLs forcing width) */
-* { overflow-wrap: anywhere; word-break: break-word; }
-
-/* 5) CRITICAL: flex/grid children must be allowed to shrink */
-.minw0 { min-width: 0 !important; }
-.row > *, 
-.d-flex > *, 
-[class*="d-flex"] > * {
-  min-width: 0;
-}
-
-/* 6) Bootstrap overflow fixes (rows + containers are common culprits) */
+/* Keep Bootstrap containers safe */
 .container,
 .container-fluid {
   width: 100%;
   max-width: 100%;
+  overflow-x: clip;
 }
 
-.row {
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-}
-
-/* Keep padding on containers without causing overflow */
 @media (max-width: 768px) {
   .container,
   .container-fluid {
@@ -81,70 +76,46 @@ img, video, canvas, svg {
   }
 }
 
-/* =========================================================
-   YOUR SITE BASE STYLES (safe)
-   ========================================================= */
+/* ✅ Fix common Bootstrap overflow culprit (gutters) */
+@media (max-width: 768px) {
+  .row {
+    --bs-gutter-x: 1rem;
+  }
+}
 
+/* Your background */
 body {
   min-height: 100vh;
   background: linear-gradient(120deg, #f8fafc 0%, #e0e7ef 100%);
-  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
   color: #0f172a;
 }
-
 /* =========================================================
-   MOBILE NAV / HEADER FIX (wrap + no overflow)
+   GRID HELPERS USED IN pages/index.tsx (grid-2/3/4)
    ========================================================= */
-.navbar,
-.navbar .container,
-.navbar .container-fluid {
-  max-width: 100%;
+
+.grid {
+  display: grid;
+  gap: 18px;
 }
 
-.navbar .navbar-nav {
-  flex-wrap: wrap !important;
-  gap: 10px;
+.grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.navbar .nav-link {
-  white-space: nowrap;
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Mobile: stack everything */
 @media (max-width: 768px) {
-  /* if your header uses flex-nowrap anywhere, this prevents “one long row” */
-  .flex-nowrap { flex-wrap: wrap !important; }
-}
-
-/* =========================================================
-   GRIDS / CARDS: stop “4 long thin cards” on mobile
-   ========================================================= */
-.grid,
-.grid--2,
-.grid--3 {
-  max-width: 100%;
-}
-
-@media (max-width: 768px) {
-  .grid,
-  .grid--2,
-  .grid--3 {
+  .grid-4,
+  .grid-3,
+  .grid-2 {
     grid-template-columns: 1fr !important;
   }
-
-  /* cards should not overflow */
-  .card {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-}
-
-/* =========================================================
-   OPTIONAL: tables are another common overflow source
-   ========================================================= */
-table {
-  max-width: 100%;
-}
-.table-responsive {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }

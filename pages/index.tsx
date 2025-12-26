@@ -249,7 +249,7 @@ const [chatOpen, setChatOpen] = useState(false);
       </section>
 
       {/* TRUST BAR */}
-      <section style={trustBar} id="trust">
+      <section style={trustBar} id="trust" className="grid grid-4">
         <div style={trustItem}>
           <div style={trustNumber}>10K+</div>
           <div style={trustLabel}>Parcels handled</div>
@@ -274,7 +274,7 @@ const [chatOpen, setChatOpen] = useState(false);
         <p style={sectionSubtitle}>
           Built for shoppers and resellers who love UAE stores but live abroad.
         </p>
-        <div style={featuresGrid}>
+        <div style={featuresGrid} className="grid grid-4">
           <FeatureCard
             icon="📦"
             title="Personal UAE address"
@@ -304,7 +304,7 @@ const [chatOpen, setChatOpen] = useState(false);
         <p style={sectionSubtitle}>
           Simple three-step flow from shopping in the UAE to unboxing at your door.
         </p>
-        <div style={stepsGrid}>
+        <div style={stepsGrid} className="grid grid-3">
           <Step
             no={1}
             title="Sign up & get your UAE address"
@@ -337,7 +337,7 @@ const [chatOpen, setChatOpen] = useState(false);
           During beta, you&apos;ll get early-access rates. Here&apos;s a preview of how
           pricing will work.
         </p>
-        <div style={pricingGrid}>
+        <div style={pricingGrid} className="grid grid-3">
           <PricingCard
             badge="For personal shoppers"
             name="Lite"
@@ -383,7 +383,7 @@ const [chatOpen, setChatOpen] = useState(false);
           A glimpse of how Cross Border Cart already helps people move parcels from
           the UAE to their doorstep.
         </p>
-        <div style={testimonialsGrid}>
+        <div style={testimonialsGrid} className="grid grid-3">
           <Testimonial
             name="Aisha · Lusaka"
             text="I finally have a simple way to order from UAE stores and receive everything at home. The tracking updates were spot on."
@@ -406,7 +406,7 @@ const [chatOpen, setChatOpen] = useState(false);
 
       {/* FAQ + CTA */}
       <section style={{ ...section, maxWidth: 1100 }} id="faq">
-        <div style={faqLayout}>
+        <div style={faqLayout} className="grid grid-2">
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={sectionTitleLeft}>Frequently asked questions</h2>
             <FAQItem
@@ -480,7 +480,7 @@ const [chatOpen, setChatOpen] = useState(false);
       </section>
       {/* CTA / WAITLIST */}
       <section style={ctaSection} id="get-started">
-        <div style={ctaInner}>
+        <div style={ctaInner} className="grid grid-2">
           <div style={ctaLeft}>
             <h2 style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>
               Ready to try Cross Border Cart?
