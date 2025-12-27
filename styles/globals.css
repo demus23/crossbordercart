@@ -99,17 +99,28 @@ body {
   gap: 18px;
 }
 
+/* ===== Grid helpers (used by index.tsx className="grid-2/3/4") ===== */
+.grid-2,
+.grid-3,
 .grid-4 {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: grid;
+  gap: 18px;
+  max-width: 100%;
 }
 
-.grid-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* Mobile: stack everything */
+@media (max-width: 900px) {
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr !important;
+  }
 }
 
-.grid-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
 
 /* Mobile: stack everything */
 @media (max-width: 768px) {
@@ -117,5 +128,20 @@ body {
   .grid-3,
   .grid-2 {
     grid-template-columns: 1fr !important;
+  }
+}
+@media (max-width: 768px) {
+  .hero-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+  }
+
+  /* force right card to fit */
+  .hero-right,
+  .live-card {
+    width: 100% !important;
+    max-width: 420px;     /* optional */
+    margin: 0 auto !important;
   }
 }

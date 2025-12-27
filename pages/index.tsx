@@ -9,6 +9,8 @@ import Head from "next/head";
 import StoresStrip from "@/components/StoresStrip";
 import FloatingChatButton from "@/components/FloatingChatButton";
 import AIChatbotModal from "@/components/AIChatbotModal";
+import NavBar from "@/components/NavBar";
+
 
 
 
@@ -91,6 +93,7 @@ const [chatOpen, setChatOpen] = useState(false);
 
 
   return (
+    
     <div
       style={{
         background: "#f5f7fb",
@@ -98,6 +101,8 @@ const [chatOpen, setChatOpen] = useState(false);
         fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
+      <NavBar />
+
        <Head>
         <title>
           Cross Border Cart – UAE to Africa shipping with real-time tracking
@@ -151,7 +156,7 @@ const [chatOpen, setChatOpen] = useState(false);
 
       {/* HERO */}
       <section style={heroSection}>
-        <div style={heroGrid} className="hero-grid">
+        <div style={heroGrid} className="grid-2">
           {/* Left column */}
           <div style={heroLeft}>
             <div style={heroBadge}>Ship from UAE to Africa, Europe &amp; the world</div>
@@ -187,7 +192,9 @@ const [chatOpen, setChatOpen] = useState(false);
 
           {/* Right column – hero picture + mini dashboard */}
           <div style={heroRight}>
-            <div style={heroCard}>
+            
+
+           <div style={heroCard}>
               <div style={heroCardTop}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={statusDot} />
@@ -201,6 +208,8 @@ const [chatOpen, setChatOpen] = useState(false);
                   Auto-refresh · 10s
                 </span>
               </div>
+<div style={liveCard} className="minw0">
+  
 
               {/* Image area */}
               <div style={heroImageFrame}>
@@ -245,6 +254,7 @@ const [chatOpen, setChatOpen] = useState(false);
               </div>
             </div>
           </div>
+        </div>
         </div>
       </section>
 
@@ -607,61 +617,7 @@ const colors = {
   blue: "#2563eb",
 };
 
-const headerShell: React.CSSProperties = {
-  position: "sticky",
-  top: 0,
-  zIndex: 40,
-  background: "#ffffff",
-  boxShadow: "0 4px 18px rgba(15,23,42,0.06)",
-};
 
-const nav: React.CSSProperties = {
-  maxWidth: 1200,
-  margin: "0 auto",
-  padding: "10px 20px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-};
-
-const navLeft: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-};
-
-const navCenter: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 16,
-};
-
-const navRight: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-};
-
-const brandName: React.CSSProperties = {
-  fontWeight: 800,
-  fontSize: 18,
-  color: "#0f172a",
-};
-
-const navLink: React.CSSProperties = {
-  fontSize: 13,
-  color: "#475569",
-  textDecoration: "none",
-  fontWeight: 500,
-};
-
-const navBtn: React.CSSProperties = {
-  borderRadius: 999,
-  padding: "7px 18px",
-  fontWeight: 600,
-  fontSize: 13,
-  textDecoration: "none",
-};
 
 /* HERO */
 
@@ -753,6 +709,12 @@ const heroRight: React.CSSProperties = {
   justifyContent: "center",
   alignItems: "center",
 };
+const liveCard: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 420,
+  margin: "0 auto",
+};
+
 
 const heroCard: React.CSSProperties = {
   width: "100%",

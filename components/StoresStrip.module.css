@@ -176,3 +176,12 @@
     height: 52px;
   }
 }
+.header {
+  text-align: center;
+}
+
+.subtitle {
+  margin-left: auto;
+  margin-right: auto;
+}
+.kicker { text-align: center; }
