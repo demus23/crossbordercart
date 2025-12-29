@@ -11,7 +11,8 @@
   border-bottom: 1px solid rgba(226, 232, 240, 0.9);
 }
 
-.navInner {
+.navInner{
+  position: relative;   /* ✅ add this */
   max-width: 1200px;
   margin: 0 auto;
   padding: 10px 14px;
@@ -19,8 +20,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  position: relative; /* ✅ dropdown is positioned relative to nav */
 }
+
 
 /* ===== Brand ===== */
 .brand {

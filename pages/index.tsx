@@ -198,15 +198,13 @@ const [chatOpen, setChatOpen] = useState(false);
               <div style={heroCardTop}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={statusDot} />
-                  <span
-                    style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}
-                  >
-                    Live shipment overview
-                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap" }}>
+  Live shipment overview
+</span>
                 </div>
-                <span style={{ fontSize: 11, color: "#64748b" }}>
-                  Auto-refresh · 10s
-                </span>
+               <span style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>
+  Auto-refresh · 10s
+</span>
               </div>
 <div style={liveCard} className="minw0">
   
@@ -629,10 +627,11 @@ const heroGrid: React.CSSProperties = {
   maxWidth: 1200,
   margin: "0 auto",
   padding: "40px 20px 50px",
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 0.9fr)",
-  gap: 32,
+  gap: 24,
+  alignItems: "start",
+  // ❌ remove display/gridTemplateColumns here
 } as any;
+
 
 const heroLeft: React.CSSProperties = {
   display: "flex",
@@ -676,13 +675,15 @@ const heroCtas: React.CSSProperties = {
   display: "flex",
   gap: 12,
   flexWrap: "wrap",
-  marginTop: 24,
+  marginTop: 22,
+  alignItems: "center",
 };
+
 
 const ctaPrimary: React.CSSProperties = {
   borderRadius: 999,
-  padding: "10px 22px",
-  fontWeight: 700,
+  padding: "11px 20px",
+  fontWeight: 800,
   fontSize: 14,
   textDecoration: "none",
   background: colors.blue,
@@ -691,9 +692,9 @@ const ctaPrimary: React.CSSProperties = {
 
 const ctaSecondary: React.CSSProperties = {
   borderRadius: 999,
-  padding: "10px 20px",
-  fontWeight: 600,
-  fontSize: 13,
+  padding: "11px 18px",
+  fontWeight: 700,
+  fontSize: 14,
   textDecoration: "none",
   background: "rgba(15,23,42,0.03)",
   color: "#0f172a",
@@ -707,31 +708,40 @@ const heroTrustRow: React.CSSProperties = {
 const heroRight: React.CSSProperties = {
   display: "flex",
   justifyContent: "center",
-  alignItems: "center",
+  alignItems: "flex-start", // ✅ not center
+  minWidth: 0,             // ✅ allow shrinking
 };
+
 const liveCard: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 420,
-  margin: "0 auto",
+  minWidth: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
 };
+
 
 
 const heroCard: React.CSSProperties = {
   width: "100%",
-  maxWidth: 390,
+  maxWidth: 420, // ✅ one source of truth
   background: "#ffffff",
-  borderRadius: 26,
-  padding: "18px 18px 16px",
-  boxShadow: "0 22px 60px rgba(15,23,42,0.2)",
-  border: "1px solid rgba(148,163,184,0.35)",
+  borderRadius: 22,
+  padding: 14,
+  boxShadow: "0 18px 50px rgba(15,23,42,0.14)", // softer
+  border: "1px solid rgba(226,232,240,0.9)",
+  overflow: "hidden",
 };
+
 
 const heroCardTop: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
+  gap: 10,
   marginBottom: 10,
+  minWidth: 0,
 };
+
 
 const statusDot: React.CSSProperties = {
   width: 9,
@@ -761,8 +771,8 @@ const heroImageOverlay: React.CSSProperties = {
 const heroCardStats: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 8,
-  marginTop: 12,
+  gap: 6,
+  marginTop: 10,
 };
 
 const heroMiniList: React.CSSProperties = {
@@ -1013,12 +1023,37 @@ function HeroStat({ label, value }: { label: string; value: string }) {
       style={{
         borderRadius: 12,
         border: "1px solid #e2e8f0",
-        background: "#f9fafb",
-        padding: "8px 8px",
+        background: "#f8fafc",
+        padding: "8px 10px",
+        minWidth: 0,
+        textAlign: "center",
       }}
     >
-      <div style={{ fontSize: 11, color: "#64748b", marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>{value}</div>
+      <div
+        style={{
+          fontSize: 11,
+          color: "#64748b",
+          marginBottom: 2,
+          whiteSpace: "nowrap",       // ✅ prevents extra height
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+        title={label}
+      >
+        {label}
+      </div>
+
+      <div
+        style={{
+          fontSize: 16,
+          fontWeight: 800,
+          color: "#0f172a",
+          lineHeight: 1.1,            // ✅ tighter
+          whiteSpace: "nowrap",
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }

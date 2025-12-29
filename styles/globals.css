@@ -18,7 +18,7 @@ body {
   padding: 0;
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden; /* keeps the “no white strip” fix */
+  overflow-x: hidden; /* keep the “no white strip” fix */
   -webkit-text-size-adjust: 100%;
 }
 
@@ -37,30 +37,29 @@ canvas {
   height: auto;
 }
 
-/* ✅ Wrap ONLY real text blocks (NOT buttons/nav) */
+/* ✅ Wrap ONLY text blocks */
 p,
 li {
-  overflow-wrap: break-word; /* normal wrapping */
+  overflow-wrap: break-word;
   word-break: normal;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  overflow-wrap: normal;
-  word-break: normal;
-}
-
-/* If you have long URLs, wrap only links inside text */
+/* Links inside text can wrap (long URLs) */
 p a,
 li a {
   overflow-wrap: anywhere;
 }
 
-/* Keep Bootstrap containers safe */
+/* ✅ IMPORTANT: allow grid/flex children to shrink (prevents tall/overflow weirdness) */
+.grid-2 > *,
+.grid-3 > *,
+.grid-4 > *,
+.row > *,
+.d-flex > * {
+  min-width: 0;
+}
+
+/* Bootstrap containers safe */
 .container,
 .container-fluid {
   width: 100%;
@@ -74,32 +73,25 @@ li a {
     padding-left: 14px !important;
     padding-right: 14px !important;
   }
-}
 
-/* ✅ Fix common Bootstrap overflow culprit (gutters) */
-@media (max-width: 768px) {
+  /* Bootstrap gutters (common overflow culprit) */
   .row {
     --bs-gutter-x: 1rem;
   }
 }
 
-/* Your background */
+/* Background */
 body {
   min-height: 100vh;
   background: linear-gradient(120deg, #f8fafc 0%, #e0e7ef 100%);
   font-family: "Inter", "Segoe UI", Arial, sans-serif;
   color: #0f172a;
 }
+
 /* =========================================================
    GRID HELPERS USED IN pages/index.tsx (grid-2/3/4)
    ========================================================= */
 
-.grid {
-  display: grid;
-  gap: 18px;
-}
-
-/* ===== Grid helpers (used by index.tsx className="grid-2/3/4") ===== */
 .grid-2,
 .grid-3,
 .grid-4 {
@@ -112,36 +104,11 @@ body {
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
-/* Mobile: stack everything */
+/* Mobile: stack all grids */
 @media (max-width: 900px) {
   .grid-2,
   .grid-3,
   .grid-4 {
     grid-template-columns: 1fr !important;
-  }
-}
-
-
-/* Mobile: stack everything */
-@media (max-width: 768px) {
-  .grid-4,
-  .grid-3,
-  .grid-2 {
-    grid-template-columns: 1fr !important;
-  }
-}
-@media (max-width: 768px) {
-  .hero-grid {
-    display: grid !important;
-    grid-template-columns: 1fr !important;
-    gap: 18px !important;
-  }
-
-  /* force right card to fit */
-  .hero-right,
-  .live-card {
-    width: 100% !important;
-    max-width: 420px;     /* optional */
-    margin: 0 auto !important;
   }
 }
