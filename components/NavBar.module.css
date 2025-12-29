@@ -5,12 +5,13 @@
   width: 100%;
   position: sticky;
   top: 0;
-  z-index: 999;
-  background: rgba(255,255,255,0.92);
+  z-index: 9999; /* ✅ higher so dropdown is above hero */
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
 }
 
-.navInner{
+.navInner {
   max-width: 1200px;
   margin: 0 auto;
   padding: 10px 14px;
@@ -18,22 +19,25 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  position: relative; /* ✅ dropdown is positioned relative to nav */
 }
 
-/* Brand must not shrink */
+/* ===== Brand ===== */
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
   flex: 0 0 auto;
+  text-decoration: none;
+  color: inherit;
 }
 
 .logoWrap {
   position: relative;
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   background: #ffffff;
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -51,13 +55,7 @@
   min-width: 0;
 }
 
-.brandLineTop {
-  font-weight: 800;
-  font-size: 15px;
-  letter-spacing: -0.2px;
-  white-space: nowrap;
-}
-
+.brandLineTop,
 .brandLineBottom {
   font-weight: 800;
   font-size: 15px;
@@ -69,11 +67,11 @@
 .links {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .link {
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: 999px;
   text-decoration: none;
   color: #0f172a;
@@ -81,6 +79,10 @@
   font-size: 14px;
   white-space: nowrap;
   max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
 }
 
 .link:hover {
@@ -92,10 +94,25 @@
   color: #075985;
 }
 
-.cta,
-.ctaFilled,
+/* CTA styles */
+.cta {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: transparent;
+}
+
+.ctaFilled {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.ctaFilled:hover {
+  background: #111c33;
+}
+
 .logoutButton {
-  white-space: nowrap;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: transparent;
+  cursor: pointer;
 }
 
 .logoutButton:hover {
@@ -109,10 +126,16 @@
   border: 0;
   padding: 10px;
   cursor: pointer;
+  border-radius: 12px;
+}
+
+.hamburger:hover {
+  background: rgba(15, 23, 42, 0.06);
 }
 
 .hamburger span {
   display: block;
+  width: 22px;
   height: 2px;
   border-radius: 999px;
   background: #0f172a;
@@ -124,28 +147,36 @@
 
 /* ===== Mobile layout ===== */
 @media (max-width: 768px) {
-  .hamburger { display: inline-flex; }
-
+  .hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  }
 
   /* ✅ collapse links into dropdown panel */
-   .links {
+  .links {
     display: none;
     position: absolute;
-    left: 0;
-    right: 0;
-    top: 64px;             /* adjust if your header height differs */
+    left: 14px;
+    right: 14px;
+    top: calc(100% + 10px); /* ✅ no guessing header height */
     background: #fff;
-    padding: 14px;
-    border-top: 1px solid #e2e8f0;
-    box-shadow: 0 16px 40px rgba(15,23,42,0.12);
+    padding: 12px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 16px;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+    z-index: 10000;
   }
 
-  .open { display: flex; }
+  .open {
+    display: flex;
+  }
 
-  /* links full width so nothing is cut */
+  /* ✅ links full width so nothing is cut */
   .link,
   .cta,
   .ctaFilled,
@@ -154,16 +185,23 @@
     justify-content: center;
     text-align: center;
     padding: 12px 14px;
-    border-radius: 12px;
+    border-radius: 14px;
+  }
+
+  /* Small brand adjustments */
+  .logoWrap {
+    width: 40px;
+    height: 40px;
+  }
+
+  .brandLineTop,
+  .brandLineBottom {
+    font-size: 14px;
   }
 }
 
 /* ✅ Ultra small phones */
 @media (max-width: 360px) {
-  .logoWrap {
-    width: 40px;
-    height: 40px;
-  }
   .brandLineTop,
   .brandLineBottom {
     font-size: 13px;

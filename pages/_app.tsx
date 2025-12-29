@@ -8,8 +8,10 @@ import 'react-toastify/dist/ReactToastify.css';
 import { SessionProvider } from 'next-auth/react';
 import { MantineProvider } from '@mantine/core';
 import Head from 'next/head';
+import NavBar from "@/components/NavBar";
 
-export default function MyApp({ Component, pageProps }: AppProps) {
+export default function MyApp({ Component, pageProps, router  }: AppProps) {
+  const hideNav = router.pathname === "/"; // hide on home only
   return (
     <>
       {/* ✅ This fixes the mobile/tablet layout issue */}
@@ -23,6 +25,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
       <MantineProvider>
         <SessionProvider session={pageProps.session}>
           <>
+            {!hideNav && <NavBar />}
             <Component {...pageProps} />
             <ToastContainer position="top-right" autoClose={3000} />
           </>

@@ -9,7 +9,7 @@ import Head from "next/head";
 import StoresStrip from "@/components/StoresStrip";
 import FloatingChatButton from "@/components/FloatingChatButton";
 import AIChatbotModal from "@/components/AIChatbotModal";
-import NavBar from "@/components/NavBar";
+
 
 
 
@@ -101,7 +101,7 @@ const [chatOpen, setChatOpen] = useState(false);
         fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
-      <NavBar />
+     
 
        <Head>
         <title>
