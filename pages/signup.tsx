@@ -96,7 +96,7 @@ export default function SignupPage() {
 
       <main className="wrap theme">
         <div className="brand-chip">
-          <img src="/logo.svg" alt="Cross Border Cart logo" />
+          <img src="/logo-cart.svg" alt="Cross Border Cart logo" />
           <span>Cross Border Cart</span>
         </div>
 

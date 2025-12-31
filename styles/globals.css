@@ -112,3 +112,90 @@ body {
     grid-template-columns: 1fr !important;
   }
 }
+/* ===== Logged-in header (User/Admin) mobile fix ===== */
+.dashHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  max-width:100%;
+}
+
+.dashHeaderLeft,
+.dashHeaderRight{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;          /* KEY: allow shrink */
+}
+
+.dashHeaderRight{
+  flex-wrap:wrap;       /* KEY: allow wrap */
+  justify-content:flex-end;
+}
+
+.dashHeaderRight a,
+.dashHeaderRight button{
+  white-space:nowrap;   /* keep labels intact */
+  max-width:100%;
+}
+
+/* Mobile: tighten buttons + prevent overlap */
+@media (max-width: 480px){
+  .dashHeader{
+    align-items:flex-start;
+  }
+
+  .dashHeaderRight a,
+  .dashHeaderRight button{
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+}
+@media (max-width: 768px){
+  .adminSidebar{
+    width: 82vw !important;
+    max-width: 320px !important;
+  }
+}
+/* ===== Dashboard Topbar actions (mobile fix) ===== */
+.dashActions {
+  min-width: 0;
+  flex-wrap: wrap;              /* allow wrapping */
+  justify-content: flex-end;
+}
+
+/* let buttons shrink instead of forcing overflow */
+.dashActions > * {
+  min-width: 0;
+}
+
+/* tighten on small screens */
+@media (max-width: 576px) {
+  .dashActions {
+    width: 100%;
+    justify-content: flex-start; /* looks cleaner on mobile */
+    margin-top: 10px;
+  }
+
+  /* make action buttons smaller */
+  .dashActions .btn {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* dropdown menu width should fit phone */
+  .dashActions .dropdown-menu {
+    min-width: min(92vw, 320px) !important;
+  }
+}
+/* ===== Dashboard topbar mobile fix ===== */
+.dashBrand { min-width: 0; }
+.dashActions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .5rem; }
+.dashActions .btn { white-space: nowrap; }
+
+@media (max-width: 576px) {
+  .dashActions { gap: .35rem; }
+  .dashActions .btn { padding: .4rem .55rem; }
+  .dashActions .btn svg { margin-right: 0 !important; } /* icon-only spacing */
+}

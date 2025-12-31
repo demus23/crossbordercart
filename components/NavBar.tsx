@@ -80,9 +80,9 @@ export default function NavBar() {
         {/* Brand / logo */}
         <Link href="/" className={styles.brand}>
           <span className={styles.logoWrap}>
-            {/* the file is /public/logo.svg */}
+            {/* the file is /public/logo-cart.svg */}
             <Image
-              src="/logo.svg"
+              src="/logo-cart.svg"
               alt="Cross Border Cart"
               fill
               priority

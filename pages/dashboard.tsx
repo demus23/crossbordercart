@@ -1754,19 +1754,20 @@ Business Bay, Dubai, UAE
       >
         <Container fluid className="py-2">
           <div className="d-flex align-items-center justify-content-between">
-            <div className="d-flex align-items-center gap-3">
-              <Image src="/logo.svg" alt="logo" height={36} />
-              <h5
-                className="mb-0"
-                style={{ color: MAIN_COLOR, fontWeight: 800 }}
-              >
-                CrossBorderChart
-              </h5>
-              <Badge bg="light" text="dark">
-                Dashboard
-              </Badge>
-            </div>
-            <div className="d-flex align-items-center gap-2 ms-auto flex-nowrap">
+           <div className="dashBrand d-flex align-items-center gap-3">
+  <Image src="/logo-cart.svg" alt="logo" height={36} />
+
+  <h5 className="mb-0 d-none d-sm-block" style={{ color: MAIN_COLOR, fontWeight: 800 }}>
+    CrossBorderChart
+  </h5>
+
+  <Badge bg="light" text="dark" className="d-none d-md-inline">
+    Dashboard
+  </Badge>
+</div>
+
+            <div className="dashActions d-flex align-items-center gap-2 ms-auto">
+
               <Form onSubmit={doTrack} className="d-none d-md-flex">
                 <InputGroup>
                   <Form.Control
@@ -1852,21 +1853,25 @@ Business Bay, Dubai, UAE
                 </Dropdown.Menu>
               </Dropdown>
 
-              {(profile?.role === "admin" ||
-                profile?.role === "superadmin") && (
-                <a
-                  href="/admin/dashboard"
-                  className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
-                >
-                  <FiSettings className="me-1" /> Switch to Admin
-                </a>
-              )}
+             {(profile?.role === "admin" || profile?.role === "superadmin") && (
+  <a
+    href="/admin/dashboard"
+    className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+    aria-label="Switch to Admin"
+    title="Switch to Admin"
+  >
+    <FiSettings className="me-1" />
+    <span className="d-none d-sm-inline">Switch to Admin</span>
+  </a>
+)}
+
 
               <a
                 href="/charges"
                 className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
               >
-                <FiFileText className="me-1" /> My Invoices
+                <FiFileText className="me-1" /> <span className="d-none d-sm-inline">My Invoices</span>
+
               </a>
 
               <button
