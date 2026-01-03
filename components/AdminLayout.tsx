@@ -110,7 +110,7 @@ export default function AdminLayout({ children, sidebarLinks, title }: Props) {
           minHeight: "100vh",
           position: "fixed",
           top: 0,
-          left: 0,
+          
           background: dark ? "#191c24" : "#fff",
           borderRight: dark ? "1px solid #282d3d" : "1px solid #e5e7eb",
           zIndex: 2000,
@@ -187,7 +187,7 @@ export default function AdminLayout({ children, sidebarLinks, title }: Props) {
       </aside>
 
       {/* Topbar */}
-      <header
+      <header className="admin-topbar"
         style={{
           position: "fixed",
           left: 245,
@@ -241,7 +241,7 @@ export default function AdminLayout({ children, sidebarLinks, title }: Props) {
       </header>
 
       {/* Main content */}
-      <main
+      <main className="admin-main"
         style={{
           marginLeft: 245,
           paddingTop: 64,
@@ -269,11 +269,22 @@ export default function AdminLayout({ children, sidebarLinks, title }: Props) {
 
       <style jsx global>{`
         .admin-sidebar { transition: left 0.3s; }
-        @media (max-width: 768px) {
-          .admin-sidebar { left: ${sidebarOpen ? "0" : "-245px"}; width: 245px; box-shadow: 0 4px 24px #0002; }
-          main { margin-left: 0 !important; }
-          header { left: 0 !important; }
-        }
+
+/* desktop default */
+.admin-sidebar { left: 0; }
+
+/* mobile: sidebar off-canvas unless .open */
+@media (max-width: 768px) {
+  .admin-sidebar { left: -245px !important; width: 245px; box-shadow: 0 4px 24px #0002; }
+  .admin-sidebar.open { left: 0 !important; }
+
+  .admin-main { margin-left: 0 !important; }
+  .admin-topbar { left: 0 !important; }
+}
+
+/* overlay should sit UNDER the sidebar */
+.sidebar-overlay { z-index: 1900 !important; }
+
         .sidebar-link:hover, .sidebar-link.active {
           background: #e8f6fd !important;
           color: #08b1ee !important;

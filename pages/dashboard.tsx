@@ -1755,7 +1755,8 @@ Business Bay, Dubai, UAE
         <Container fluid className="py-2">
           <div className="d-flex align-items-center justify-content-between">
            <div className="dashBrand d-flex align-items-center gap-3">
-  <Image src="/logo-cart.svg" alt="logo" height={36} />
+  <Image src="/logo-cart.svg" alt="logo" width={36} height={36} />
+
 
   <h5 className="mb-0 d-none d-sm-block" style={{ color: MAIN_COLOR, fontWeight: 800 }}>
     CrossBorderChart
