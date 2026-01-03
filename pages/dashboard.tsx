@@ -1736,8 +1736,8 @@ export default function DashboardPage() {
 
   const virtualAddress = `CrossBorderChart Warehouse
 ${profile?.suiteId ? `Suite ${profile.suiteId}` : "Suite —"}
-Business Bay, Dubai, UAE
-+971-50-123-4567`;
+Mamazar Onyx Tower,  Dubai, UAE
++971-52-535-0353`;
 
   // ---- UI ----
   return (

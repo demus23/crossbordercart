@@ -1,5 +1,5 @@
 // pages/admin/dashboard.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import {
   Card,
@@ -13,6 +13,7 @@ import {
   Modal,
   Form,
   InputGroup,
+  Accordion,
 } from "react-bootstrap";
 import Link from "next/link";
 import { Pie } from "react-chartjs-2";
@@ -22,7 +23,6 @@ import FinanceSnapshot from "@/components/admin/FinanceSnapshot";
 import TransactionHistoryCard from "@/components/admin/TransactionHistoryCard";
 import ShippingCalcWidget from "@/components/ShippingCalcWidget";
 import AdminShippingSettingsTable from "@/components/AdminShippingSettingsTable";
-//import ShippingQuoteModal from "@/components/ShippingQuoteModal";
 import ShippingQuoteSimple from "@/components/ShippingQuoteSimple";
 import TrackingSearchCard from "@/components/tracking/TrackingSearchCard";
 import dynamic from "next/dynamic";
@@ -40,16 +40,13 @@ type ShipmentKpis = {
 
 const ShipmentsWidget = dynamic(() => import("@/components/admin/ShipmentsWidget"), { ssr: false });
 
-
-
 Chart.register(ArcElement, Tooltip, Legend);
 
-// ---------- helpers ----------
 function prettyStatus(s?: string) {
   if (!s) return "";
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
-function fmt(dt?: string | number) {
+function fmt(dt?: string | number | null) {
   if (!dt) return "";
   try {
     return new Date(dt).toLocaleString();
@@ -58,15 +55,10 @@ function fmt(dt?: string | number) {
   }
 }
 
-// --- AI Modal (kept, tidy) ---
 function AIToolsModal({ show, onHide }: { show: boolean; onHide: () => void }) {
-  const [tab, setTab] = useState<
-    "chat" | "shipping" | "consolidation" | "product" | "translation"
-  >("chat");
+  const [tab, setTab] = useState<"chat" | "shipping" | "consolidation" | "product" | "translation">("chat");
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>(
-    []
-  );
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState("");
 
@@ -82,10 +74,7 @@ function AIToolsModal({ show, onHide }: { show: boolean; onHide: () => void }) {
         body: JSON.stringify({ tab, input }),
       });
       const data = await res.json();
-      setMessages((prev) => [
-        ...prev,
-        { role: "ai", content: data.result || "No result." },
-      ]);
+      setMessages((prev) => [...prev, { role: "ai", content: data.result || "No result." }]);
       setResult(data.result || "");
     } catch {
       setResult("AI error. Try again.");
@@ -108,7 +97,7 @@ function AIToolsModal({ show, onHide }: { show: boolean; onHide: () => void }) {
           AI Tools
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body style={{ minHeight: 370 }}>
+      <Modal.Body style={{ minHeight: 380 }}>
         <div className="d-flex gap-2 mb-3 flex-wrap">
           {[
             ["chat", "primary", "Chat"],
@@ -130,30 +119,22 @@ function AIToolsModal({ show, onHide }: { show: boolean; onHide: () => void }) {
 
         <div
           style={{
-            maxHeight: 220,
+            maxHeight: 240,
             overflowY: "auto",
             marginBottom: 12,
             background: "#f7fafc",
-            borderRadius: 8,
-            padding: 8,
+            borderRadius: 10,
+            padding: 10,
           }}
         >
           {messages.length === 0 && (
-            <div className="text-muted text-center py-5">
-              Ask anything related to {tab}…
-            </div>
+            <div className="text-muted text-center py-5">Ask anything related to {tab}…</div>
           )}
           {messages.map((msg, i) => (
-            <div
-              key={i}
-              className="mb-2"
-              style={{ textAlign: msg.role === "user" ? "right" : "left" }}
-            >
+            <div key={i} className="mb-2" style={{ textAlign: msg.role === "user" ? "right" : "left" }}>
               <span
                 className={`px-3 py-2 rounded-3 d-inline-block ${
-                  msg.role === "user"
-                    ? "bg-primary text-white"
-                    : "bg-light border"
+                  msg.role === "user" ? "bg-primary text-white" : "bg-light border"
                 }`}
               >
                 {msg.content}
@@ -161,6 +142,7 @@ function AIToolsModal({ show, onHide }: { show: boolean; onHide: () => void }) {
             </div>
           ))}
         </div>
+
         <InputGroup>
           <Form.Control
             placeholder={
@@ -179,14 +161,11 @@ function AIToolsModal({ show, onHide }: { show: boolean; onHide: () => void }) {
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             disabled={loading}
           />
-          <Button
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-            variant="primary"
-          >
+          <Button onClick={handleSend} disabled={loading || !input.trim()} variant="primary">
             {loading ? <Spinner size="sm" /> : <i className="bi bi-send" />}
           </Button>
         </InputGroup>
+
         {result && (
           <Alert variant="info" className="mt-3">
             <strong>AI:</strong> {result}
@@ -211,44 +190,37 @@ type AdminDoc = {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
   const [showAnnouncement, setShowAnnouncement] = useState(true);
   const [showChatbot, setShowChatbot] = useState(false);
 
-  // Quick tracking
+  // tracking
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingResult, setTrackingResult] = useState<
-    | {
-        status?: string;
-        location?: string;
-        createdAt?: string;
-        lastUpdate?: string;
-      }
+    | { status?: string; location?: string; createdAt?: string; lastUpdate?: string }
     | string
     | null
   >(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
-  const [openQuote, setOpenQuote] = useState(false);
+
   const [showAdminQuote, setShowAdminQuote] = useState(false);
 
-
-
-  // Latest documents
+  // docs
   const [latestDocs, setLatestDocs] = useState<AdminDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState<boolean>(true);
+
+  // shipment KPIs
   const [shipKpis, setShipKpis] = useState<ShipmentKpis | null>(null);
   const [shipKpisLoading, setShipKpisLoading] = useState(false);
   const [shipKpisError, setShipKpisError] = useState<string | null>(null);
 
-  // load stats
   useEffect(() => {
     let canceled = false;
     (async () => {
       try {
         const res = await fetch("/api/admin/dashboard-stats");
         const data = await res.json();
-        if (!canceled) {
-          setStats(data || {});
-        }
+        if (!canceled) setStats(data || {});
       } catch {
         if (!canceled) setStats({});
       } finally {
@@ -260,7 +232,7 @@ export default function AdminDashboard() {
     };
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     const loadKpis = async () => {
       try {
         setShipKpisLoading(true);
@@ -268,21 +240,18 @@ export default function AdminDashboard() {
         const res = await fetch("/api/admin/shipments/kpis");
         if (!res.ok) throw new Error("Failed to load shipment KPIs");
         const data = (await res.json()) as ShipmentKpis | { ok: false; error: string };
-        if (!("ok" in data) || data.ok === false) {
+        if (!("ok" in data) || (data as any).ok === false) {
           throw new Error((data as any).error || "Failed to load shipment KPIs");
         }
-        setShipKpis(data);
+        setShipKpis(data as ShipmentKpis);
       } catch (e: any) {
-        console.error(e);
         setShipKpisError(e?.message || "Failed to load shipment KPIs");
       } finally {
         setShipKpisLoading(false);
       }
     };
-
     loadKpis();
   }, []);
-
 
   const loadDocs = async () => {
     setDocsLoading(true);
@@ -303,193 +272,171 @@ export default function AdminDashboard() {
   const handleDeleteDoc = async (docId: string) => {
     const ok = window.confirm("Delete this document?");
     if (!ok) return;
-    const res = await fetch(`/api/admin/documents/${docId}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      setLatestDocs((d) => d.filter((x) => x.docId !== docId));
-    } else {
-      alert("Failed to delete document.");
+    const res = await fetch(`/api/admin/documents/${docId}`, { method: "DELETE" });
+    if (res.ok) setLatestDocs((d) => d.filter((x) => x.docId !== docId));
+    else alert("Failed to delete document.");
+  };
+
+  const handleTrackingSearch = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const t = trackingNumber.trim();
+    if (!t) return;
+
+    setTrackingLoading(true);
+    setTrackingResult(null);
+
+    try {
+      const res = await fetch(`/api/track?trackingNo=${encodeURIComponent(t)}&limit=1`);
+      if (!res.ok) throw new Error("Not found");
+      const data = await res.json();
+      if (data.ok === false) throw new Error(data.error || "Not found");
+
+      const events = Array.isArray(data.events) ? data.events : [];
+      const ev = events[0];
+
+      if (!ev) {
+        setTrackingResult("Not found");
+      } else {
+        setTrackingResult({
+          status: ev.status ?? data.package?.status ?? "Pending",
+          location: ev.location ?? data.package?.location ?? "",
+          createdAt: data.package?.createdAt ?? ev.time ?? ev.createdAt ?? null,
+          lastUpdate: data.package?.updatedAt ?? ev.time ?? ev.createdAt ?? null,
+        });
+      }
+    } catch {
+      setTrackingResult("Not found");
+    } finally {
+      setTrackingLoading(false);
     }
   };
 
-  // unified tracking
-  const handleTrackingSearch = async (
-  e: React.FormEvent<HTMLFormElement>
-) => {
-  e.preventDefault();
+  const packageChart = useMemo(() => {
+    return {
+      labels: ["Delivered", "Pending", "In Transit", "Problem"],
+      datasets: [
+        {
+          data: [
+            stats?.deliveredCount || 0,
+            stats?.pendingCount || 0,
+            stats?.inTransitCount || 0,
+            stats?.problemCount || 0,
+          ],
+          backgroundColor: ["#16a34a", "#eab308", "#0ea5e9", "#dc2626"],
+          borderWidth: 1,
+        },
+      ],
+    };
+  }, [stats]);
 
-  const t = trackingNumber.trim();
-  if (!t) return;
-
-  setTrackingLoading(true);
-  setTrackingResult(null);
-
-  try {
-    // ✅ use the real tracking endpoint
-    const res = await fetch(
-      `/api/track?trackingNo=${encodeURIComponent(t)}&limit=1`
-    );
-
-    if (!res.ok) throw new Error("Not found");
-
-    const data = await res.json();
-
-    // /api/track returns: { ok, package, events: [...] }
-    if (data.ok === false) {
-      throw new Error(data.error || "Not found");
-    }
-
-    const events = Array.isArray(data.events) ? data.events : [];
-    const ev = events[0]; // latest event
-
-    if (!ev) {
-      setTrackingResult("Not found");
-    } else {
-      setTrackingResult({
-        status: ev.status ?? data.package?.status ?? "Pending",
-        location: ev.location ?? data.package?.location ?? "",
-        createdAt:
-          data.package?.createdAt ?? ev.time ?? ev.createdAt ?? null,
-        lastUpdate:
-          data.package?.updatedAt ?? ev.time ?? ev.createdAt ?? null,
-      });
-    }
-  } catch {
-    setTrackingResult("Not found");
-  } finally {
-    setTrackingLoading(false);
-  }
-};
-
+  const pieOptions = useMemo(() => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: "bottom" as const } },
+    };
+  }, []);
 
   if (loading) {
     return (
-      <AdminLayout>
-        <div
-          className="d-flex justify-content-center align-items-center"
-          style={{ height: 300 }}
-        >
+      <AdminLayout title="Dashboard">
+        <div className="d-flex justify-content-center align-items-center" style={{ height: 320 }}>
           <Spinner animation="border" />
         </div>
       </AdminLayout>
     );
   }
 
-  const packageChart = {
-    labels: ["Delivered", "Pending", "In Transit", "Problem"],
-    datasets: [
-      {
-        data: [
-          stats?.deliveredCount || 0,
-          stats?.pendingCount || 0,
-          stats?.inTransitCount || 0,
-          stats?.problemCount || 0,
-        ],
-        backgroundColor: ["#16a34a", "#eab308", "#0ea5e9", "#dc2626"],
-        borderWidth: 1,
-      },
-    ],
-  };
-
   return (
-    <AdminLayout>
+    <AdminLayout title="Dashboard">
       {showAnnouncement && (
-        <Alert
-          variant="info"
-          dismissible
-          onClose={() => setShowAnnouncement(false)}
-          className="mb-3"
-        >
-          <strong>🚀 System Update:</strong> New AI-powered tools & analytics
-          are available!
+        <Alert variant="info" dismissible onClose={() => setShowAnnouncement(false)} className="mb-3">
+          <strong>🚀 System Update:</strong> New AI-powered tools & analytics are available!
         </Alert>
       )}
 
-      {/* Row 1: Quick Track + Quick Shipping Calc */}
-      <Row className="mb-4 g-3">
-        <Col md={8}>
-          <Card className="shadow h-100">
+      {/* Top row */}
+      <Row className="g-3 mb-3">
+        <Col lg={8}>
+          <Card className="shadow-sm h-100">
             <Card.Body>
-              <h5 className="fw-semibold mb-3">Quick Track</h5>
-              <Form
-                onSubmit={handleTrackingSearch}
-                className="d-flex align-items-center gap-2 flex-wrap"
-              >
-                <Form.Label className="mb-0 fw-bold" style={{ minWidth: 110 }}>
-                  Tracking #:
-                </Form.Label>
-                <Form.Control
-                  placeholder="Enter Tracking #"
-                  value={trackingNumber}
-                  onChange={(e) => setTrackingNumber(e.target.value)}
-                  style={{ maxWidth: 220 }}
-                  required
-                />
-                <Button
-                  type="submit"
-                  variant="secondary"
-                  disabled={trackingLoading}
-                >
-                  {trackingLoading ? <Spinner size="sm" /> : "Track"}
-                </Button>
+              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <h5 className="fw-semibold mb-0">Quick Track</h5>
+                <small className="text-muted">Search latest tracking update</small>
+              </div>
+
+              <Form onSubmit={handleTrackingSearch} className="mt-3">
+                <Row className="g-2 align-items-center">
+                  <Col xs={12} md="auto">
+                    <Form.Label className="mb-0 fw-bold">Tracking #</Form.Label>
+                  </Col>
+                  <Col xs={12} md={6} lg={5}>
+                    <Form.Control
+                      placeholder="Enter Tracking #"
+                      value={trackingNumber}
+                      onChange={(e) => setTrackingNumber(e.target.value)}
+                      required
+                    />
+                  </Col>
+                  <Col xs={12} md="auto">
+                    <Button type="submit" variant="secondary" disabled={trackingLoading} className="w-100 w-md-auto">
+                      {trackingLoading ? <Spinner size="sm" /> : "Track"}
+                    </Button>
+                  </Col>
+                </Row>
 
                 {trackingResult && (
-                  <span className="ms-3" style={{ fontSize: 15 }}>
+                  <div className="mt-3">
                     {typeof trackingResult === "string" ? (
-                      trackingResult
+                      <div className="text-muted">{trackingResult}</div>
                     ) : (
-                      <>
-                        <strong>Status:</strong>{" "}
-                        {prettyStatus(trackingResult.status)}{" "}
-                        {trackingResult.location && (
+                      <div style={{ fontSize: 14 }}>
+                        <strong>Status:</strong> {prettyStatus(trackingResult.status)}
+                        {trackingResult.location ? (
                           <>
-                            &nbsp;• <strong>Location:</strong>{" "}
-                            {trackingResult.location}
+                            {" "}
+                            • <strong>Location:</strong> {trackingResult.location}
                           </>
-                        )}
-                        {trackingResult.lastUpdate && (
+                        ) : null}
+                        {trackingResult.lastUpdate ? (
                           <>
-                            &nbsp;• <strong>Updated:</strong>{" "}
-                            {fmt(trackingResult.lastUpdate)}
+                            {" "}
+                            • <strong>Updated:</strong> {fmt(trackingResult.lastUpdate)}
                           </>
-                        )}
-                      </>
+                        ) : null}
+                      </div>
                     )}
-                  </span>
+                  </div>
                 )}
               </Form>
             </Card.Body>
           </Card>
         </Col>
-        <Col md={4}>
-         <Card className="shadow h-100">
-  <Card.Body>
-    <h5 className="fw-semibold mb-3">Shipping Calculator</h5>
 
-    {/* Quick preview (defaults) */}
-    <ShippingCalcWidget />
+        <Col lg={4}>
+          <Card className="shadow-sm h-100">
+            <Card.Body>
+              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <h5 className="fw-semibold mb-0">Shipping Calculator</h5>
+                <Button variant="outline-primary" size="sm" onClick={() => setShowAdminQuote(true)}>
+                  Full Form
+                </Button>
+              </div>
 
-    {/* Button to open the full form */}
-    <div className="mt-3">
-      <Button variant="outline-primary" size="sm" onClick={() => setShowAdminQuote(true)}>
-        Open full form
-      </Button>
-    </div>
+              <div className="mt-3">
+                <ShippingCalcWidget />
+              </div>
 
-    {/* Full form modal */}
-    <ShippingQuoteSimple show={showAdminQuote} onHide={() => setShowAdminQuote(false)} />
-
-  </Card.Body>
-</Card>
-
+              <ShippingQuoteSimple show={showAdminQuote} onHide={() => setShowAdminQuote(false)} />
+            </Card.Body>
+          </Card>
         </Col>
       </Row>
 
-      {/* Row 2: Address + Stores */}
-      <Row className="mb-4 g-3">
-        <Col md={6}>
-          <Card className="shadow">
+      {/* Address + Stores */}
+      <Row className="g-3 mb-3">
+        <Col lg={6}>
+          <Card className="shadow-sm">
             <Card.Body>
               <h6 className="fw-bold mb-2">Main UAE Delivery Address</h6>
               <address className="mb-2">
@@ -502,52 +449,29 @@ export default function AdminDashboard() {
               <Button
                 variant="outline-primary"
                 size="sm"
-                onClick={() =>
-                  navigator.clipboard.writeText(
-                    "Suite 305, Business Bay, Dubai, UAE"
-                  )
-                }
-                aria-label="Copy address to clipboard"
+                onClick={() => navigator.clipboard.writeText("Suite 305, Business Bay, Dubai, UAE")}
               >
                 Copy Address
               </Button>
             </Card.Body>
           </Card>
         </Col>
-        <Col md={6}>
-          <Card className="shadow">
+
+        <Col lg={6}>
+          <Card className="shadow-sm">
             <Card.Body>
               <h6 className="fw-bold mb-2">Shop From Top Online Stores</h6>
-              <div className="d-flex gap-3 align-items-center">
-                <a
-                  href="https://amazon.ae"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image src="/amazon.svg" alt="Amazon" height={34} />
+              <div className="d-flex gap-3 align-items-center flex-wrap">
+                <a href="https://amazon.ae" target="_blank" rel="noopener noreferrer">
+                  <Image src="/amazon.svg" alt="Amazon" height={30} />
                 </a>
-                <a
-                  href="https://ebay.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image src="/ebay.svg" alt="eBay" height={32} />
+                <a href="https://ebay.com" target="_blank" rel="noopener noreferrer">
+                  <Image src="/ebay.svg" alt="eBay" height={28} />
                 </a>
-                <a
-                  href="https://noon.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Image src="/noon.svg" alt="Noon" height={32} />
+                <a href="https://noon.com" target="_blank" rel="noopener noreferrer">
+                  <Image src="/noon.svg" alt="Noon" height={28} />
                 </a>
-                <Link
-                  href="/stores"
-                  style={{
-                    color: "#6c757d",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
-                >
+                <Link href="/stores" style={{ color: "#6c757d", textDecoration: "underline" }}>
                   and more…
                 </Link>
               </div>
@@ -556,269 +480,314 @@ export default function AdminDashboard() {
         </Col>
       </Row>
 
-      {/* Row 3: Summary tiles */}
-      <Row className="mb-4 g-3">
-        <Col sm={6} md={3}>
-          <Card className="shadow text-center">
-            <Card.Body>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#0ea5e9" }}>
-                {stats?.userCount ?? 0}
-              </div>
-              <div className="text-muted">Total Users</div>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col sm={6} md={3}>
-          <Card className="shadow text-center">
-            <Card.Body>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#6366f1" }}>
-                {stats?.packageCount ?? 0}
-              </div>
-              <div className="text-muted">Total Packages</div>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col sm={6} md={2}>
-          <Card className="shadow text-center">
-            <Card.Body>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#16a34a" }}>
-                {stats?.deliveredCount ?? 0}
-              </div>
-              <div className="text-muted">Delivered</div>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col sm={6} md={2}>
-          <Card className="shadow text-center">
-            <Card.Body>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#eab308" }}>
-                {stats?.pendingCount ?? 0}
-              </div>
-              <div className="text-muted">Pending</div>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col sm={6} md={2}>
-          <Card className="shadow text-center">
-            <Card.Body>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#0ea5e9" }}>
-                {stats?.driverCount ?? 0}
-              </div>
-              <div className="text-muted">Drivers</div>
-            </Card.Body>
-          </Card>
-        </Col>
+      {/* KPI tiles */}
+      <Row className="g-3 mb-3">
+        {[
+          { label: "Total Users", value: stats?.userCount ?? 0 },
+          { label: "Total Packages", value: stats?.packageCount ?? 0 },
+          { label: "Delivered", value: stats?.deliveredCount ?? 0 },
+          { label: "Pending", value: stats?.pendingCount ?? 0 },
+          { label: "Drivers", value: stats?.driverCount ?? 0 },
+        ].map((k) => (
+          <Col key={k.label} xs={6} lg={2} className="flex-grow-1">
+            <Card className="shadow-sm text-center h-100">
+              <Card.Body>
+                <div style={{ fontSize: 22, fontWeight: 800 }}>{k.value}</div>
+                <div className="text-muted" style={{ fontSize: 13 }}>{k.label}</div>
+              </Card.Body>
+            </Card>
+          </Col>
+        ))}
       </Row>
-       <div className="mt-4">
-        <h2 className="h5 mb-3">Shipment Overview</h2>
 
-        {shipKpisError && (
-          <div className="alert alert-danger">{shipKpisError}</div>
-        )}
-
-        <div className="row">
-          <div className="col-md-3 mb-3">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <div className="small text-muted">Total Shipments</div>
-                <div className="h4 mb-0">
-                  {shipKpisLoading ? "…" : shipKpis?.totalShipments ?? 0}
-                </div>
-              </div>
-            </div>
+      {/* Shipment overview */}
+      <Card className="shadow-sm mb-3">
+        <Card.Body>
+          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h5 className="mb-0">Shipment Overview</h5>
+            {shipKpisLoading ? <small className="text-muted">Loading…</small> : null}
           </div>
 
-          <div className="col-md-3 mb-3">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <div className="small text-muted">In Transit</div>
-                <div className="h4 mb-0">
-                  {shipKpisLoading ? "…" : shipKpis?.inTransit ?? 0}
-                </div>
-              </div>
-            </div>
-          </div>
+          {shipKpisError && <div className="alert alert-danger mt-3">{shipKpisError}</div>}
 
-          <div className="col-md-3 mb-3">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <div className="small text-muted">Delivered</div>
-                <div className="h4 mb-0 text-success">
-                  {shipKpisLoading ? "…" : shipKpis?.delivered ?? 0}
+          <Row className="g-3 mt-1">
+            {[
+              { label: "Total Shipments", value: shipKpis?.totalShipments ?? 0 },
+              { label: "In Transit", value: shipKpis?.inTransit ?? 0 },
+              { label: "Delivered", value: shipKpis?.delivered ?? 0 },
+              { label: "Problem/Returned", value: shipKpis?.problems ?? 0 },
+              { label: "Unpaid Shipments", value: shipKpis?.unpaidCount ?? 0 },
+              { label: "Unpaid Amount", value: `${shipKpis?.unpaidAmount ?? 0} AED` },
+              { label: "Total Paid Amount", value: `${shipKpis?.paidAmount ?? 0} AED` },
+            ].map((x) => (
+              <Col key={x.label} xs={6} lg={3}>
+                <div className="border rounded-3 p-3 bg-white">
+                  <div className="small text-muted">{x.label}</div>
+                  <div className="h5 mb-0">{x.value}</div>
                 </div>
-              </div>
-            </div>
-          </div>
+              </Col>
+            ))}
+          </Row>
+        </Card.Body>
+      </Card>
 
-          <div className="col-md-3 mb-3">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <div className="small text-muted">Problem/Returned</div>
-                <div className="h4 mb-0 text-danger">
-                  {shipKpisLoading ? "…" : shipKpis?.problems ?? 0}
+      {/* Desktop: show analytics row. Mobile: keep in accordion */}
+      <div className="d-none d-lg-block">
+        <Row className="g-3 mb-3">
+          <Col lg={4}>
+            <Card className="shadow-sm h-100">
+              <Card.Body>
+                <h6 className="fw-bold mb-3">Packages by Status</h6>
+                <div style={{ height: 320 }}>
+                  <Pie data={packageChart} options={pieOptions} />
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
+              </Card.Body>
+            </Card>
+          </Col>
 
-        <div className="row mt-3">
-          <div className="col-md-4 mb-3">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <div className="small text-muted">Unpaid Shipments</div>
-                <div className="h4 mb-0">
-                  {shipKpisLoading ? "…" : shipKpis?.unpaidCount ?? 0}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-md-4 mb-3">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <div className="small text-muted">Unpaid Amount</div>
-                <div className="h4 mb-0 text-warning">
-                  {shipKpisLoading ? "…" : `${shipKpis?.unpaidAmount ?? 0} AED`}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-md-4 mb-3">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <div className="small text-muted">Total Paid Amount</div>
-                <div className="h4 mb-0 text-success">
-                  {shipKpisLoading ? "…" : `${shipKpis?.paidAmount ?? 0} AED`}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 4: Chart + Transaction + Activity */}
-      <Row className="mb-4 g-3">
-        <Col md={4}>
-          <Card className="shadow">
-            <Card.Body>
-              <h6 className="fw-bold mb-3">Packages by Status</h6>
-              <Pie data={packageChart} />
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={4}>
-          <Card className="shadow">
-            <Card.Body>
-              <h6 className="fw-bold mb-3">Transaction History</h6>
-              <Table size="sm" hover>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Amount</th>
-                    <th>Method</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(stats?.transactions || []).map((tx: any) => (
-                    <tr key={tx.id}>
-                      <td>{tx.id}</td>
-                      <td>{tx.amount} AED</td>
-                      <td>{tx.method}</td>
-                      <td>
-                        <span
-                          style={{
-                            color:
-                              tx.status === "Completed"
-                                ? "#16a34a"
-                                : tx.status === "Pending"
-                                ? "#eab308"
-                                : "#dc2626",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {tx.status}
-                        </span>
-                      </td>
-                      <td>{tx.date}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={4}>
-          <Card className="shadow">
-            <Card.Body>
-              <h6 className="fw-bold mb-3">Latest Activity</h6>
-              <Table
-                hover
-                size="sm"
-                className="bg-white rounded"
-                style={{ fontSize: 14 }}
-              >
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Action</th>
-                    <th>Entity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats?.activity && stats.activity.length > 0 ? (
-                    stats.activity.map((log: any) => (
-                      <tr key={log._id}>
-                        <td>{fmt(log.createdAt)}</td>
-                        <td>{log.action}</td>
-                        <td>{log.entity}</td>
+          <Col lg={4}>
+            <Card className="shadow-sm h-100">
+              <Card.Body>
+                <h6 className="fw-bold mb-3">Transaction History</h6>
+                <div className="table-responsive">
+                  <Table size="sm" hover className="mb-0">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Status</th>
+                        <th>Date</th>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={3}>No activity found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </Table>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+                    </thead>
+                    <tbody>
+                      {(stats?.transactions || []).map((tx: any) => (
+                        <tr key={tx.id}>
+                          <td>{tx.id}</td>
+                          <td>{tx.amount} AED</td>
+                          <td>{tx.method}</td>
+                          <td style={{ fontWeight: 800 }}>{tx.status}</td>
+                          <td>{tx.date}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
 
-      {/* Row 5: Recent Payments */}
-      <Row className="g-3 mb-4">
-        <Col md={6} lg={4}>
-          <RecentPaymentActivityCard />
-        </Col>
-      </Row>
-          
-      <div>
-        <TrackingSearchCard initialTrackingNo="AB23456" compact enablePolling pollMs={20000} />
+          <Col lg={4}>
+            <Card className="shadow-sm h-100">
+              <Card.Body>
+                <h6 className="fw-bold mb-3">Latest Activity</h6>
+                <div className="table-responsive">
+                  <Table hover size="sm" className="mb-0">
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>Action</th>
+                        <th>Entity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stats?.activity?.length ? (
+                        stats.activity.map((log: any) => (
+                          <tr key={log._id}>
+                            <td>{fmt(log.createdAt)}</td>
+                            <td>{log.action}</td>
+                            <td>{log.entity}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3}>No activity found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </Table>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
       </div>
 
-<div className="space-y-6">
-      <ShipmentsWidget />
-    </div>
-  
+      {/* Mobile organization */}
+      <div className="d-lg-none mb-3">
+        <Accordion alwaysOpen>
+          <Accordion.Item eventKey="analytics">
+            <Accordion.Header>Analytics</Accordion.Header>
+            <Accordion.Body>
+              <Card className="shadow-sm mb-3">
+                <Card.Body>
+                  <h6 className="fw-bold mb-3">Packages by Status</h6>
+                  <div style={{ height: 280 }}>
+                    <Pie data={packageChart} options={pieOptions} />
+                  </div>
+                </Card.Body>
+              </Card>
 
-      {/* Row 6: Latest User Documents */}
-      <Row className="mb-4 g-3">
-        <Col md={12}>
-          <Card className="shadow">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <h6 className="fw-bold mb-0">Latest User Documents</h6>
-                <div className="d-flex gap-2">
-                  <Button size="sm" variant="outline-secondary" onClick={loadDocs}>
-                    Refresh
-                  </Button>
-                </div>
+              <Card className="shadow-sm mb-3">
+                <Card.Body>
+                  <h6 className="fw-bold mb-3">Latest Activity</h6>
+                  <div className="table-responsive">
+                    <Table hover size="sm" className="mb-0">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Action</th>
+                          <th>Entity</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stats?.activity?.length ? (
+                          stats.activity.map((log: any) => (
+                            <tr key={log._id}>
+                              <td>{fmt(log.createdAt)}</td>
+                              <td>{log.action}</td>
+                              <td>{log.entity}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={3}>No activity found.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </Table>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Accordion.Body>
+          </Accordion.Item>
+
+          <Accordion.Item eventKey="shipments">
+            <Accordion.Header>Shipments Widget</Accordion.Header>
+            <Accordion.Body>
+              <ShipmentsWidget />
+              <div className="mt-3">
+                <TrackingSearchCard initialTrackingNo="AB23456" compact enablePolling pollMs={20000} />
               </div>
-              <Table hover responsive size="sm">
+            </Accordion.Body>
+          </Accordion.Item>
+
+          <Accordion.Item eventKey="documents">
+            <Accordion.Header>Latest User Documents</Accordion.Header>
+            <Accordion.Body>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <strong>Documents</strong>
+                <Button size="sm" variant="outline-secondary" onClick={loadDocs}>
+                  Refresh
+                </Button>
+              </div>
+
+              <div className="table-responsive">
+                <Table hover responsive size="sm" className="mb-0">
+                  <thead>
+                    <tr>
+                      <th>Uploaded</th>
+                      <th>Label</th>
+                      <th>User</th>
+                      <th>Suite</th>
+                      <th>File</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {docsLoading ? (
+                      <tr>
+                        <td colSpan={6}>
+                          <Spinner size="sm" /> Loading…
+                        </td>
+                      </tr>
+                    ) : latestDocs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6}>No documents found.</td>
+                      </tr>
+                    ) : (
+                      latestDocs.map((d) => (
+                        <tr key={d.docId}>
+                          <td>{fmt(d.uploadedAt)}</td>
+                          <td>{d.label || d.filename}</td>
+                          <td>{d.userEmail}</td>
+                          <td>{d.suiteId || "—"}</td>
+                          <td>
+                            {d.url ? (
+                              <a href={d.url} target="_blank" rel="noreferrer">
+                                Open
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td>
+                            <Button
+                              size="sm"
+                              variant="outline-danger"
+                              onClick={() => handleDeleteDoc(d.docId)}
+                            >
+                              Delete
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </Table>
+              </div>
+            </Accordion.Body>
+          </Accordion.Item>
+
+          <Accordion.Item eventKey="shippingSettings">
+            <Accordion.Header>Shipping Settings</Accordion.Header>
+            <Accordion.Body>
+              <AdminShippingSettingsTable embedded />
+            </Accordion.Body>
+          </Accordion.Item>
+
+          <Accordion.Item eventKey="finance">
+            <Accordion.Header>Finance</Accordion.Header>
+            <Accordion.Body>
+              <FinanceSnapshot />
+              <div className="mt-3">
+                <TransactionHistoryCard />
+              </div>
+              <div className="mt-3">
+                <RecentPaymentActivityCard />
+              </div>
+            </Accordion.Body>
+          </Accordion.Item>
+        </Accordion>
+      </div>
+
+      {/* Desktop extra blocks */}
+      <div className="d-none d-lg-block">
+        <Row className="g-3 mb-3">
+          <Col lg={4}>
+            <RecentPaymentActivityCard />
+          </Col>
+        </Row>
+
+        <div className="mb-3">
+          <TrackingSearchCard initialTrackingNo="AB23456" compact enablePolling pollMs={20000} />
+        </div>
+
+        <div className="mb-3">
+          <ShipmentsWidget />
+        </div>
+
+        <Card className="shadow-sm mb-3">
+          <Card.Body>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h6 className="fw-bold mb-0">Latest User Documents</h6>
+              <Button size="sm" variant="outline-secondary" onClick={loadDocs}>
+                Refresh
+              </Button>
+            </div>
+
+            <div className="table-responsive">
+              <Table hover responsive size="sm" className="mb-0">
                 <thead>
                   <tr>
                     <th>Uploaded</th>
@@ -826,7 +795,7 @@ export default function AdminDashboard() {
                     <th>User Email</th>
                     <th>Suite</th>
                     <th>File</th>
-                    <th style={{ width: 100 }}>Actions</th>
+                    <th style={{ width: 110 }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -857,11 +826,7 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td>
-                          <Button
-                            size="sm"
-                            variant="outline-danger"
-                            onClick={() => handleDeleteDoc(d.docId)}
-                          >
+                          <Button size="sm" variant="outline-danger" onClick={() => handleDeleteDoc(d.docId)}>
                             Delete
                           </Button>
                         </td>
@@ -870,58 +835,70 @@ export default function AdminDashboard() {
                   )}
                 </tbody>
               </Table>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+            </div>
+          </Card.Body>
+        </Card>
 
-      {/* Row 7: Shipping Settings (embedded) */}
-      <Row className="mb-4 g-3">
-        <Col md={12}>
-          <Card className="shadow">
-            <Card.Body>
-              <h5 className="fw-semibold mb-3">Shipping Settings</h5>
-              <AdminShippingSettingsTable embedded />
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+        <Card className="shadow-sm mb-3">
+          <Card.Body>
+            <h5 className="fw-semibold mb-3">Shipping Settings</h5>
+            <AdminShippingSettingsTable embedded />
+          </Card.Body>
+        </Card>
 
-      {/* Row 8: Finance & Transactions */}
-      <h2 className="mb-3">Finance</h2>
-      <FinanceSnapshot />
-      <div className="container-fluid">
-        <div className="row g-3">
-          <div className="col-12">
-            <TransactionHistoryCard />
-          </div>
+        <h2 className="mb-3">Finance</h2>
+        <FinanceSnapshot />
+        <div className="mt-3">
+          <TransactionHistoryCard />
         </div>
       </div>
 
-      {/* Floating AI Tools Button */}
-      <div
-        style={{ position: "fixed", bottom: 32, right: 32, zIndex: 9999 }}
-        aria-live="polite"
-      >
+      {/* Floating AI button */}
+      <div className="ai-fab" aria-live="polite">
         <Button
-          style={{
-            borderRadius: "50%",
-            width: 60,
-            height: 60,
-            background: "#08b1ee",
-            fontSize: 27,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          className="ai-fab-btn"
           title="Open AI Tools"
           aria-label="Open AI Tools"
           onClick={() => setShowChatbot(true)}
         >
-          <i className="bi bi-robot"></i>
+          <i className="bi bi-robot" />
         </Button>
         <AIToolsModal show={showChatbot} onHide={() => setShowChatbot(false)} />
       </div>
+
+      <style jsx global>{`
+  .ai-fab {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 3000;
+  }
+  .ai-fab-btn {
+    border-radius: 999px;
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(90deg, var(--lux-accent), var(--lux-accent2));
+    border: 1px solid rgba(202,164,106,0.35);
+    color: #1a1410;
+    font-size: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 18px 50px rgba(10,7,5,0.18);
+  }
+  @media (max-width: 576px) {
+    .ai-fab {
+      bottom: 14px;
+      right: 14px;
+    }
+    .ai-fab-btn {
+      width: 50px;
+      height: 50px;
+      font-size: 20px;
+    }
+  }
+`}</style>
+
     </AdminLayout>
   );
 }
