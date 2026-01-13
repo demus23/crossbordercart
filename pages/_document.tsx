@@ -11,10 +11,7 @@ export default function Document() {
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
 
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
-        />
+        
       </Head>
       <body className="antialiased">
         <Main />

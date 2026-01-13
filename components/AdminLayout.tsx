@@ -20,7 +20,7 @@ const SIDEBAR_GROUPS = [
       { label: "Dashboard Home", icon: "bi-grid", href: "/dashboard" },
       // ✅ this is what you are missing (your screenshot uses /dashboard/shipments)
       { label: "Shipments (Admin Only)", icon: "bi-send", href: "/dashboard/shipments" },
-      { label: "Packages", icon: "bi-box-seam", href: "/dashboard/packages" },
+      { label: "Packages", icon: "bi-box-seam", href: "/admin/packages" },
     ],
   },
   {

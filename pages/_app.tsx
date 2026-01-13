@@ -8,6 +8,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import { SessionProvider } from 'next-auth/react';
 import { MantineProvider } from '@mantine/core';
 import Head from 'next/head';
+import "bootstrap-icons/font/bootstrap-icons.css";
+
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   return (
