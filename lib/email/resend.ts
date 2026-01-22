@@ -2,7 +2,8 @@ import { Resend } from "resend";
 import { render } from "@react-email/render";
 import * as React from "react";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const apiKey = process.env.RESEND_API_KEY;
+const resend = apiKey ? new Resend(apiKey) : null;
 
 export async function sendEmail({
   to,
@@ -17,7 +18,12 @@ export async function sendEmail({
   html?: string;
   from?: string;
 }) {
-  // Ensure we always pass a string to Resend
+  // Don’t crash production flows if email is not configured
+  if (!resend) {
+    console.warn("[email] RESEND_API_KEY missing. Skipping email send.");
+    return;
+  }
+
   const rendered = html ?? (react ? await render(react) : "");
   if (!rendered) throw new Error("No email body provided");
 
@@ -27,7 +33,7 @@ export async function sendEmail({
     from: sender,
     to,
     subject,
-    html: rendered, // <- guaranteed string
+    html: rendered,
   });
 
   if (error) throw error;

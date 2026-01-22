@@ -5,3 +5,12 @@
 .env*
 *.log
 .DS_Store
+# local binaries
+cloudflared*
+*.exe
+
+# dev/test endpoints
+pages/api/test-email.ts
+
+# admin/dev scripts
+scripts/

@@ -44,6 +44,10 @@ export function middleware(req: NextRequest) {
   if (req.nextUrl.pathname === "/api/shipping/track-webhook") {
     return NextResponse.next();
   }
+  // ✅ Bypass Stripe webhook (needed for raw body signature verification)
+  if (req.nextUrl.pathname === "/api/webhooks/stripe") {
+    return NextResponse.next();
+  }
 
   // Only guard other API routes; allow non-API through
   if (!req.nextUrl.pathname.startsWith('/api/')) return NextResponse.next();
