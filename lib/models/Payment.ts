@@ -10,46 +10,51 @@ export interface IBillingAddress {
   line2?: string;
   city: string;
   state?: string;
-  postalCode?: string;   // keep this name; your route should set postalCode
-  country: string;       // ISO-2 preferred (e.g., "AE")
+  postalCode?: string;
+  country: string;
   phone?: string;
 }
 
 export interface IPaymentMethodSnapshot {
   type: PaymentMethodType;
-  brand?: string;        // e.g., "Visa"
-  last4?: string;        // e.g., "4242"
+  brand?: string;
+  last4?: string;
   expMonth?: number;
   expYear?: number;
   paypalEmail?: string;
   wireReference?: string;
-  label?: string;        // e.g., "Personal Visa"
+  label?: string;
 }
 
 export interface IPayment {
   _id: Types.ObjectId;
-  invoiceNo: string;              // e.g., INV-20250825-ABC12
-  user: Types.ObjectId;           // ref User
-  email?: string;                 // convenience for lists/search
 
-  amount: number;                 // minor units (e.g., 2599 = 25.99)
-  currency: string;               // "AED","USD"...
+  invoiceNo: string;
+  user: Types.ObjectId;
+  email?: string;
+
+  amount: number;   // minor units
+  currency: string;
   status: PaymentStatus;
   description?: string;
   metadata?: Record<string, any>;
-  method: IPaymentMethodSnapshot; // snapshot at charge time
-  billingAddress: IBillingAddress;// snapshot at charge time
+  method: IPaymentMethodSnapshot;
+  billingAddress: IBillingAddress;
 
-  // ---------- Stripe fields (ROOT-LEVEL) ----------
+  // ✅ Link to shipment (this fixes your whole manual "Mark paid" issue)
+  shipmentId?: Types.ObjectId;
+
+  // Stripe linkage + extras
   stripeCheckoutSessionId?: string;
   stripePaymentIntentId?: string;
   stripeRefundId?: string;
-  receiptUrl?: string;            // <-- add
-  refundedAt?: Date;
-  refundedAmount?: number;        // <-- add (minor units)
-  failureMessage?: string;        // <-- add
 
-  createdAt?: Date;               // timestamps add these; mark optional
+  receiptUrl?: string;
+  refundedAt?: Date;
+  refundedAmount?: number;
+  failureMessage?: string;
+
+  createdAt?: Date;
   updatedAt?: Date;
 }
 
@@ -83,11 +88,11 @@ const MethodSchema = new Schema<IPaymentMethodSnapshot>(
 
 const PaymentSchema = new Schema<IPayment>(
   {
-    // ✅ FIX THIS FIELD
     invoiceNo: { type: String, required: true, unique: true, index: true },
 
     user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     email: { type: String },
+    shipmentId: { type: Schema.Types.ObjectId, ref: "Shipment", index: true },
 
     amount: { type: Number, required: true, min: 1 },
     currency: { type: String, required: true, uppercase: true, trim: true },
@@ -105,10 +110,14 @@ const PaymentSchema = new Schema<IPayment>(
     method: { type: MethodSchema, required: true },
     billingAddress: { type: BillingAddressSchema, required: true },
 
+    
+    
+
     // Stripe linkage + extras
     stripeCheckoutSessionId: { type: String, index: true },
     stripePaymentIntentId: { type: String, index: true },
     stripeRefundId: { type: String },
+
     receiptUrl: { type: String },
     refundedAt: { type: Date },
     refundedAmount: { type: Number },
@@ -116,11 +125,6 @@ const PaymentSchema = new Schema<IPayment>(
   },
   { timestamps: true }
 );
-
-
-
-
-
 
 export const Payment =
   (mongoose.models.Payment as mongoose.Model<IPayment>) ||

@@ -3,24 +3,25 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { errorMessage } from "@/utils/errors";
 
 /* =========================
-   Types & tiny helpers
+   Types & helpers
    ========================= */
 type Speed = "standard" | "express";
+type CarrierKey = "DHL" | "Aramex" | "UPS";
 
 type ReqBody = {
-  from?: { country?: string };
-  to?: { country?: string; postcode?: string };
+  from?: string | { country?: string };
+  to?: string | { country?: string; postcode?: string };
   weightKg?: unknown;
   dims?: { L?: unknown; W?: unknown; H?: unknown };
   speed?: Speed;
-  carriers?: Partial<Record<"DHL" | "Aramex" | "UPS", boolean>>;
-  currency?: string; // future: convert
+  carriers?: Partial<Record<CarrierKey, boolean>>;
+  currency?: string;
   insurance?: { add?: boolean; declared?: unknown };
   remoteArea?: boolean;
 };
 
 type Quote = {
-  carrier: "DHL" | "Aramex" | "UPS";
+  carrier: CarrierKey;
   speed: Speed;
   chargeableKg: number;
   priceAED: number;
@@ -35,6 +36,16 @@ type Quote = {
   notes?: string[];
 };
 
+type CarrierSetting = {
+  enabled: boolean;
+  divisor: number;
+  baseKg: { standard: number; express: number };
+  min: { standard: number; express: number };
+  fuelPct: number;
+  markupPct: number;
+  etaDays: { standard: number; express: number };
+};
+
 const asStr = (x: unknown) => (typeof x === "string" ? x.trim() : "");
 const asNum = (x: unknown) => {
   const n = Number(x);
@@ -45,96 +56,159 @@ const posNumOr = (x: unknown, dflt: number) => {
   return n > 0 ? n : dflt;
 };
 
-/* =========================
-   Default carrier settings
-   ========================= */
-type CarrierKey = "DHL" | "Aramex" | "UPS";
-type CarrierSetting = {
-  enabled: boolean;
-  divisor: number; // volumetric divisor (L*W*H / divisor)
-  baseKg: { standard: number; express: number }; // AED per kg
-  min: { standard: number; express: number }; // minimum AED
-  fuelPct: number; // %
-  markupPct: number; // %
-  etaDays: { standard: number; express: number };
-};
+function round2(n: number) {
+  return Number(n.toFixed(2));
+}
 
+function getCountryValue(input: ReqBody["from"] | ReqBody["to"]) {
+  if (typeof input === "string") return input.trim();
+  if (input && typeof input === "object" && "country" in input) {
+    return asStr(input.country);
+  }
+  return "";
+}
+
+function normalizeCountryName(s: string) {
+  const v = s.trim().toLowerCase();
+
+  const map: Record<string, string> = {
+    ae: "United Arab Emirates",
+    uae: "United Arab Emirates",
+    "united arab emirates": "United Arab Emirates",
+    gb: "United Kingdom",
+    uk: "United Kingdom",
+    "united kingdom": "United Kingdom",
+    us: "United States",
+    usa: "United States",
+    "united states": "United States",
+    ca: "Canada",
+    canada: "Canada",
+    saudi: "Saudi Arabia",
+    "saudi arabia": "Saudi Arabia",
+    qatar: "Qatar",
+    kuwait: "Kuwait",
+    oman: "Oman",
+    bahrain: "Bahrain",
+    ethiopia: "Ethiopia",
+    eritrea: "Eritrea",
+    kenya: "Kenya",
+    tanzania: "Tanzania",
+    uganda: "Uganda",
+    rwanda: "Rwanda",
+    burundi: "Burundi",
+    zambia: "Zambia",
+    angola: "Angola",
+    ghana: "Ghana",
+    nigeria: "Nigeria",
+  };
+
+  return map[v] || s.trim();
+}
+
+const AFRICA_DESTS = new Set([
+  "Ethiopia",
+  "Eritrea",
+  "Kenya",
+  "Tanzania",
+  "Uganda",
+  "Rwanda",
+  "Burundi",
+  "Zambia",
+  "Angola",
+  "Ghana",
+  "Nigeria",
+]);
+
+const GULF = new Set([
+  "United Arab Emirates",
+  "Saudi Arabia",
+  "Qatar",
+  "Kuwait",
+  "Oman",
+  "Bahrain",
+]);
+
+/* =========================
+   Base carrier defaults
+   ========================= */
 const DEFAULTS: Record<CarrierKey, CarrierSetting> = {
   DHL: {
     enabled: true,
     divisor: 5000,
-    baseKg: { standard: 20, express: 30 },
-    min: { standard: 60, express: 90 },
-    fuelPct: 12,
-    markupPct: 10,
+    baseKg: { standard: 24, express: 34 },
+    min: { standard: 75, express: 110 },
+    fuelPct: 13,
+    markupPct: 12,
     etaDays: { standard: 4, express: 2 },
   },
   Aramex: {
     enabled: true,
     divisor: 5000,
-    baseKg: { standard: 20, express: 30 },
+    baseKg: { standard: 20, express: 29 },
     min: { standard: 60, express: 90 },
-    fuelPct: 12,
+    fuelPct: 11,
     markupPct: 10,
-    etaDays: { standard: 4, express: 2 },
+    etaDays: { standard: 5, express: 3 },
   },
   UPS: {
     enabled: true,
     divisor: 5000,
-    baseKg: { standard: 20, express: 30 },
-    min: { standard: 60, express: 90 },
+    baseKg: { standard: 23, express: 33 },
+    min: { standard: 72, express: 105 },
     fuelPct: 12,
-    markupPct: 10,
+    markupPct: 11,
     etaDays: { standard: 4, express: 2 },
   },
 };
 
 const REMOTE_AREA_FLAT_AED = 35;
-const INSURANCE_RATE = 0.005; // 0.5%
+const INSURANCE_RATE = 0.005;
 const INSURANCE_MIN_AED = 10;
-const ok = (res: NextApiResponse, body: any) => res.status(200).json({ ok: true, ...body });
-const fail = (res: NextApiResponse, code: number, msg: string, details?: any) =>
-  res.status(code).json({ ok: false, error: msg, ...(details ? { details } : {}) });
-
 
 /* ================================================================
-   Optional DB overrides — tolerant to any export shape or absence
+   Optional DB overrides
    ================================================================ */
 async function applyDbOverrides(
   current: Record<CarrierKey, CarrierSetting>
 ): Promise<Record<CarrierKey, CarrierSetting>> {
   try {
-    // Try to connect to DB regardless of export name
     try {
-      const mongooseLib: any = await import("@/lib/mongoose").then((m) => m as any).catch(() => null);
+      const mongooseLib: any = await import("@/lib/mongoose")
+        .then((m) => m as any)
+        .catch(() => null);
+
       const connectFn =
-        (mongooseLib && (mongooseLib.default || mongooseLib.connect || mongooseLib.dbConnect || mongooseLib.mongooseConnect)) ||
+        (mongooseLib &&
+          (mongooseLib.default ||
+            mongooseLib.connect ||
+            mongooseLib.dbConnect ||
+            mongooseLib.mongooseConnect)) ||
         null;
+
       if (typeof connectFn === "function") {
         await connectFn();
       }
-    } catch {
-      /* ignore: no DB connector */
-    }
+    } catch {}
 
-    // Try to load CarrierRate model; if not present, keep defaults
     let CarrierRateModel: any = null;
     try {
       CarrierRateModel = (await import("@/lib/models/CarrierRate")).default;
     } catch {
       return current;
     }
+
     if (!CarrierRateModel?.find) return current;
 
     const docs = await CarrierRateModel.find({}).lean?.();
     if (!Array.isArray(docs) || docs.length === 0) return current;
 
     const next = { ...current };
+
     for (const d of docs) {
-      // Normalize name -> CarrierKey
       const nm = String(d?.carrier ?? d?.name ?? "").toUpperCase();
       const key: CarrierKey | null =
         nm === "DHL" ? "DHL" : nm === "ARAMEX" ? "Aramex" : nm === "UPS" ? "UPS" : null;
+
       if (!key) continue;
 
       const cur = next[key];
@@ -157,16 +231,28 @@ async function applyDbOverrides(
         },
       };
     }
+
     return next;
   } catch {
-    // Any error: fall back to provided current
     return current;
   }
 }
 
 /* =========================
-   Core computations
+   Pricing helpers
    ========================= */
+function getRouteMultiplier(fromCountry: string, toCountry: string) {
+  const fromGulf = GULF.has(fromCountry);
+  const toAfrica = AFRICA_DESTS.has(toCountry);
+
+  if (fromGulf && toAfrica) return 0.95;
+  if (fromCountry === "United Arab Emirates" && toCountry === "United Kingdom") return 1.08;
+  if (fromCountry === "United Arab Emirates" && toCountry === "United States") return 1.15;
+  if (fromCountry === "United Arab Emirates" && toCountry === "Canada") return 1.12;
+
+  return 1;
+}
+
 function calcChargeableKg(
   actualKg: number,
   dims: { L?: number; W?: number; H?: number } | undefined,
@@ -184,6 +270,7 @@ function calcChargeableKg(
     const vol = ((dims.L as number) * (dims.W as number) * (dims.H as number)) / divisor;
     return Math.max(actualKg, vol);
   }
+
   return actualKg;
 }
 
@@ -193,11 +280,16 @@ function buildQuoteForCarrier(
   speed: Speed,
   weightKg: number,
   dimsCm: { L?: number; W?: number; H?: number } | undefined,
-  opts: { insuranceAED: number; remoteAED: number }
+  opts: {
+    insuranceAED: number;
+    remoteAED: number;
+    routeMultiplier: number;
+  }
 ): Quote {
   const chargeable = calcChargeableKg(weightKg, dimsCm, s.divisor);
-  const basePerKg = s.baseKg[speed];
-  const min = s.min[speed];
+
+  const basePerKg = s.baseKg[speed] * opts.routeMultiplier;
+  const min = s.min[speed] * opts.routeMultiplier;
 
   const base = Math.max(min, basePerKg * chargeable);
   const fuel = (s.fuelPct / 100) * base;
@@ -208,16 +300,20 @@ function buildQuoteForCarrier(
   return {
     carrier,
     speed,
-    chargeableKg: Number(chargeable.toFixed(2)),
-    priceAED: Number(total.toFixed(2)),
+    chargeableKg: round2(chargeable),
+    priceAED: round2(total),
     etaDays: s.etaDays[speed],
     breakdown: {
-      baseAED: Number(base.toFixed(2)),
-      fuelAED: Number(fuel.toFixed(2)),
-      remoteAED: Number(opts.remoteAED.toFixed(2)),
-      insuranceAED: Number(opts.insuranceAED.toFixed(2)),
-      markupAED: Number(markup.toFixed(2)),
+      baseAED: round2(base),
+      fuelAED: round2(fuel),
+      remoteAED: round2(opts.remoteAED),
+      insuranceAED: round2(opts.insuranceAED),
+      markupAED: round2(markup),
     },
+    notes: [
+      "Non-binding estimate",
+      dimsCm ? "Volumetric check applied if dimensions provided" : "Actual weight used",
+    ],
   };
 }
 
@@ -233,9 +329,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const body = (req.body ?? {}) as ReqBody;
 
-    const fromCountry = asStr(body?.from?.country) || "United Arab Emirates";
-    const toCountry = asStr(body?.to?.country) || "United Kingdom";
-    // postcode available via asStr(body?.to?.postcode) if you need remote logic per carrier
+    const fromCountry =
+      normalizeCountryName(getCountryValue(body.from) || "United Arab Emirates");
+    const toCountry =
+      normalizeCountryName(getCountryValue(body.to) || "United Kingdom");
 
     const speed: Speed = asStr(body?.speed) === "express" ? "express" : "standard";
     const weightKg = posNumOr(body?.weightKg, 1);
@@ -244,60 +341,80 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const L = asNum(dimsIn?.L);
     const W = asNum(dimsIn?.W);
     const H = asNum(dimsIn?.H);
+
     const dimsCm =
       Number.isFinite(L) && Number.isFinite(W) && Number.isFinite(H) && L > 0 && W > 0 && H > 0
         ? { L, W, H }
         : undefined;
 
     const carriersInput = body?.carriers || { DHL: true, Aramex: true, UPS: true };
+
     const requested: CarrierKey[] = (["DHL", "Aramex", "UPS"] as CarrierKey[]).filter(
       (c) => Boolean((carriersInput as Record<string, boolean>)[c])
     );
+
     if (requested.length === 0) {
-      return res.status(400).json({ ok: false, error: "No carrier selected" });
+      return fail(res, 400, "No carrier selected");
     }
 
-    // Simple rule: skip quoting same-country routes (tweak as needed)
     if (fromCountry.toLowerCase() === toCountry.toLowerCase()) {
-      return res.status(200).json({ ok: true, currency: "AED", from: fromCountry, to: toCountry, quotes: [] as Quote[] });
+      return ok(res, {
+        currency: "AED",
+        from: fromCountry,
+        to: toCountry,
+        quotes: [] as Quote[],
+      });
     }
 
-    // Optional surcharges
     const insuranceAED =
       body?.insurance?.add && posNumOr(body?.insurance?.declared, 0) > 0
         ? Math.max(INSURANCE_MIN_AED, INSURANCE_RATE * posNumOr(body?.insurance?.declared, 0))
         : 0;
 
     const remoteAED = body?.remoteArea ? REMOTE_AREA_FLAT_AED : 0;
+    const routeMultiplier = getRouteMultiplier(fromCountry, toCountry);
 
-    // Get effective settings (defaults + DB overrides if available)
     const effective = await applyDbOverrides(DEFAULTS);
 
     const quotes: Quote[] = [];
+
     for (const c of requested) {
       const cfg = effective[c];
       if (!cfg?.enabled) continue;
-      const q = buildQuoteForCarrier(c, cfg, speed, weightKg, dimsCm, {
-        insuranceAED,
-        remoteAED,
-      });
-      quotes.push(q);
+
+      quotes.push(
+        buildQuoteForCarrier(c, cfg, speed, weightKg, dimsCm, {
+          insuranceAED,
+          remoteAED,
+          routeMultiplier,
+        })
+      );
     }
 
     quotes.sort((a, b) => a.priceAED - b.priceAED);
 
-    return res.status(200).json({
-      ok: true,
+    return ok(res, {
       currency: "AED",
       from: fromCountry,
       to: toCountry,
       quotes,
     });
-  
-
-} catch (e: unknown) {
-  return res
-    .status(500)
-    .json({ ok: false, error: errorMessage(e) || "Internal Server Error" });
+  } catch (e: unknown) {
+    return res.status(500).json({
+      ok: false,
+      error: errorMessage(e) || "Internal Server Error",
+    });
+  }
 }
+
+function ok(res: NextApiResponse, body: any) {
+  return res.status(200).json({ ok: true, ...body });
+}
+
+function fail(res: NextApiResponse, code: number, msg: string, details?: any) {
+  return res.status(code).json({
+    ok: false,
+    error: msg,
+    ...(details ? { details } : {}),
+  });
 }

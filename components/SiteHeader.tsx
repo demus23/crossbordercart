@@ -159,6 +159,7 @@ export default function SiteHeader() {
           <NavLink href="/stores">Stores</NavLink>
           <NavLink href="/pricing">Pricing</NavLink>
           <NavLink href="/faq">FAQ</NavLink>
+           <NavLink href="/about">About</NavLink>
         </div>
 
         {/* Desktop right buttons */}

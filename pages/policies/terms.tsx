@@ -79,8 +79,8 @@ export default function TermsPage() {
           <h2>8. Contact</h2>
           <p>
             If you have questions about these terms, please contact us at{" "}
-            <a href="mailto:support@crossbordercart.com">
-              support@crossbordercart.com
+            <a href="mailto:support.crossbordercart@gmail.com">
+              support.crossbordercart@gmail.com
             </a>
             .
           </p>

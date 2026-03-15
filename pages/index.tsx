@@ -9,6 +9,9 @@ import Head from "next/head";
 import StoresStrip from "@/components/StoresStrip";
 import FloatingChatButton from "@/components/FloatingChatButton";
 import AIChatbotModal from "@/components/AIChatbotModal";
+import useSWR, { mutate } from "swr";
+import { useRouter } from "next/router";
+
 
 
 
@@ -65,12 +68,15 @@ export default function HomePage() {
     "idle"
   );
 const [chatOpen, setChatOpen] = useState(false);
+const [showAllLive, setShowAllLive] = useState(false);
+
+
 
   const handleWaitlistSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setStatus("submitting");
 
-  try {
+    try {
     const res = await fetch("/api/waitlist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -90,6 +96,24 @@ const [chatOpen, setChatOpen] = useState(false);
     setStatus("error");
   }
 };
+
+  const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+  const { data, error, isLoading } = useSWR("/api/live-shipments", fetcher, {
+    refreshInterval: 10_000,
+    revalidateOnFocus: true,
+  });
+
+  const liveStats = {
+  inTransit: data?.stats?.inTransit ?? 0,
+  delivered: data?.stats?.delivered ?? 0,
+  updates: data?.stats?.updates ?? data?.latest?.length ?? 0, // ✅ fallback
+  countries: data?.stats?.countries ?? 0,
+};
+
+const liveLatest = data?.latest ?? [];
+  const visibleLive = showAllLive ? liveLatest : liveLatest.slice(0, 3);
+
 
 
   return (
@@ -155,106 +179,119 @@ const [chatOpen, setChatOpen] = useState(false);
       
 
       {/* HERO */}
-      <section style={heroSection}>
-        <div style={heroGrid} className="grid-2">
-          {/* Left column */}
-          <div style={heroLeft}>
-            <div style={heroBadge}>Ship from UAE to Africa, Europe &amp; the world</div>
-            <h1 style={heroTitle}>
-              Your UAE shipping address
-              <br />
-              <span style={heroAccent}>for every global store.</span>
-            </h1>
-            <p style={heroSubtitle}>
-              Get a personal UAE address, consolidate your orders, and ship to your home
-              country with transparent rates and real-time tracking—all in one dashboard.
-            </p>
+<section style={heroSection}>
+  <div style={heroGrid} className="grid-2">
+    {/* Left column */}
+    <div style={heroLeft}>
+      <div style={heroBadge}>Ship from UAE to Africa, Europe &amp; the world</div>
 
-            <div style={heroCtas}>
-              <Link
-                href="/signup"
-                style={{ ...ctaPrimary }}
-                className="btn btn-cta"
-              >
-                Get my free UAE address
-              </Link>
-              <Link href="/login" style={ctaSecondary} className="btn">
-                Track my shipment
-              </Link>
-            </div>
+      <h1 style={heroTitle}>
+        Your UAE shipping address
+        <br />
+        <span style={heroAccent}>for every global store.</span>
+      </h1>
 
-            <div style={heroTrustRow}>
-              <span style={{ fontSize: 13, color: "#64748b" }}>
-                No setup fees · Pay only when you ship · Optional insurance
+      <p style={heroSubtitle}>
+        Get a personal UAE address, consolidate your orders, and ship to your home
+        country with transparent rates and real-time tracking—all in one dashboard.
+      </p>
+
+      <div style={heroCtas}>
+        <Link href="/signup" style={{ ...ctaPrimary }} className="btn btn-cta">
+          Get my free UAE address
+        </Link>
+        <Link href="/login" style={ctaSecondary} className="btn">
+          Track my shipment
+        </Link>
+      </div>
+
+      <div style={heroTrustRow}>
+        <span style={{ fontSize: 13, color: "#64748b" }}>
+          No setup fees · Pay only when you ship · Optional insurance
+        </span>
+      </div>
+    </div>
+
+    {/* Right column – mini dashboard */}
+    <div style={heroRight}>
+      <div style={heroCard}>
+        <div style={heroCardTop}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={statusDot} />
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#0f172a",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Live shipment overview
+            </span>
+          </div>
+
+          <span style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>
+            Auto-refresh · 10s
+          </span>
+        </div>
+
+        <div style={liveCard} className="minw0">
+          {/* Image */}
+          <div style={heroImageFrame}>
+            <Image
+              src="/hero-unboxing.png"
+              alt="Happy customer opening a Cross Border Cart package"
+              fill
+              style={{ objectFit: "cover", borderRadius: 20 }}
+            />
+            <div style={heroImageOverlay}>
+              <span style={{ fontSize: 12, color: "#e2f3ff" }}>
+                “My parcels from Dubai arrived faster than ever.”
               </span>
             </div>
           </div>
 
-          {/* Right column – hero picture + mini dashboard */}
-          <div style={heroRight}>
-            
+          {/* Stats */}
+          <div style={heroCardStats}>
+            <HeroStat label="In transit" value={String(liveStats.inTransit)} />
+            <HeroStat label="Delivered" value={String(liveStats.delivered)} />
+            <HeroStat label="Live updates" value={String(liveStats.updates)} />
+          </div>
 
-           <div style={heroCard}>
-              <div style={heroCardTop}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={statusDot} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap" }}>
-  Live shipment overview
-</span>
-                </div>
-               <span style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>
-  Auto-refresh · 10s
-</span>
-              </div>
-<div style={liveCard} className="minw0">
-  
+          {/* Live list */}
+          <LiveShipmentRotator items={liveLatest} />
 
-              {/* Image area */}
-              <div style={heroImageFrame}>
-                {/* add a hero image in /public/hero-unboxing.jpg or change src */}
-                <Image
-                  src="/hero-unboxing.png"
-                  alt="Happy customer opening a Cross Border Cart package"
-                  fill
-                  style={{ objectFit: "cover", borderRadius: 20 }}
-                />
-                <div style={heroImageOverlay}>
-                  <span style={{ fontSize: 12, color: "#e2f3ff" }}>
-                    “My parcels from Dubai arrived faster than ever.”
-                  </span>
-                </div>
-              </div>
+          {/* Controls (INSIDE card) */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: 8,
+            }}
+          >
+            <button
+              onClick={() => setShowAllLive((v) => !v)}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "#2563eb",
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              {showAllLive ? "Show less" : `View all (${liveLatest.length})`}
+            </button>
 
-              {/* Stats row */}
-              <div style={heroCardStats}>
-                <HeroStat label="In transit" value="18" />
-                <HeroStat label="Delivered" value="124" />
-                <HeroStat label="Countries" value="220+" />
-              </div>
-
-              {/* Small list */}
-              <div style={heroMiniList}>
-                <MiniShipment
-                  from="Dubai, UAE"
-                  to="Lusaka, Zambia"
-                  status="On the way"
-                />
-                <MiniShipment
-                  from="Sharjah, UAE"
-                  to="Nairobi, Kenya"
-                  status="At customs"
-                />
-                <MiniShipment
-                  from="Abu Dhabi, UAE"
-                  to="London, UK"
-                  status="Delivered"
-                />
-              </div>
-            </div>
+            <span style={{ fontSize: 12, color: "#64748b" }}>Updated live</span>
           </div>
         </div>
-        </div>
-      </section>
+      </div>
+    </div>
+  </div>
+</section>
 
       {/* TRUST BAR */}
       <section style={trustBar} id="trust" className="grid grid-4">
@@ -779,8 +816,9 @@ const heroMiniList: React.CSSProperties = {
   marginTop: 10,
   display: "flex",
   flexDirection: "column",
-  gap: 6,
+  gap: 8, // was 6 — adjust to taste (8 looks cleaner)
 };
+
 
 /* TRUST BAR */
 
@@ -1013,6 +1051,99 @@ const ctaError: React.CSSProperties = {
   fontSize: 12,
   color: "#b91c1c",
 };
+const liveRotatorWrap: React.CSSProperties = {
+  marginTop: 10,
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+};
+
+const liveRotatorCard: React.CSSProperties = {
+  borderRadius: 16,
+  border: "1px solid #e2e8f0",
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+  padding: "12px 12px",
+  boxShadow: "0 8px 22px rgba(15,23,42,0.06)",
+};
+
+const liveTopRow: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10,
+};
+
+const liveTag: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  padding: "4px 10px",
+  borderRadius: 999,
+  background: "rgba(34,197,94,0.12)",
+  color: "#166534",
+};
+
+const liveTime: React.CSSProperties = {
+  fontSize: 11,
+  color: "#64748b",
+  whiteSpace: "nowrap",
+};
+
+const liveTrack: React.CSSProperties = {
+  marginTop: 10,
+  fontSize: 16,
+  fontWeight: 900,
+  color: "#0f172a",
+  letterSpacing: 0.2,
+};
+
+const liveMeta: React.CSSProperties = {
+  marginTop: 4,
+  fontSize: 13,
+  color: "#64748b",
+  lineHeight: 1.3,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const liveBottomRow: React.CSSProperties = {
+  marginTop: 10,
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10,
+};
+
+const liveBadge: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 800,
+  padding: "6px 12px",
+  borderRadius: 999,
+  whiteSpace: "nowrap",
+};
+
+const liveCta: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 800,
+  color: "#0f172a",
+  opacity: 0.85,
+  whiteSpace: "nowrap",
+};
+
+const liveDots: React.CSSProperties = {
+  display: "flex",
+  gap: 6,
+  justifyContent: "center",
+  alignItems: "center",
+  paddingTop: 2,
+};
+
+const liveDot: React.CSSProperties = {
+  width: 6,
+  height: 6,
+  borderRadius: 999,
+  background: "#0ea5e9",
+};
 
 
 /* ---------- small components ---------- */
@@ -1058,6 +1189,138 @@ function HeroStat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function LiveShipmentRotator({ items }: { items: any[] }) {
+  // 1) Deduplicate by trackingNo (keep the most recent item for each trackingNo)
+  const unique = React.useMemo(() => {
+    const map = new Map<string, any>();
+
+    for (const it of items || []) {
+      const t = String(it?.trackingNo || it?.tracking || it?.id || "").trim();
+      if (!t) continue;
+
+      const prev = map.get(t);
+
+      // Prefer the newest by updatedAt / at / createdAt
+      const prevTime = new Date(prev?.updatedAt || prev?.at || prev?.createdAt || 0).getTime();
+      const curTime = new Date(it?.updatedAt || it?.at || it?.createdAt || 0).getTime();
+
+      if (!prev || curTime >= prevTime) map.set(t, it);
+    }
+
+    // Convert to array sorted newest first
+    return Array.from(map.values()).sort((a, b) => {
+      const ta = new Date(a?.updatedAt || a?.at || a?.createdAt || 0).getTime();
+      const tb = new Date(b?.updatedAt || b?.at || b?.createdAt || 0).getTime();
+      return tb - ta;
+    });
+  }, [items]);
+
+  // 2) Rotate index
+  const [idx, setIdx] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!unique.length) return;
+
+    // Reset idx if list changes
+    setIdx((v) => (v >= unique.length ? 0 : v));
+
+    const t = setInterval(() => {
+      setIdx((v) => (v + 1) % unique.length);
+    }, 4000);
+
+    return () => clearInterval(t);
+  }, [unique.length]);
+
+  // 3) Current item
+  const cur = unique[idx];
+
+  if (!unique.length) {
+    return (
+      <div style={liveRotatorWrap}>
+        <div style={liveRotatorCard}>
+          <div style={liveTopRow}>
+            <span style={liveTag}>Live now</span>
+            <span style={liveTime}>Updating…</span>
+          </div>
+          <div style={liveTrack}>#—</div>
+          <div style={liveMeta}>Fetching shipments…</div>
+        </div>
+      </div>
+    );
+  }
+
+  const trackingNo = String(cur?.trackingNo || cur?.tracking || "").trim();
+  const status = String(cur?.status || "In Transit");
+  const location = String(cur?.location || cur?.lastLocation || cur?.from || "Dubai");
+  const note = String(cur?.note || cur?.lastNote || cur?.to || "");
+  const when = cur?.updatedAt || cur?.at || cur?.createdAt;
+
+  const href = trackingNo ? `/track/${encodeURIComponent(trackingNo)}` : "#";
+
+  return (
+    <div style={liveRotatorWrap}>
+      <Link href={href} style={{ textDecoration: "none" }}>
+        <div style={liveRotatorCard}>
+          <div style={liveTopRow}>
+            <span style={liveTag}>Live now</span>
+            <span style={liveTime}>{formatTimeAgo(when)}</span>
+          </div>
+
+          <div style={liveTrack}>#{trackingNo || "—"}</div>
+
+          <div style={liveMeta}>
+            {location}
+            {note ? ` · ${note}` : ""}
+          </div>
+
+          <div style={liveBottomRow}>
+            <span style={{ ...liveBadge, ...badgeStyleFor(status) }}>{status}</span>
+            <span style={liveCta}>View tracking →</span>
+          </div>
+        </div>
+      </Link>
+
+      {/* tiny dots */}
+      <div style={liveDots}>
+        {unique.slice(0, 6).map((_, i) => (
+          <span key={i} style={{ ...liveDot, opacity: i === idx ? 1 : 0.3 }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function badgeStyleFor(status: string): React.CSSProperties {
+  const s = status.toLowerCase();
+
+  if (s.includes("deliver")) return { background: "rgba(34,197,94,0.14)", color: "#16a34a" };
+  if (s.includes("cancel") || s.includes("problem") || s.includes("hold"))
+    return { background: "rgba(239,68,68,0.12)", color: "#b91c1c" };
+  if (s.includes("transit") || s.includes("ship") || s.includes("process"))
+    return { background: "rgba(59,130,246,0.12)", color: "#2563eb" };
+
+  return { background: "rgba(15,23,42,0.08)", color: "#0f172a" };
+}
+
+function formatTimeAgo(d: any) {
+  const t = new Date(d || Date.now()).getTime();
+  if (!t || Number.isNaN(t)) return "";
+  const diff = Date.now() - t;
+
+  const sec = Math.floor(diff / 1000);
+  if (sec < 10) return "Just now";
+  if (sec < 60) return `${sec}s ago`;
+
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
+}
+
 function MiniShipment({
   from,
   to,
@@ -1099,6 +1362,79 @@ function MiniShipment({
     </div>
   );
 }
+
+function MiniShipmentLine({
+  trackingNo,
+  status,
+  meta,
+}: {
+  trackingNo: string;
+  status: string;
+  meta: string;
+}) {
+  const router = useRouter();
+
+  const pill =
+    status.toLowerCase().includes("deliver")
+      ? { bg: "rgba(34,197,94,0.12)", fg: "#16a34a" }
+      : status.toLowerCase().includes("transit") || status.toLowerCase().includes("ship")
+      ? { bg: "rgba(37,99,235,0.12)", fg: "#2563eb" }
+      : { bg: "rgba(15,23,42,0.08)", fg: "#0f172a" };
+
+  return (
+    <button
+      onClick={() => router.push(`/track/${encodeURIComponent(trackingNo)}`)}
+      style={{
+        width: "100%",
+        textAlign: "left",
+        border: "1px solid rgba(226,232,240,0.9)",
+        background: "#f8fafc",
+        borderRadius: 12,
+        padding: "10px 12px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 10,
+        cursor: "pointer",
+      }}
+      title={`Open tracking #${trackingNo}`}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 12 }}>
+          #{trackingNo}
+        </div>
+        <div
+          style={{
+            color: "#64748b",
+            marginTop: 2,
+            fontSize: 12,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {meta}
+        </div>
+      </div>
+
+      <div
+        style={{
+          padding: "5px 10px",
+          borderRadius: 999,
+          background: pill.bg,
+          color: pill.fg,
+          fontWeight: 800,
+          fontSize: 12,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {status}
+      </div>
+    </button>
+  );
+}
+
+
 
 function FeatureCard({
   icon,

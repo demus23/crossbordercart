@@ -202,8 +202,8 @@ export default function LoginPage() {
               </span>
               <span className="muted small">
                 Need help? Email{" "}
-                <a className="link" href="mailto:support@crossbordercart.com">
-                  support@crossbordercart.com
+                <a className="link" href="mailto:support.crossbordercart@gmail.com">
+                  support.crossbordercart@gmail.com
                 </a>
               </span>
             </footer>

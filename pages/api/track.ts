@@ -3,12 +3,15 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import dbConnect from "@/lib/dbConnect";
 import { Shipment } from "@/lib/models/Shipment";
 import PackageModel from "@/lib/models/Package";
+import TrackingEvent from "@/lib/models/TrackingEvent";
 
-type TimelineEvent = {
-  at: string;              // ISO date
-  status: string;
-  source: "shipment" | "package" | "system";
-  raw?: any;
+type RawEvent = {
+  time?: string;
+  status?: string;
+  location?: string | null;
+  message?: string | null;
+  trackingNo?: string;
+  createdAt?: string;
 };
 
 type TrackResponse = {
@@ -16,7 +19,7 @@ type TrackResponse = {
   tracking: string;
   shipment: any | null;
   package: any | null;
-  events: TimelineEvent[];
+  events: RawEvent[];
   error?: string;
 };
 
@@ -29,7 +32,6 @@ export default async function handler(
     return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
 
-  // Accept both ?trackingNo= and ?tracking=
   const { trackingNo, tracking, limit } = req.query;
 
   const trackingNumber =
@@ -48,83 +50,45 @@ export default async function handler(
 
   let shipmentDoc: any | null = null;
   let packageDoc: any | null = null;
-  const events: TimelineEvent[] = [];
 
-  // 1️⃣ Try to find a Shipment by trackingNumber
-  try {
-    shipmentDoc = (await Shipment.findOne({
-      trackingNumber: trackingNumber,
-    }).lean()) as any | null;
-  } catch (e) {
-    // ignore DB error, we'll still try packages
-  }
+  // 1) Try shipment
+  shipmentDoc = await Shipment.findOne({ trackingNumber }).lean().catch(() => null);
 
-  if (shipmentDoc) {
-    const activity = Array.isArray(shipmentDoc.activity)
-      ? shipmentDoc.activity
-      : [];
-
-    for (const a of activity.slice(0, maxLimit)) {
-      const at = a?.at
-        ? new Date(a.at)
-        : shipmentDoc.updatedAt || shipmentDoc.createdAt || new Date();
-
-      events.push({
-        at: at.toISOString(),
-        status: a?.type || shipmentDoc.status || "created",
-        source: "shipment",
-        raw: a,
-      });
-    }
-  }
-
-  // 2️⃣ If no shipment found, try a Package by tracking
+  // 2) Try package if no shipment
   if (!shipmentDoc) {
-    try {
-      packageDoc = (await PackageModel.findOne({
-        tracking: trackingNumber,
-      }).lean()) as any | null;
-    } catch (e) {
-      // ignore DB error here as well
-    }
-
-    if (packageDoc) {
-      const activity = Array.isArray(packageDoc.activity)
-        ? packageDoc.activity
-        : [];
-
-      for (const a of activity.slice(0, maxLimit)) {
-        const at = a?.at
-          ? new Date(a.at)
-          : packageDoc.updatedAt || packageDoc.createdAt || new Date();
-
-        events.push({
-          at: at.toISOString(),
-          status: a?.status || packageDoc.status || "created",
-          source: "package",
-          raw: a,
-        });
-      }
-    }
+    packageDoc = await PackageModel.findOne({ tracking: trackingNumber }).lean().catch(() => null);
   }
 
-  // 3️⃣ Fallback: if we have a doc but zero events, synthesize one
-  if (events.length === 0) {
-    const doc: any = shipmentDoc || packageDoc;
+  // 3) Pull events from TrackingEvent collection (THIS is the missing part)
+  const tevents = await TrackingEvent.find({ trackingNo: trackingNumber })
+    .sort({ createdAt: -1 })
+    .limit(maxLimit)
+    .lean()
+    .catch(() => []);
 
-    if (doc) {
-      const at =
-        doc.updatedAt || doc.createdAt ? new Date(doc.updatedAt || doc.createdAt) : new Date();
+  const events: RawEvent[] = (tevents || []).map((e: any) => ({
+    time: e.createdAt ? new Date(e.createdAt).toISOString() : undefined,
+    createdAt: e.createdAt ? new Date(e.createdAt).toISOString() : undefined,
+    status: e.status,
+    location: e.location ?? null,
+    message: e.note ?? null, // map note -> message so UI shows it
+    trackingNo: e.trackingNo,
+  }));
 
-      events.push({
-        at: at.toISOString(),
-        status: doc.status || "created",
-        source: shipmentDoc ? "shipment" : "package",
-      });
-    }
-  }
+  // After `const events: RawEvent[] = ...`
 
-  // 4️⃣ Nothing found at all
+const latest = events[0]; // because we sorted createdAt desc
+
+// If we found a package, override its live status/location/updatedAt for display
+if (packageDoc && latest) {
+  packageDoc.status = latest.status || packageDoc.status;
+  packageDoc.lastLocation = latest.location || packageDoc.lastLocation;
+  packageDoc.lastNote = latest.message || packageDoc.lastNote;
+  packageDoc.updatedAt = latest.time || packageDoc.updatedAt;
+}
+
+
+  // 4) If we found nothing at all
   if (!shipmentDoc && !packageDoc) {
     return res.status(200).json({
       ok: false,
@@ -136,7 +100,20 @@ export default async function handler(
     });
   }
 
-  // 5️⃣ Normal success
+  // 5) Optional: if no tracking events exist yet, synthesize one from package/shipment status
+  if (events.length === 0) {
+    const doc: any = shipmentDoc || packageDoc;
+    const at = doc?.updatedAt || doc?.createdAt ? new Date(doc.updatedAt || doc.createdAt) : new Date();
+    events.push({
+      time: at.toISOString(),
+      createdAt: at.toISOString(),
+      status: doc?.status || "Pending",
+      location: doc?.lastLocation ?? doc?.location ?? null,
+      message: doc?.lastNote ?? null,
+      trackingNo: trackingNumber.toString(),
+    });
+  }
+
   return res.status(200).json({
     ok: true,
     tracking: trackingNumber.toString(),

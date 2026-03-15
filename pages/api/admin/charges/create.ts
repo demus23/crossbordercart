@@ -133,6 +133,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const b: any = req.body || {};
+  const shipmentIdStr: string | undefined = b.shipmentId;
+  
   const email = normalizeEmail(b);
   const userIdStr: string | undefined = b.userId;
 
@@ -165,6 +167,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       method: methodRequested,
       user: userId,
       email: userDoc?.email || email, // store for admin search
+      shipmentId: shipmentIdStr ? new Types.ObjectId(String(shipmentIdStr)) : undefined,
+      
       billingAddress: {
         fullName: (b.billingAddress?.fullName || userDoc?.name || (email ? String(email).split("@")[0] : "Customer")),
         line1: b.billingAddress?.line1 || "N/A",
@@ -203,11 +207,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       customer: userDoc?.stripeCustomerId || undefined,
       customer_email: userDoc?.email || email || undefined,
       // include session_id so UI can reconcile if webhook is delayed/missed
-      success_url: `${ORIGIN}/admin/charges?paid=1&inv=${encodeURIComponent(invoiceNo)}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${ORIGIN}/admin/charges?canceled=1&inv=${encodeURIComponent(invoiceNo)}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${ORIGIN}/pay/return?paid=1&inv=${encodeURIComponent(invoiceNo)}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${ORIGIN}/pay/return?canceled=1&inv=${encodeURIComponent(invoiceNo)}&session_id={CHECKOUT_SESSION_ID}`,
       allow_promotion_codes: false,
-      metadata: { invoiceNo },
-      payment_intent_data: { metadata: { invoiceNo } },
+     metadata: {
+  invoiceNo,
+  shipmentId: shipmentIdStr || "",
+},
+payment_intent_data: {
+  metadata: {
+    invoiceNo,
+    shipmentId: shipmentIdStr || "",
+  },
+
+},
       line_items: [
         {
           quantity: 1,

@@ -1,135 +1,264 @@
+// pages/faq.tsx
 import React from "react";
+import Head from "next/head";
 import Link from "next/link";
-import Image from "next/image";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 
-
-const colors = { mint: "#22c55e" };
-
-const headerShell: React.CSSProperties = {
-  position: "sticky",
-  top: 0,
-  zIndex: 40,
-  background: "#ffffff",
-  boxShadow: "0 4px 18px rgba(15,23,42,0.06)",
-};
-const nav: React.CSSProperties = {
-  maxWidth: 1200,
-  margin: "0 auto",
-  padding: "10px 20px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-};
-const navLeft: React.CSSProperties = { display: "flex", alignItems: "center", gap: 10 };
-const navCenter: React.CSSProperties = { display: "flex", alignItems: "center", gap: 16 };
-const navRight: React.CSSProperties = { display: "flex", alignItems: "center", gap: 10 };
-const brandName: React.CSSProperties = { fontWeight: 800, fontSize: 18, color: "#0f172a" };
-const navLink: React.CSSProperties = {
-  fontSize: 13,
-  color: "#475569",
-  textDecoration: "none",
-  fontWeight: 500,
-};
-const navBtn: React.CSSProperties = {
-  borderRadius: 999,
-  padding: "7px 18px",
-  fontWeight: 600,
-  fontSize: 13,
-  textDecoration: "none",
-};
 const pageShell: React.CSSProperties = {
   background: "#f5f7fb",
   minHeight: "100vh",
   fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
 };
+
+const heroSection: React.CSSProperties = {
+  maxWidth: 900,
+  margin: "0 auto",
+  padding: "36px 20px 10px",
+  textAlign: "center",
+};
+
+const badgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "8px 14px",
+  borderRadius: 999,
+  background: "#ecfeff",
+  border: "1px solid #ccfbf1",
+  color: "#0f766e",
+  fontSize: 13,
+  fontWeight: 700,
+  marginBottom: 16,
+};
+
+const title: React.CSSProperties = {
+  fontSize: 32,
+  fontWeight: 800,
+  color: "#0f172a",
+  marginBottom: 10,
+  lineHeight: 1.2,
+};
+
+const subtitle: React.CSSProperties = {
+  fontSize: 15,
+  color: "#64748b",
+  marginBottom: 26,
+  lineHeight: 1.7,
+  maxWidth: 700,
+  marginLeft: "auto",
+  marginRight: "auto",
+};
+
 const main: React.CSSProperties = {
   maxWidth: 900,
-  margin: "30px auto",
-  padding: "0 20px 40px",
+  margin: "0 auto",
+  padding: "0 20px 50px",
 };
-const title: React.CSSProperties = { fontSize: 32, fontWeight: 800, color: "#0f172a", marginBottom: 10 };
-const subtitle: React.CSSProperties = { fontSize: 15, color: "#64748b", marginBottom: 26 };
 
 const faqItem: React.CSSProperties = {
   background: "#ffffff",
-  borderRadius: 14,
-  padding: "14px 16px",
+  borderRadius: 16,
+  padding: "18px 18px",
   border: "1px solid #e5e7eb",
-  marginBottom: 12,
+  marginBottom: 14,
+  boxShadow: "0 6px 20px rgba(15,23,42,0.04)",
+};
+
+const questionStyle: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 700,
+  marginBottom: 8,
+  color: "#0f172a",
+};
+
+const answerStyle: React.CSSProperties = {
+  fontSize: 14,
+  color: "#475569",
+  lineHeight: 1.75,
+  margin: 0,
+};
+
+const helpCard: React.CSSProperties = {
+  marginTop: 28,
+  background: "linear-gradient(135deg, #ecfeff 0%, #f8fafc 100%)",
+  border: "1px solid #dbeafe",
+  borderRadius: 18,
+  padding: "22px 20px",
+};
+
+const helpTitle: React.CSSProperties = {
+  fontSize: 18,
+  fontWeight: 800,
+  color: "#0f172a",
+  marginBottom: 8,
+};
+
+const helpText: React.CSSProperties = {
+  fontSize: 14,
+  color: "#64748b",
+  lineHeight: 1.7,
+  marginBottom: 14,
+};
+
+const linksRow: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+};
+
+const linkPill: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "10px 14px",
+  borderRadius: 999,
+  background: "#ffffff",
+  border: "1px solid #dbeafe",
+  color: "#0f172a",
+  textDecoration: "none",
+  fontSize: 13,
+  fontWeight: 700,
 };
 
 export default function FaqPage() {
   return (
     <div style={pageShell}>
-            <SiteHeader />
+      <Head>
+        <title>FAQ | Cross Border Cart</title>
+        <meta
+          name="description"
+          content="Frequently asked questions about Cross Border Cart, including shipping timelines, tracking, restricted items, reseller use, and support."
+        />
+      </Head>
 
-        
+      <SiteHeader />
 
-      <main style={main}>
+      <section style={heroSection}>
+        <div style={badgeStyle}>Help & Support</div>
         <h1 style={title}>Frequently asked questions</h1>
         <p style={subtitle}>
-          Here are answers to the questions we get most often about Cross Border Cart.
+          Here are answers to the questions we get most often about Cross Border
+          Cart, including account setup, shipping, tracking, restricted items,
+          and support.
         </p>
+      </section>
 
+      <main style={main}>
         <div style={faqItem}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-            Is it free to open an account?
-          </h3>
-          <p style={{ fontSize: 14, color: "#475569" }}>
-            Yes. Getting your UAE address with Cross Border Cart is free. You only pay
-            shipping charges and any optional services like insurance or extra photos.
+          <h3 style={questionStyle}>Is it free to open an account?</h3>
+          <p style={answerStyle}>
+            Yes. Opening an account and receiving your UAE forwarding address is
+            free. You only pay for shipping and any optional services you choose,
+            such as consolidation, extra handling, or shipment protection where available.
           </p>
         </div>
 
         <div style={faqItem}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-            How long does shipping take?
-          </h3>
-          <p style={{ fontSize: 14, color: "#475569" }}>
-            It depends on your destination and service speed. Economy routes can take
-            7–14 days, while express shipments are usually 3–7 days after dispatch from
-            the UAE.
+          <h3 style={questionStyle}>How long does shipping take?</h3>
+          <p style={answerStyle}>
+            Delivery time depends on the destination country, the shipping method
+            selected, customs clearance, and carrier operations. Economy shipments
+            may take around 7–14 working days, while express shipments are often
+            delivered within 3–7 working days after dispatch from the UAE.
           </p>
         </div>
 
         <div style={faqItem}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-            What items can&apos;t I ship?
-          </h3>
-          <p style={{ fontSize: 14, color: "#475569" }}>
-            Like all logistics providers, we follow airline and customs rules. Items
-            such as flammable liquids, some batteries, weapons and illegal goods are
-            restricted. We&apos;ll publish a full &quot;What you cannot ship&quot; list in
-            the dashboard.
+          <h3 style={questionStyle}>How do I track my shipment?</h3>
+          <p style={answerStyle}>
+            Once your shipment is dispatched, you will receive a tracking number.
+            You can monitor shipment updates through your Cross Border Cart
+            dashboard, and tracking activity may also appear through the carrier’s
+            own tracking system depending on the route and service used.
           </p>
         </div>
 
         <div style={faqItem}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-            Can I use Cross Border Cart as a reseller?
-          </h3>
-          <p style={{ fontSize: 14, color: "#475569" }}>
-            Yes. Many users order in bulk from UAE stores, consolidate and ship to
-            their home country to resell. Our upcoming Standard and Business plans are
-            designed exactly for that.
+          <h3 style={questionStyle}>What items can’t I ship?</h3>
+          <p style={answerStyle}>
+            Certain goods cannot be shipped because of airline safety rules,
+            customs restrictions, or carrier policies. These may include weapons,
+            explosives, flammable materials, illegal goods, and some restricted
+            batteries or regulated products. You can review our full policy on the{" "}
+            <Link href="/prohibited-items">What You Cannot Ship</Link> page.
           </p>
         </div>
 
         <div style={faqItem}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-            How do I contact support?
-          </h3>
-          <p style={{ fontSize: 14, color: "#475569" }}>
-            You&apos;ll be able to reach us via WhatsApp and email directly from the
-            dashboard. We aim to reply quickly because we know cross-border shipments
-            can be time-sensitive.
+          <h3 style={questionStyle}>Can I consolidate multiple packages?</h3>
+          <p style={answerStyle}>
+            Yes. Where available, you can combine multiple parcels into a single
+            shipment to help reduce international shipping costs. Consolidation
+            options are managed through your dashboard once your packages arrive
+            at the warehouse.
           </p>
+        </div>
+
+        <div style={faqItem}>
+          <h3 style={questionStyle}>Can I use Cross Border Cart as a reseller?</h3>
+          <p style={answerStyle}>
+            Yes. Cross Border Cart can be used by both individual shoppers and
+            resellers who buy from UAE stores and forward shipments to their home
+            country. Many customers use the service to source products, combine
+            shipments, and manage repeat orders more efficiently.
+          </p>
+        </div>
+
+        <div style={faqItem}>
+          <h3 style={questionStyle}>Who pays customs duties and taxes?</h3>
+          <p style={answerStyle}>
+            Import duties, taxes, and clearance fees are determined by the
+            destination country and are generally the responsibility of the
+            recipient. These charges are separate from Cross Border Cart shipping
+            fees unless clearly stated otherwise.
+          </p>
+        </div>
+
+        <div style={faqItem}>
+          <h3 style={questionStyle}>What happens if my shipment is delayed?</h3>
+          <p style={answerStyle}>
+            Shipping timelines are estimates and may be affected by customs
+            inspections, weather, airline scheduling, or destination-country
+            delivery conditions. If a shipment is delayed, our team can help you
+            review the latest tracking updates and next steps.
+          </p>
+        </div>
+
+        <div style={faqItem}>
+          <h3 style={questionStyle}>How do I contact support?</h3>
+          <p style={answerStyle}>
+            You can contact us by email for shipment, account, and billing
+            questions. For the fastest help, include your tracking number,
+            registered email, and a clear description of the issue.
+          </p>
+        </div>
+
+        <div style={helpCard}>
+          <h2 style={helpTitle}>Still need help?</h2>
+          <p style={helpText}>
+            Visit our policy pages or contact our team directly for more detailed
+            support regarding shipping, refunds, restricted items, and account questions.
+          </p>
+
+          <div style={linksRow}>
+            <Link href="/contact" style={linkPill}>
+              Contact Us
+            </Link>
+            <Link href="/policies/shipping" style={linkPill}>
+              Shipping Policy
+            </Link>
+            <Link href="/policies/refunds" style={linkPill}>
+              Refund Policy
+            </Link>
+            <Link href="/prohibited-items" style={linkPill}>
+              Prohibited Items
+            </Link>
+          </div>
         </div>
       </main>
-            <SiteFooter />
 
+      <SiteFooter />
     </div>
   );
 }

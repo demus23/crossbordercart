@@ -6,9 +6,10 @@ import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import dbConnect from "@/lib/dbConnect";
 import mongoose, { Schema, Types, model, models } from "mongoose";
 import { Payment } from "@/lib/models/Payment";
-import Shipping from "@/lib/models/Shipping";
+import { Shipment } from "@/lib/models/Shipment";
 import { stripe, APP_ORIGIN } from "@/lib/stripe";
 import { Activity } from "@/lib/models/Activity";
+
 
 type AdminSession = { user?: { id?: string; role?: string; email?: string } } | null;
 
@@ -95,7 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await dbConnect();
     const db = mongoose.connection.db!;
     // 1) Shipment
-    const ship: any = await Shipping.findById(id).lean();
+    const ship: any = await Shipment.findById(id).lean();
     if (!ship) return res.status(404).json({ ok: false, error: "Shipment not found" });
 
     // 2) Resolve user/email
@@ -133,10 +134,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       invoiceNo,
       amount: amountMinor,
       currency: currency.toUpperCase(),
-      description: `${description} (Shipment ${ship.tracking || ship._id})`,
+      description: `${description} (Shipment ${ship.trackingNumber || ship._id})`,
       status: "pending",
       method: { type: "card", label: "Pay link" },
       user: userId,
+      shipmentId: ship._id,
       createdAt: new Date(),
     });
 
@@ -154,8 +156,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
         },
       ],
-      success_url: `${APP_ORIGIN}/admin/charges?paid=1&inv=${encodeURIComponent(invoiceNo)}`,
-      cancel_url: `${APP_ORIGIN}/admin/charges?canceled=1&inv=${encodeURIComponent(invoiceNo)}`,
+      success_url: `${APP_ORIGIN}/pay/return?paid=1&inv=${encodeURIComponent(invoiceNo)}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${APP_ORIGIN}/pay/return?canceled=1&inv=${encodeURIComponent(invoiceNo)}&session_id={CHECKOUT_SESSION_ID}`,
       metadata: { invoiceNo, shipmentId: String(ship._id) },
       payment_intent_data: { metadata: { invoiceNo, shipmentId: String(ship._id) } },
     });

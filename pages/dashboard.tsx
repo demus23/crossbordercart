@@ -2624,45 +2624,48 @@ Mamazar Onyx Tower,  Dubai, UAE
 
         {/* Footer */}
         <footer className="mt-4 pt-3 pb-4 border-top">
-          <div className="d-flex flex-wrap align-items-center justify-content-between">
-            <div className="small">
-              <span className="fw-bold" style={{ color: MAIN_COLOR }}>
-                CrossBorderChart
-              </span>{" "}
-              &copy; {new Date().getFullYear()} | <a href="/about">About Us</a>{" "}
-              | <a href="/privacy">Privacy</a>
-            </div>
-            <div className="small">
-              <a
-                href="https://wa.me/971501234567"
-                target="_blank"
-                rel="noreferrer"
-                style={{ marginRight: 10 }}
-              >
-                <Image src="/wa.svg" width={22} alt="wa" />
-              </a>
-              <a
-                href="https://facebook.com"
-                target="_blank"
-                rel="noreferrer"
-                style={{ marginRight: 10 }}
-              >
-                <Image src="/fb.svg" width={22} alt="fb" />
-              </a>
-              <a
-                href="https://instagram.com"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Image src="/ig.svg" width={22} alt="ig" />
-              </a>
-              <span className="ms-3">
-                <a href="/faq">FAQ</a> | <a href="/help">Help</a> |{" "}
-                <a href="/contact">Contact</a>
-              </span>
-            </div>
-          </div>
-        </footer>
+  <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div className="small">
+      <span className="fw-bold" style={{ color: MAIN_COLOR }}>
+        Cross Border Cart
+      </span>{" "}
+      &copy; {new Date().getFullYear()} | <a href="/about">About Us</a> |{" "}
+      <a href="/legal/privacy">Privacy Policy</a> |{" "}
+      <a href="/legal/terms">Terms &amp; Conditions</a> |{" "}
+      <a href="/policies/refunds">Refund Policy</a>
+    </div>
+
+    <div className="small">
+      <a
+        href="https://wa.me/971501234567"
+        target="_blank"
+        rel="noreferrer"
+        style={{ marginRight: 10 }}
+      >
+        <Image src="/wa.svg" width={22} alt="wa" />
+      </a>
+      <a
+        href="https://facebook.com"
+        target="_blank"
+        rel="noreferrer"
+        style={{ marginRight: 10 }}
+      >
+        <Image src="/fb.svg" width={22} alt="fb" />
+      </a>
+      <a
+        href="https://instagram.com"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <Image src="/ig.svg" width={22} alt="ig" />
+      </a>
+      <span className="ms-3">
+        <a href="/faq">FAQ</a> | <a href="/help">Help</a> |{" "}
+        <a href="/contact">Contact</a>
+      </span>
+    </div>
+  </div>
+</footer>
       </Container>
 
       {/* Modals */}

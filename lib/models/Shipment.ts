@@ -24,11 +24,15 @@ export interface IShipmentEvent {
 
 export interface IShipment {
   _id: Types.ObjectId;
+
   orderId?: string;
+
   currency: string;
   priceAED?: number;
+
   packageIds?: Types.ObjectId[];
   userId?: Types.ObjectId;
+
   isPaid?: boolean;
   paidAt?: Date;
 
@@ -60,8 +64,12 @@ export interface IShipment {
 
   providerShipmentId?: string;
   selectedRateId?: string;
-  carrier?: string;
+
+  carrier?: string;        // display name e.g. "Aramex"
+  carrierSlug?: string;    // canonical id e.g. "aramex" (needed for tracking providers)
+
   service?: string;
+
   trackingNumber?: string;
   labelUrl?: string;
 
@@ -72,7 +80,7 @@ export interface IShipment {
   ratesSnapshot?: any[];
   activity?: Array<{ at: Date; type: string; payload?: any }>;
 
-  // 👇 NEW: tracking timeline events
+  // 👇 Tracking timeline events
   events?: IShipmentEvent[];
 
   createdAt: Date;
@@ -85,6 +93,7 @@ const ShipmentSchema = new Schema<IShipment>(
 
     currency: { type: String, required: true, uppercase: true },
     priceAED: { type: Number, required: false },
+
     isPaid: { type: Boolean, default: false },
     paidAt: { type: Date },
 
@@ -125,10 +134,14 @@ const ShipmentSchema = new Schema<IShipment>(
       weight: { type: Number, required: false, min: 0 },
     },
 
-    providerShipmentId: { type: String },
+    providerShipmentId: { type: String, index: true, sparse: true },
 
     selectedRateId: { type: String },
+
     carrier: { type: String },
+    // ✅ NEW: carrierSlug for tracking providers (e.g., aftership)
+    carrierSlug: { type: String, index: true, sparse: true },
+
     service: { type: String },
 
     trackingNumber: { type: String, index: true, sparse: true },
@@ -140,13 +153,25 @@ const ShipmentSchema = new Schema<IShipment>(
     packageIds: [{ type: Schema.Types.ObjectId, ref: "Package" }],
     userId: { type: Schema.Types.ObjectId, ref: "User" },
 
-    // ✅ STORE CANONICAL SNAKE_CASE (matches TS type + API)
+    // ✅ Matches your union type (snake_case)
     status: {
       type: String,
       default: "draft",
+      enum: [
+        "draft",
+        "rated",
+        "label_purchased",
+        "in_transit",
+        "out_for_delivery",
+        "delivered",
+        "return_to_sender",
+        "exception",
+        "cancelled",
+      ],
+      index: true,
     },
 
-    // 👇 NEW: tracking timeline events
+    // 👇 Tracking timeline events
     events: {
       type: [
         {
@@ -165,14 +190,11 @@ const ShipmentSchema = new Schema<IShipment>(
     activity: [
       {
         at: { type: Date, default: Date.now },
-
-        // ✅ make safe: default + not required
         type: {
           type: String,
           default: "status",
           required: false,
         },
-
         payload: Schema.Types.Mixed,
       },
     ],
@@ -180,7 +202,9 @@ const ShipmentSchema = new Schema<IShipment>(
   { timestamps: true }
 );
 
+// Helpful indexes for dashboards + live widgets
 ShipmentSchema.index({ status: 1, createdAt: -1 });
+ShipmentSchema.index({ updatedAt: -1 });
 ShipmentSchema.index({ providerShipmentId: 1 }, { sparse: true });
 
 export const Shipment =

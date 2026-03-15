@@ -48,7 +48,8 @@ type Shipment = {
   priceAED?: number;
   currency?: string;
   status?: string;
-   trackingNumber: string;
+  trackingNumber?: string;
+  carrierSlug?: string;
   createdAt?: string;
   weightKg?: number;
   paymentStatus?: "paid" | "unpaid" | "partial" | "refunded" | null;
@@ -93,6 +94,9 @@ export default function DashboardShipmentsPage() {
   const [rating, setRating] = useState<number>(5);
   const [comment, setComment] = useState<string>("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [carrierSlug, setCarrierSlug] = useState("aramex"); // aftership slug style
+  const [trackingNumber, setTrackingNumber] = useState("");
+
 
 
   // Load recent shipments
@@ -164,6 +168,9 @@ export default function DashboardShipmentsPage() {
         },
         speed,
         carrier,
+        carrierSlug: carrierSlug || undefined,
+        trackingNumber: trackingNumber || undefined,
+
         service,
         priceAED,
         currency,
@@ -432,6 +439,24 @@ export default function DashboardShipmentsPage() {
             <input value={service} onChange={(e) => setService(e.target.value)} required />
           </div>
           <div>
+  <label>Carrier Slug (for tracking)</label>
+  <input
+    value={carrierSlug}
+    onChange={(e) => setCarrierSlug(e.target.value)}
+    placeholder="aramex / dhl / fedex"
+  />
+</div>
+
+<div>
+  <label>Tracking Number</label>
+  <input
+    value={trackingNumber}
+    onChange={(e) => setTrackingNumber(e.target.value)}
+    placeholder="Enter tracking number (optional for now)"
+  />
+</div>
+
+          <div>
             <label>Price (AED)</label>
             <input type="number" step="0.01" value={priceAED}
               onChange={(e) => setPriceAED(parseFloat(e.target.value))} required />
@@ -543,28 +568,7 @@ export default function DashboardShipmentsPage() {
                 </tr>
                 
               ))}
-              {shipments.map((shipment) => (
-  <tr key={shipment._id}>
-    <td>{shipment.trackingNumber}</td>
-    <td className="text-capitalize">{shipment.status}</td>
-    {/* your other columns… */}
-
-    <td className="text-end">
-      {/* Existing actions: View, Track, etc… */}
-
-      {shipment.status?.toLowerCase() === "delivered" && (
-        <Button
-          size="sm"
-          variant="outline-primary"
-          className="ms-2"
-          onClick={() => openReviewModal(shipment)}
-        >
-          ★ Rate
-        </Button>
-      )}
-    </td>
-  </tr>
-))}
+              
 
             </tbody>
           </table>

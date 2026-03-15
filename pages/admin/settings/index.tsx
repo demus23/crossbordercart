@@ -36,7 +36,7 @@ const DEFAULTS = {
     secondaryColor: "#16a34a",
   },
   email: {
-    supportEmail: "support@crossbordercart.com",
+    supportEmail: "support.crossbordercart@gmail.com",
     smtpHost: "",
     smtpUser: "",
     smtpPass: "",

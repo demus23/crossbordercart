@@ -288,15 +288,16 @@ export default function AdminPackagesPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userEmail: email,
-          amount: amt,
-          currency: "AED",
-          description: billDesc
-            ? `${billDesc}${billing.packageId ? ` (Package ${billing.packageId})` : ""}`
-            : `Charge${billing.packageId ? ` (Package ${billing.packageId})` : ""}`,
-          method: { type: "card" },
-          status: "pending",
-        }),
+        userEmail: email,
+        amount: amt,
+        currency: "AED",
+        description: billDesc
+    ? `${billDesc}${billing.packageId ? ` (Package ${billing.packageId})` : ""}`
+    : `Charge${billing.packageId ? ` (Package ${billing.packageId})` : ""}`,
+      shipmentId: billing.packageId,
+      method: { type: "card" },
+      status: "pending",
+    }),
       });
 
       const data = (await res.json()) as {
@@ -476,17 +477,6 @@ export default function AdminPackagesPage() {
                       Timeline
                     </Button>
                     <Button
-                      size="sm"
-                      variant="outline-primary"
-                      onClick={() =>
-                        setBilling({
-                          open: true,
-                          packageId: pkg._id,
-                          email: pkg.userEmail || "",
-                        })
-                      }
-                    >
-                      <Button
   size="sm"
   variant="outline-success"
   onClick={() => {
@@ -503,8 +493,19 @@ export default function AdminPackagesPage() {
   + Event
 </Button>
 
-                      Bill
-                    </Button>
+<Button
+  size="sm"
+  variant="outline-primary"
+  onClick={() =>
+    setBilling({
+      open: true,
+      packageId: pkg._id,
+      email: pkg.userEmail || "",
+    })
+  }
+>
+  Bill
+</Button>
                     <Button
                       size="sm"
                       variant="outline-warning"

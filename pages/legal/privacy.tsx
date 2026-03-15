@@ -142,15 +142,44 @@ export default function PrivacyPage() {
           exercise these rights, contact us using the details below.
         </p>
 
-        <h2 style={h2Style}>7. Contact us</h2>
+        <h2 style={h2Style}>7. Cookies and tracking technologies</h2>
+<p style={pStyle}>
+Cross Border Cart uses cookies and similar technologies to improve
+website performance, remember user preferences and analyse traffic.
+These technologies help us understand how visitors use our services
+and allow us to improve our platform.
+</p>
+
+<p style={pStyle}>
+You can control cookies through your browser settings. However,
+disabling cookies may affect certain features of the website.
+</p>
+
+<h2 style={h2Style}>8. International data transfers</h2>
+<p style={pStyle}>
+Because Cross Border Cart provides international shipping services,
+your information may be transferred to logistics partners or service
+providers located in different countries. We ensure that appropriate
+safeguards are in place to protect your personal data.
+</p>
+
+<h2 style={h2Style}>9. Changes to this Privacy Policy</h2>
+<p style={pStyle}>
+We may update this Privacy Policy from time to time to reflect
+changes in our services, legal requirements or business operations.
+Updates will be posted on this page with a revised "Last updated"
+date.
+</p>
+
+        <h2 style={h2Style}>10. Contact us</h2>
         <p style={pStyle}>
           If you have any questions about this Privacy Policy, you can contact
           us at:
         </p>
         <p style={pStyle}>
-          Email: support@crossbordercart.com
+          Email: support.crossbordercart@gmail.com
           <br />
-          (Replace this with your real support email when ready.)
+          
         </p>
       </main>
 

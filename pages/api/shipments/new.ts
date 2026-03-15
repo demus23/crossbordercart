@@ -1,9 +1,9 @@
+// pages/api/shipments/new.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { dbConnect } from "@/lib/mongoose";
-import { Shipment } from "@/lib/models/Shipment";
 import mongoose from "mongoose";
+import { dbConnect } from "@/lib/mongoose";
+import { Shipment, ShipmentStatus } from "@/lib/models/Shipment";
 import PackageModel from "@/lib/models/Package";
-
 
 type Address = {
   name?: string;
@@ -19,10 +19,11 @@ type Address = {
 type Body = Partial<{
   from: Address;
   to: Address;
-  packageIds: string[];
-  userId: string;
-  packageId: string;  
 
+  // link to packages
+  packageIds: string[];
+  packageId: string;
+  userId: string;
 
   // NEW schema
   parcel: {
@@ -32,9 +33,8 @@ type Body = Partial<{
     height?: number;
   };
 
-  // OLD schema
+  // OLD schema fallback
   weightKg: number;
-  weight: number;
   dims: {
     L?: number;
     W?: number;
@@ -45,23 +45,26 @@ type Body = Partial<{
   };
 
   speed: string;
-  carrier: string;
+  carrier: string;        // display name e.g. "Aramex"
+  carrierSlug: string;    // canonical e.g. "aramex"
   service: string;
+
+  trackingNumber: string; // carrier tracking
+  status: ShipmentStatus | string;
+
   priceAED: number;
   customerEmail: string;
 
-  // NEW: currency for schema
   currency: string;
 }>;
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+function isValidObjectId(id: string) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
-    return res
-      .status(405)
-      .json({ ok: false, error: "Method Not Allowed" });
+    return res.status(405).json({ ok: false, error: "Method Not Allowed" });
   }
 
   await dbConnect();
@@ -85,160 +88,131 @@ export default async function handler(
 
     // Prefer NEW shape if present
     if (
-      body.parcel?.weight &&
-      body.parcel.length &&
-      body.parcel.width &&
-      body.parcel.height
+      body.parcel?.weight != null &&
+      body.parcel.length != null &&
+      body.parcel.width != null &&
+      body.parcel.height != null
     ) {
-      weight = body.parcel.weight;
-      length = body.parcel.length;
-      width = body.parcel.width;
-      height = body.parcel.height;
-    } else if (body.weightKg && body.dims) {
+      weight = Number(body.parcel.weight);
+      length = Number(body.parcel.length);
+      width = Number(body.parcel.width);
+      height = Number(body.parcel.height);
+    } else if (body.weightKg != null && body.dims) {
       // Fall back to OLD shape
-      weight = body.weightKg;
-      length = body.dims.length ?? body.dims.L;
-      width = body.dims.width ?? body.dims.W;
-      height = body.dims.height ?? body.dims.H;
+      weight = Number(body.weightKg);
+      length = Number(body.dims.length ?? body.dims.L);
+      width = Number(body.dims.width ?? body.dims.W);
+      height = Number(body.dims.height ?? body.dims.H);
     }
 
     if (!weight || !length || !width || !height) {
       return res.status(400).json({
         ok: false,
-        error:
-          "Invalid parcel - weight, length, width, height are required.",
+        error: "Invalid parcel - weight, length, width, height are required.",
       });
     }
 
-    // NEW: currency (default AED if not provided)
-    const currency = body.currency || "AED";
+    // currency default
+    const currency = (body.currency || "AED").toUpperCase();
 
-    // 2) Build document to satisfy BOTH old and new schemas
+    // status default must match schema union (snake_case)
+    const status =
+      (body.status as ShipmentStatus) ||
+      ("draft" as ShipmentStatus);
+
+    // 2) Create shipment
     const shipment = await Shipment.create({
       from,
       to,
+
       speed: body.speed,
       carrier: body.carrier,
+      carrierSlug: body.carrierSlug || null,
       service: body.service,
-      priceAED: body.priceAED,
-       packageIds: body.packageIds || [],
-  userId: body.userId || null,
 
-      // currency required by schema
+      trackingNumber: body.trackingNumber || null,
+      status,
+
+      priceAED: body.priceAED,
       currency,
 
-      // NEW schema field
-      parcel: {
-        weight,
-        length,
-        width,
-        height,
-      },
+      customerEmail: body.customerEmail || null,
 
-      // OLD schema field (so Mongo doesn't complain)
+      packageIds: Array.isArray(body.packageIds)
+        ? body.packageIds.filter((id) => typeof id === "string" && isValidObjectId(id))
+        : [],
+      userId: body.userId && isValidObjectId(body.userId) ? body.userId : null,
+
+      parcel: { weight, length, width, height },
       weightKg: weight,
     });
 
-    // ✅ Optional link: if admin passed a packageId, tie this shipment to that package
-const rawPackageId =
-  typeof req.body.packageId === "string" ? req.body.packageId.trim() : "";
+    // Use real carrier tracking if provided, else fallback to shipment id
+    const publicTracking = shipment.trackingNumber || shipment._id.toString();
 
-if (rawPackageId) {
-  // if it's not a proper ObjectId, return a clean 400 instead of crashing
-  if (!mongoose.Types.ObjectId.isValid(rawPackageId)) {
-    return res
-      .status(400)
-      .json({ ok: false, error: "Invalid packageId (must be Mongo ObjectId)" });
-  }
+    // 3) Link packages (bulk first)
+    if (Array.isArray(body.packageIds) && body.packageIds.length > 0) {
+      const ids = body.packageIds
+        .filter((id) => typeof id === "string" && isValidObjectId(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
 
-  const packageObjectId = new mongoose.Types.ObjectId(rawPackageId);
+      if (ids.length > 0) {
+        await PackageModel.updateMany(
+          { _id: { $in: ids } },
+          {
+            $set: {
+              shipmentId: shipment._id,
+              shipmentTracking: publicTracking,
+              shipmentCarrier: shipment.carrier ?? null,
 
-  await PackageModel.findByIdAndUpdate(
-    packageObjectId,
-    {
-      $set: {
-        tracking: shipment._id.toString(),           // public tracking number
-        courier: shipment.carrier ?? null,
-        status: "Shipped",                           // your PackageStatus enum
-        lastNote: "Shipment created",
-        lastLocation: shipment.from?.city ?? "",
-        userEmail: shipment.customerEmail ?? undefined,
-      },
-    },
-    { new: true }
-  );
-}
-
-
-    // link packages → shipment
-if (Array.isArray(req.body.packageIds) && req.body.packageIds.length > 0) {
-  await PackageModel.updateMany(
-    { _id: { $in: req.body.packageIds } },
-    {
-      $set: {
-        shipmentId: shipment._id,
-        shipmentTracking: shipment._id.toString(), // using shipment id as tracking for now
-        shipmentCarrier: shipment.carrier ?? null,
-        status: "Shipped",
-      },
+              // keep old fields in sync (optional)
+              tracking: publicTracking,
+              courier: shipment.carrier ?? null,
+              status: "Shipped",
+              lastNote: "Shipment created",
+              lastLocation: shipment.from?.city ?? "",
+              userEmail: shipment.customerEmail ?? undefined,
+            },
+          }
+        );
+      }
     }
-  );
-}
- // 👇 If this shipment is for an existing Package, link it
-if (body.packageId && typeof body.packageId === "string") {
-  const pkgId = body.packageId.trim();
 
-  try {
-    await PackageModel.findByIdAndUpdate(
-      pkgId,
-      {
-        $set: {
-          shipmentId: shipment._id,
-          shipmentTracking: shipment._id.toString(),    // we use shipment _id as tracking number
-          shipmentCarrier: shipment.carrier ?? undefined,
+    // 4) Link single packageId
+    const singlePackageId = typeof body.packageId === "string" ? body.packageId.trim() : "";
+    if (singlePackageId) {
+      if (!isValidObjectId(singlePackageId)) {
+        return res
+          .status(400)
+          .json({ ok: false, error: "Invalid packageId (must be Mongo ObjectId)" });
+      }
 
-          // also keep old fields in sync
-          tracking: shipment._id.toString(),
-          courier: shipment.carrier ?? undefined,
-          status: "Shipped",                            // from your PackageStatus enum
-          lastNote: "Shipment created",
-          lastLocation: shipment.to?.city || "",
+      await PackageModel.findByIdAndUpdate(
+        new mongoose.Types.ObjectId(singlePackageId),
+        {
+          $set: {
+            shipmentId: shipment._id,
+            shipmentTracking: publicTracking,
+            shipmentCarrier: shipment.carrier ?? null,
+
+            tracking: publicTracking,
+            courier: shipment.carrier ?? null,
+            status: "Shipped",
+            lastNote: "Shipment created",
+            lastLocation: shipment.from?.city ?? "",
+            userEmail: shipment.customerEmail ?? undefined,
+          },
         },
-      },
-      { new: true }
-    );
-  } catch (e) {
-    console.error("Failed to link shipment to package:", e);
-  }
-}
-
-
-    // ✅ If admin passed a packageId, link it to this shipment
-const packageId =
-  typeof req.body.packageId === "string" ? req.body.packageId.trim() : "";
-
-if (packageId) {
-  await PackageModel.findByIdAndUpdate(
-    packageId,
-    {
-      $set: {
-        tracking: shipment._id.toString(),      // public tracking number
-        courier: shipment.carrier ?? null,
-        status: "Shipped",                      // from your PackageStatus enum
-        lastNote: "Shipment created",
-        lastLocation: shipment.from?.city ?? "",
-        userEmail: shipment.customerEmail ?? undefined,
-      },
-    },
-    { new: true }
-  );
-}
+        { new: true }
+      );
+    }
 
     return res.status(200).json({ ok: true, id: shipment._id });
   } catch (err: any) {
     console.error("Error creating shipment", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: err.message ?? "Unknown error" });
+    return res.status(500).json({
+      ok: false,
+      error: err?.message ?? "Unknown error",
+    });
   }
 }

@@ -10,6 +10,7 @@ import { sendMail } from "@/lib/server/mailer";
 import { trackingEventEmail } from "@/lib/server/templates/trackingEventEmail";
 import TrackingEvent from "@/lib/models/TrackingEvent";
 import { rateLimit } from "@/lib/rateLimit";
+import mongoose from "mongoose";
 
 type IUserLean = {
   email?: string | null;
@@ -22,19 +23,21 @@ function normalizeStatus(input?: string) {
   if (!input) return undefined;
   const v = String(input).trim().toLowerCase();
   if (v === "canceled") return "Cancelled";
-  const map: Record<string, string> = {
-    pending: "Pending",
-    received: "Received",
-    processing: "Processing",
-    shipped: "Shipped",
-    delivered: "Delivered",
-    cancelled: "Cancelled",
-    forwarded: "Forwarded",
-    "in transit": "In Transit",
-    in_transit: "In Transit",
-    transit: "In Transit",
-    problem: "Problem",
-  };
+ const map: Record<string, string> = {
+  pending: "Pending",
+  received: "Received",
+  processing: "Processing",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+  canceled: "Cancelled",
+  forwarded: "Forwarded",
+  "in transit": "In Transit",
+  in_transit: "In Transit",
+  transit: "In Transit",
+  problem: "Problem",
+};
+
   return map[v] || undefined;
 }
 
@@ -79,15 +82,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         createdAt?: string;
       };
 
-      if (!packageId || !trackingNo || !status) {
-        return res
-          .status(400)
-          .json({ ok: false, error: "packageId, trackingNo, status are required" });
-      }
+     if (!trackingNo || !status) {
+  return res.status(400).json({ ok: false, error: "trackingNo and status are required" });
+}
+
 
       // 👇 Type the package so TS knows its shape
-      const pkgDoc = await PackageModel.findById(String(packageId)).lean<IPackage | null>();
-      if (!pkgDoc) return res.status(404).json({ ok: false, error: "Package not found" });
+      let pkgDoc: any = null;
+
+if (packageId) {
+  if (!mongoose.Types.ObjectId.isValid(String(packageId))) {
+    return res.status(400).json({ ok: false, error: "Invalid packageId" });
+  }
+  pkgDoc = await PackageModel.findById(String(packageId)).lean();
+} else {
+  pkgDoc = await PackageModel.findOne({ tracking: String(trackingNo) }).lean();
+}
+
+if (!pkgDoc) {
+  return res.status(404).json({ ok: false, error: "Package not found for this tracking number" });
+}
+
+
 
       // Anti-spoof: ensure the trackingNo belongs to that package
       const pkgTracking = pkgDoc.tracking ? String(pkgDoc.tracking) : undefined;
@@ -95,11 +111,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ ok: false, error: "Tracking number does not match the package" });
       }
 
-      const normalized = normalizeStatus(status) ?? status;
+     // right before createTrackingEvent(...)
+const normalized = normalizeStatus(status) ?? status;
+
+// Deduplicate: if same status+location+note within last 60 seconds, return existing
+const since = new Date(Date.now() - 60_000);
+
+const recent = await TrackingEvent.findOne({
+  trackingNo: String(trackingNo),
+  status: String(normalized),
+  location: String(location || ""),
+  note: String(note || ""),
+  createdAt: { $gte: since },
+})
+  .sort({ createdAt: -1 })
+  .lean();
+
+if (recent) {
+  return res.status(200).json({ ok: true, event: recent, deduped: true });
+}
+
 
       // Do NOT pass createdAt to creator – model sets it
       const ev = await createTrackingEvent({
-        packageId: String(packageId), // if your schema uses ObjectId, cast in the creator/model
+       packageId: String(pkgDoc._id), // if your schema uses ObjectId, cast in the creator/model
         trackingNo: String(trackingNo),
         status: String(normalized),
         location: String(location || ""),
@@ -107,6 +142,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         actorId: session?.user?.id || "system",
         actorName: session?.user?.name || session?.user?.email || "System",
       });
+
+      await PackageModel.updateOne(
+  { _id: pkgDoc._id },
+  {
+    $set: {
+      status: String(normalized),
+      lastLocation: String(location || ""),
+      lastNote: String(note || ""),
+    },
+  }
+);
 
       // Resolve recipient & preference
       let recipient: string | undefined = pkgDoc.userEmail ? String(pkgDoc.userEmail) : undefined;
@@ -187,9 +233,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const nRaw = Array.isArray(limit) ? limit[0] : limit;
       const n = Math.max(1, Math.min(500, parseInt(nRaw || "50", 10) || 50));
 
-      const events = await TrackingEvent.find(q).sort({ createdAt: -1 }).limit(n);
+      const events = await TrackingEvent.find(q).sort({ createdAt: -1 }).limit(n).lean();
 
-      return res.status(200).json({ ok: true, events });
+return res.status(200).json({
+  ok: true,
+  events: events.map((e: any) => ({
+    time: e.createdAt ? new Date(e.createdAt).toISOString() : undefined,
+    createdAt: e.createdAt ? new Date(e.createdAt).toISOString() : undefined,
+    status: e.status,
+    location: e.location ?? "",
+    message: e.note ?? "",
+    trackingNo: e.trackingNo,
+    packageId: e.packageId,
+    actorName: e.actorName,
+  })),
+});
+
     } catch (err: unknown) {
       const msg =
         err instanceof Error

@@ -20,7 +20,7 @@ export default function OrderConfirmationEmail(props: {
     currency = "AED",
     items = [],
     trackUrl,
-    supportEmail = "support@crossbordercart.com",
+    supportEmail = "support.crossbordercart@gmail.com",
     brandName = "Cross Border Cart",
     brandUrl = "https://crossbordercart.com",
     logoUrl,

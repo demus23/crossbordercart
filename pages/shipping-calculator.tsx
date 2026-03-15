@@ -1,6 +1,6 @@
 // pages/shipping-calculator.tsx
 import type { NextPage } from "next";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import {
   Container,
@@ -40,6 +40,61 @@ const countries = [
   "Nigeria",
 ];
 
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
+function toKg(weight: number, unit: WeightUnit) {
+  return unit === "kg" ? weight : weight * 0.453592;
+}
+
+function getZonePricing(fromCountry: string, toCountry: string) {
+  const gulfCountries = [
+    "United Arab Emirates",
+    "Saudi Arabia",
+    "Qatar",
+    "Kuwait",
+    "Oman",
+    "Bahrain",
+  ];
+
+  const africaCountries = [
+    "Ethiopia",
+    "Eritrea",
+    "Kenya",
+    "Tanzania",
+    "Uganda",
+    "Rwanda",
+    "Burundi",
+    "Zambia",
+    "Angola",
+    "Ghana",
+    "Nigeria",
+  ];
+
+  const isFromGulf = gulfCountries.includes(fromCountry);
+  const isToAfrica = africaCountries.includes(toCountry);
+
+  let base = 35;
+  let perKg = 28;
+
+  if (isFromGulf && isToAfrica) {
+    base = 30;
+    perKg = 24;
+  } else if (isFromGulf && toCountry === "United Kingdom") {
+    base = 40;
+    perKg = 30;
+  } else if (isFromGulf && toCountry === "United States") {
+    base = 45;
+    perKg = 32;
+  } else if (isFromGulf && toCountry === "Canada") {
+    base = 45;
+    perKg = 31;
+  }
+
+  return { base, perKg };
+}
+
 function calculatePrice(params: {
   fromCountry: string;
   toCountry: string;
@@ -65,66 +120,32 @@ function calculatePrice(params: {
     return null;
   }
 
-  // convert weight to kg if needed
-  const weightKg = unit === "kg" ? weight : weight * 0.453592;
+  const actualWeightKg = toKg(weight, unit);
 
-  // volumetric weight (cm) using common divisor 5000
-  let volumetricKg = 0;
-  if (lengthCm && widthCm && heightCm) {
-    volumetricKg = (lengthCm * widthCm * heightCm) / 5000;
-  }
+  const hasDimensions =
+    !!lengthCm && lengthCm > 0 && !!widthCm && widthCm > 0 && !!heightCm && heightCm > 0;
 
-  const chargeableWeight = Math.max(weightKg, volumetricKg || 0.01);
+  const volumetricKg = hasDimensions
+    ? (lengthCm * widthCm * heightCm) / 5000
+    : 0;
 
-  // Simple zone logic (you can customize later)
-  const isGulf =
-    fromCountry.includes("United Arab Emirates") ||
-    fromCountry.includes("Saudi Arabia") ||
-    fromCountry.includes("Qatar") ||
-    fromCountry.includes("Kuwait") ||
-    fromCountry.includes("Oman") ||
-    fromCountry.includes("Bahrain");
+  const chargeableWeight = Math.max(actualWeightKg, volumetricKg || 0);
 
-  const isAfrica =
-    toCountry.includes("Ethiopia") ||
-    toCountry.includes("Eritrea") ||
-    toCountry.includes("Kenya") ||
-    toCountry.includes("Tanzania") ||
-    toCountry.includes("Uganda") ||
-    toCountry.includes("Rwanda") ||
-    toCountry.includes("Burundi") ||
-    toCountry.includes("Zambia") ||
-    toCountry.includes("Angola") ||
-    toCountry.includes("Ghana") ||
-    toCountry.includes("Nigeria");
+  const { base, perKg } = getZonePricing(fromCountry, toCountry);
+  const speedMultiplier = speed === "express" ? 1.35 : 1;
 
-  let base = 35; // AED
-  let perKg = 28; // AED per kg
-
-  if (isGulf && isAfrica) {
-    base = 30;
-    perKg = 24;
-  } else if (isGulf && toCountry.includes("United Kingdom")) {
-    base = 40;
-    perKg = 30;
-  } else if (isGulf && toCountry.includes("United States")) {
-    base = 45;
-    perKg = 32;
-  }
-
-  const speedMultiplier = speed === "express" ? 1.35 : 1; // 35% extra for express
   const subtotal = base + perKg * chargeableWeight;
-  const total = Math.round(subtotal * speedMultiplier * 100) / 100;
+  const total = subtotal * speedMultiplier;
 
   return {
     currency: "AED",
-    total,
-    base,
-    perKg,
-    chargeableWeight: Math.round(chargeableWeight * 100) / 100,
-    volumetricKg: volumetricKg
-      ? Math.round(volumetricKg * 100) / 100
-      : undefined,
+    base: round2(base),
+    perKg: round2(perKg),
+    actualWeightKg: round2(actualWeightKg),
+    volumetricKg: hasDimensions ? round2(volumetricKg) : undefined,
+    chargeableWeight: round2(chargeableWeight),
+    speedMultiplier,
+    total: round2(total),
   };
 }
 
@@ -132,45 +153,31 @@ const ShippingCalculatorPage: NextPage = () => {
   const [fromCountry, setFromCountry] = useState("United Arab Emirates");
   const [toCountry, setToCountry] = useState("United Kingdom");
   const [postcode, setPostcode] = useState("");
-  const [weight, setWeight] = useState<number>(1);
+  const [weight, setWeight] = useState<number | "">(1);
   const [unit, setUnit] = useState<WeightUnit>("kg");
-  const [lengthCm, setLengthCm] = useState<number | undefined>();
-  const [widthCm, setWidthCm] = useState<number | undefined>();
-  const [heightCm, setHeightCm] = useState<number | undefined>();
+  const [lengthCm, setLengthCm] = useState<number | "">("");
+  const [widthCm, setWidthCm] = useState<number | "">("");
+  const [heightCm, setHeightCm] = useState<number | "">("");
   const [speed, setSpeed] = useState<Speed>("standard");
-  const [result, setResult] = useState<ReturnType<typeof calculatePrice> | null>(
-    null
-  );
   const [submitted, setSubmitted] = useState(false);
+
+  const estimate = useMemo(() => {
+    return calculatePrice({
+      fromCountry,
+      toCountry,
+      weight: Number(weight || 0),
+      unit,
+      lengthCm: lengthCm === "" ? undefined : Number(lengthCm),
+      widthCm: widthCm === "" ? undefined : Number(widthCm),
+      heightCm: heightCm === "" ? undefined : Number(heightCm),
+      speed,
+    });
+  }, [fromCountry, toCountry, weight, unit, lengthCm, widthCm, heightCm, speed]);
 
   const handleCalculate = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-
-    const estimate = calculatePrice({
-      fromCountry,
-      toCountry,
-      weight: Number(weight),
-      unit,
-      lengthCm: lengthCm ? Number(lengthCm) : undefined,
-      widthCm: widthCm ? Number(widthCm) : undefined,
-      heightCm: heightCm ? Number(heightCm) : undefined,
-      speed,
-    });
-
-    setResult(estimate);
   };
-
-  const estimate = result || calculatePrice({
-    fromCountry,
-    toCountry,
-    weight: Number(weight),
-    unit,
-    lengthCm: lengthCm ? Number(lengthCm) : undefined,
-    widthCm: widthCm ? Number(widthCm) : undefined,
-    heightCm: heightCm ? Number(heightCm) : undefined,
-    speed,
-  });
 
   return (
     <MarketingLayout
@@ -180,19 +187,19 @@ const ShippingCalculatorPage: NextPage = () => {
       <section className="py-5 bg-light border-bottom">
         <Container>
           <Row>
-            <Col md={7}>
+            <Col md={8}>
               <h1 className="fw-bold mb-3">Shipping Calculator</h1>
               <p className="lead text-muted mb-2">
-                Get an instant estimate from UAE to your destination. These are{" "}
-                <strong>non-binding</strong> quotes; final rates are confirmed
-                after we verify your package.
+                Get an instant shipping estimate from <strong>UAE</strong> to your
+                destination. These are <strong>non-binding</strong> quotes and final
+                charges are confirmed after package verification.
               </p>
               <p className="small text-muted mb-0">
-                For larger or commercial shipments,{" "}
+                For larger, commercial, or frequent shipments,{" "}
                 <a href="/contact" className="text-primary">
                   contact our team
                 </a>{" "}
-                for a customized quote.
+                for custom rates.
               </p>
             </Col>
           </Row>
@@ -201,7 +208,6 @@ const ShippingCalculatorPage: NextPage = () => {
 
       <Container className="py-5">
         <Row className="g-4">
-          {/* FORM */}
           <Col lg={7}>
             <Card className="shadow-sm border-0">
               <Card.Body>
@@ -220,6 +226,7 @@ const ShippingCalculatorPage: NextPage = () => {
                         ))}
                       </Form.Select>
                     </Col>
+
                     <Col md={6}>
                       <Form.Label>To</Form.Label>
                       <Form.Select
@@ -237,43 +244,47 @@ const ShippingCalculatorPage: NextPage = () => {
 
                   <Row className="mb-3">
                     <Col md={6}>
-                      <Form.Label>Postcode (optional)</Form.Label>
+                      <Form.Label>Destination postcode (optional)</Form.Label>
                       <Form.Control
                         value={postcode}
                         onChange={(e) => setPostcode(e.target.value)}
                         placeholder="e.g. SW1A 1AA"
                       />
+                      <div className="small text-muted mt-1">
+                        Optional for now. Useful later for remote-area pricing.
+                      </div>
                     </Col>
                   </Row>
 
                   <Row className="mb-3">
                     <Col md={6}>
                       <Form.Label>Weight</Form.Label>
-                      <div className="d-flex">
+                      <div className="d-flex gap-2">
                         <Form.Control
                           type="number"
                           min={0.1}
                           step="0.1"
                           value={weight}
-                          onChange={(e) => setWeight(Number(e.target.value))}
+                          onChange={(e) =>
+                            setWeight(e.target.value === "" ? "" : Number(e.target.value))
+                          }
                         />
                         <Form.Select
                           style={{ maxWidth: 90 }}
                           value={unit}
-                          onChange={(e) =>
-                            setUnit(e.target.value as WeightUnit)
-                          }
+                          onChange={(e) => setUnit(e.target.value as WeightUnit)}
                         >
                           <option value="kg">kg</option>
                           <option value="lb">lb</option>
                         </Form.Select>
                       </div>
                       <div className="small text-muted mt-1">
-                        Chargeable weight is max of actual vs volumetric.
+                        Chargeable weight is the greater of actual and volumetric weight.
                       </div>
                     </Col>
+
                     <Col md={6}>
-                      <Form.Label>Speed</Form.Label>
+                      <Form.Label>Service</Form.Label>
                       <div>
                         <ToggleButtonGroup
                           type="radio"
@@ -284,29 +295,25 @@ const ShippingCalculatorPage: NextPage = () => {
                           <ToggleButton
                             id="speed-standard"
                             value="standard"
-                            variant={
-                              speed === "standard"
-                                ? "primary"
-                                : "outline-secondary"
-                            }
+                            variant={speed === "standard" ? "primary" : "outline-secondary"}
                             size="sm"
                           >
                             Standard
                           </ToggleButton>
+
                           <ToggleButton
                             id="speed-express"
                             value="express"
-                            variant={
-                              speed === "express"
-                                ? "primary"
-                                : "outline-secondary"
-                            }
+                            variant={speed === "express" ? "primary" : "outline-secondary"}
                             size="sm"
                             className="ms-2"
                           >
                             Express
                           </ToggleButton>
                         </ToggleButtonGroup>
+                      </div>
+                      <div className="small text-muted mt-1">
+                        Express currently applies a 35% premium.
                       </div>
                     </Col>
                   </Row>
@@ -320,13 +327,9 @@ const ShippingCalculatorPage: NextPage = () => {
                             type="number"
                             min={1}
                             placeholder="Length"
-                            value={lengthCm ?? ""}
+                            value={lengthCm}
                             onChange={(e) =>
-                              setLengthCm(
-                                e.target.value
-                                  ? Number(e.target.value)
-                                  : undefined
-                              )
+                              setLengthCm(e.target.value === "" ? "" : Number(e.target.value))
                             }
                           />
                         </Col>
@@ -335,13 +338,9 @@ const ShippingCalculatorPage: NextPage = () => {
                             type="number"
                             min={1}
                             placeholder="Width"
-                            value={widthCm ?? ""}
+                            value={widthCm}
                             onChange={(e) =>
-                              setWidthCm(
-                                e.target.value
-                                  ? Number(e.target.value)
-                                  : undefined
-                              )
+                              setWidthCm(e.target.value === "" ? "" : Number(e.target.value))
                             }
                           />
                         </Col>
@@ -350,20 +349,15 @@ const ShippingCalculatorPage: NextPage = () => {
                             type="number"
                             min={1}
                             placeholder="Height"
-                            value={heightCm ?? ""}
+                            value={heightCm}
                             onChange={(e) =>
-                              setHeightCm(
-                                e.target.value
-                                  ? Number(e.target.value)
-                                  : undefined
-                              )
+                              setHeightCm(e.target.value === "" ? "" : Number(e.target.value))
                             }
                           />
                         </Col>
                       </Row>
                       <div className="small text-muted mt-1">
-                        Recommended for bulky items. If omitted, we only use
-                        actual weight.
+                        Add dimensions for bulky items so volumetric weight can be calculated.
                       </div>
                     </Col>
                   </Row>
@@ -378,14 +372,12 @@ const ShippingCalculatorPage: NextPage = () => {
             </Card>
 
             <Alert variant="light" className="mt-3 border">
-              <strong>Note:</strong> These are{" "}
-              <strong>non-binding estimates</strong>. Final rates may change
-              after we confirm the exact package, packaging, remote area
-              surcharges, or customs duties.
+              <strong>Note:</strong> These are <strong>non-binding estimates</strong>.
+              Final rates may change after package inspection, packing updates,
+              remote-area surcharges, duties, or restricted-item review.
             </Alert>
           </Col>
 
-          {/* RESULT */}
           <Col lg={5}>
             <Card className="shadow-sm border-0">
               <Card.Body>
@@ -393,7 +385,7 @@ const ShippingCalculatorPage: NextPage = () => {
 
                 {!estimate && submitted && (
                   <div className="text-muted small">
-                    Please enter weight and destination to see an estimate.
+                    Please enter a valid weight and destination to see an estimate.
                   </div>
                 )}
 
@@ -402,32 +394,52 @@ const ShippingCalculatorPage: NextPage = () => {
                     <div className="display-6 fw-bold mb-2">
                       {estimate.currency} {estimate.total.toFixed(2)}
                     </div>
+
                     <div className="text-muted small mb-3">
-                      Based on{" "}
-                      <strong>{estimate.chargeableWeight} kg</strong>{" "}
-                      chargeable weight ({speed === "express"
-                        ? "Express"
-                        : "Standard"}{" "}
-                      service).
+                      Based on <strong>{estimate.chargeableWeight} kg</strong> chargeable
+                      weight using {speed === "express" ? "Express" : "Standard"} service.
                     </div>
 
-                    <ul className="small text-muted mb-3">
-                      <li>Base fee: {estimate.currency} {estimate.base}</li>
-                      <li>
-                        Per kg: {estimate.currency} {estimate.perKg} ×{" "}
-                        {estimate.chargeableWeight} kg
-                      </li>
-                      {estimate.volumetricKg && (
-                        <li>Includes volumetric weight calculation.</li>
-                      )}
-                    </ul>
+                    <div className="small mb-3">
+                      <div className="d-flex justify-content-between mb-1">
+                        <span className="text-muted">Actual weight</span>
+                        <strong>{estimate.actualWeightKg} kg</strong>
+                      </div>
 
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      href="/signup"
-                    >
-                      Create account &amp; ship
+                      <div className="d-flex justify-content-between mb-1">
+                        <span className="text-muted">Volumetric weight</span>
+                        <strong>
+                          {estimate.volumetricKg != null ? `${estimate.volumetricKg} kg` : "—"}
+                        </strong>
+                      </div>
+
+                      <div className="d-flex justify-content-between mb-1">
+                        <span className="text-muted">Chargeable weight</span>
+                        <strong>{estimate.chargeableWeight} kg</strong>
+                      </div>
+
+                      <hr />
+
+                      <div className="d-flex justify-content-between mb-1">
+                        <span className="text-muted">Base fee</span>
+                        <strong>{estimate.currency} {estimate.base.toFixed(2)}</strong>
+                      </div>
+
+                      <div className="d-flex justify-content-between mb-1">
+                        <span className="text-muted">Per kg rate</span>
+                        <strong>{estimate.currency} {estimate.perKg.toFixed(2)}</strong>
+                      </div>
+
+                      {speed === "express" && (
+                        <div className="d-flex justify-content-between mb-1">
+                          <span className="text-muted">Express multiplier</span>
+                          <strong>× {estimate.speedMultiplier}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    <Button variant="outline-primary" size="sm" href="/signup">
+                      Create account & ship
                     </Button>
                   </>
                 )}
@@ -438,14 +450,10 @@ const ShippingCalculatorPage: NextPage = () => {
               <Card.Body>
                 <h6 className="fw-semibold mb-2">Business / bulk shipping?</h6>
                 <p className="small text-muted mb-2">
-                  For pallets, cartons or regular business shipments, we can
-                  offer contract rates.
+                  For cartons, pallets, or regular business shipping, we can offer
+                  better contract pricing.
                 </p>
-                <Button
-                  href="/contact"
-                  variant="outline-secondary"
-                  size="sm"
-                >
+                <Button href="/contact" variant="outline-secondary" size="sm">
                   Talk to our team
                 </Button>
               </Card.Body>
