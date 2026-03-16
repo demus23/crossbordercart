@@ -121,7 +121,7 @@ export default function SiteFooter() {
 
               <div style={socialsRow}>
                 <a
-                  href="https://wa.me/971501234567"
+                  href="https://wa.me/971588178057"
                   target="_blank"
                   rel="noreferrer"
                   style={socialIcon}
