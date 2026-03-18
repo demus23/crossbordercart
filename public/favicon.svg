@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Globe -->
+  <circle cx="60" cy="50" r="30" fill="#22c55e" />
+  
+  <!-- Globe lines -->
+  <line x1="60" y1="20" x2="60" y2="80" stroke="#0f172a" stroke-width="2"/>
+  <line x1="30" y1="50" x2="90" y2="50" stroke="#0f172a" stroke-width="2"/>
+
+  <!-- Cart -->
+  <rect x="10" y="45" width="35" height="20" fill="#0f172a"/>
+  <circle cx="20" cy="70" r="4" fill="#0f172a"/>
+  <circle cx="35" cy="70" r="4" fill="#0f172a"/>
+
+  <!-- Arrow -->
+  <polygon points="55,30 85,20 75,45" fill="#22c55e"/>
+</svg>
