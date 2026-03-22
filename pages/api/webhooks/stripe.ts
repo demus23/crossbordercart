@@ -272,16 +272,13 @@ export default async function handler(
       /* REFUND */
       /* ========================================================= */
 
-     case "charge.refunded":
+    case "charge.refunded":
 case "refund.created":
 case "refund.updated": {
   const obj = event.data.object as any;
 
-  // invoiceNo from metadata
-  let invoiceNo: string | undefined =
-    obj?.metadata?.invoiceNo || undefined;
+  let invoiceNo: string | undefined = obj?.metadata?.invoiceNo || undefined;
 
-  // fallback: get from PaymentIntent metadata
   if (!invoiceNo && obj?.payment_intent) {
     try {
       const pi = await stripe.paymentIntents.retrieve(obj.payment_intent);
@@ -291,40 +288,55 @@ case "refund.updated": {
 
   if (!invoiceNo) break;
 
-  // Update payment
+  let refundedAmount = 0;
+  let originalAmount = 0;
+  let paymentStatus = "refunded";
+
+  if (event.type === "charge.refunded") {
+    refundedAmount = fromStripeAmount(obj.amount_refunded || 0);
+    originalAmount = fromStripeAmount(obj.amount || 0);
+
+    if (obj.amount_refunded > 0 && obj.amount_refunded < obj.amount) {
+      paymentStatus = "partially_refunded";
+    } else if (obj.amount_refunded === obj.amount) {
+      paymentStatus = "refunded";
+    }
+  } else {
+    refundedAmount = fromStripeAmount(obj.amount || 0);
+  }
+
   await Payment.updateOne(
     { invoiceNo },
     {
       $set: {
-        status: "refunded",
-        refundedAmount: fromStripeAmount(obj.amount || 0),
+        status: paymentStatus,
+        refundedAmount,
         refundedAt: new Date(),
         stripeRefundId: obj.id,
       },
     }
   ).exec();
 
-  // 🔥 AUTO UPDATE SHIPMENT FROM PAYMENT
   const paymentDoc = await Payment.findOne({ invoiceNo }).lean();
 
-if (paymentDoc?.shipmentId) {
-  await Shipment.updateOne(
-    { _id: paymentDoc.shipmentId },
-    {
-      $set: {
-        isPaid: false,
-      } as any,
-    }
-  ).exec();
+  if (paymentDoc?.shipmentId) {
+    await Shipment.updateOne(
+      { _id: paymentDoc.shipmentId },
+      {
+        $set: {
+          isPaid: paymentStatus === "partially_refunded",
+        } as any,
+      }
+    ).exec();
 
-  await Activity.create({
-    action: "shipping.refunded",
-    entity: "shipping",
-    entityId: String(paymentDoc.shipmentId),
-    details: { invoiceNo, refundId: obj.id },
-    createdAt: new Date(),
-  });
-}
+    await Activity.create({
+      action: "shipping.refunded",
+      entity: "shipping",
+      entityId: String(paymentDoc.shipmentId),
+      details: { invoiceNo, refundId: obj.id, status: paymentStatus },
+      createdAt: new Date(),
+    });
+  }
 
   await Activity.create({
     action: "refund.webhook",
@@ -332,8 +344,8 @@ if (paymentDoc?.shipmentId) {
     entityId: invoiceNo,
     details: {
       refundId: obj.id,
-      amount: fromStripeAmount(obj.amount || 0),
-      status: obj.status,
+      refundedAmount,
+      status: paymentStatus,
     },
     createdAt: new Date(),
   });
@@ -347,7 +359,10 @@ if (paymentDoc?.shipmentId) {
 
     return res.status(200).json({ received: true });
   } catch (err: any) {
-    console.error("Webhook handler error:", err?.message);
-    return res.status(200).json({ received: true });
-  }
+  console.error("Webhook handler error:", err);
+  return res.status(500).json({
+    received: false,
+    error: err?.message || "Webhook handler failed",
+  });
+}
 }
