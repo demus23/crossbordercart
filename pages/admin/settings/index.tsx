@@ -1,3 +1,4 @@
+//pages\admin\settings\index.tsx
 import { useEffect, useState } from "react";
 import {
   Tabs,

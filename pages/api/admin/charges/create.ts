@@ -139,13 +139,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const userIdStr: string | undefined = b.userId;
 
   const amountMajor = Number(b.amount ?? b.total ?? b.price);
-  if (!Number.isFinite(amountMajor) || amountMajor <= 0) {
+  if (!Number.isFinite(amountMajor) || amountMajor <= 0 || amountMajor > 100000) {
     return fail(res, 400, "Amount must be a positive number");
   }
+  const amountMinor = Math.round(amountMajor * 100);
   const currency = String(b.currency || "AED").toUpperCase();
   const description = b.description || "Shipment charge";
   const methodRequested = normalizeMethod(b.method || b);
-  const desiredStatus: StatusType = (b.status || "pending") as StatusType; // default to pending
+  const desiredStatus: StatusType = "pending";
 
   try {
     await dbConnect();

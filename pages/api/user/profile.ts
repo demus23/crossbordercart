@@ -19,7 +19,7 @@ type Profile = {
 
 type Err = { error: string };
 
-const MEMBERSHIP_ALLOWED = new Set(["Free", "Premium", "Pro"]);
+const ALLOWED_UPDATE_FIELDS = new Set(["name", "phone"]);
 
 export default async function handler(
   req: NextApiRequest,
@@ -47,33 +47,32 @@ export default async function handler(
   }
 
   if (req.method === "PUT") {
-    const { name, email, phone, membership, subscribed } = req.body || {};
+    const body = req.body && typeof req.body === "object" ? req.body : {};
 
-    if (typeof name === "string") user.name = name.trim();
-    if (typeof phone === "string") user.phone = phone.trim();
-
-    if (typeof membership === "string" && MEMBERSHIP_ALLOWED.has(membership)) {
-      user.membership = membership;
+    const invalidKeys = Object.keys(body).filter((key) => !ALLOWED_UPDATE_FIELDS.has(key));
+    if (invalidKeys.length > 0) {
+      return res.status(400).json({
+        error: `These fields cannot be updated here: ${invalidKeys.join(", ")}`,
+      });
     }
 
-    if (typeof subscribed === "boolean") {
-      user.subscribed = subscribed;
+    const { name, phone } = body;
+
+    if (typeof name === "string") {
+      const trimmed = name.trim();
+      if (!trimmed) return res.status(400).json({ error: "Name cannot be empty" });
+      if (trimmed.length > 100) return res.status(400).json({ error: "Name is too long" });
+      user.name = trimmed;
     }
 
-    if (typeof email === "string") {
-      const nextEmail = email.trim().toLowerCase();
-      if (nextEmail && nextEmail !== (user.email || "").toLowerCase()) {
-        const taken = await UserModel.exists({ _id: { $ne: user._id }, email: nextEmail });
-        if (taken) return res.status(409).json({ error: "Email already in use" });
-        user.email = nextEmail;
-        // require re-verify on change
-        (user as any).emailVerified = false;
-      }
+    if (typeof phone === "string") {
+      const trimmed = phone.trim();
+      if (trimmed.length > 30) return res.status(400).json({ error: "Phone is too long" });
+      user.phone = trimmed;
     }
 
     await user.save();
 
-    // activity log (non-blocking)
     try {
       await ActivityLog.create({
         action: "user_update_profile",
@@ -82,10 +81,7 @@ export default async function handler(
         performedBy: session.user?.email,
         details: {
           name: user.name,
-          email: user.email,
           phone: user.phone,
-          membership: user.membership,
-          subscribed: user.subscribed,
         },
       });
     } catch {}

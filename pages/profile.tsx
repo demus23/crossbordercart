@@ -1,3 +1,4 @@
+// pages/profile.tsx
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
@@ -17,37 +18,57 @@ export default function ProfilePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-    fetch("/api/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => res.json())
-      .then(data => {
+    fetch("/api/me")
+      .then(async (res) => {
+        if (res.status === 401) {
+          router.push("/login");
+          return null;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (!data) return;
+
         setUser(data);
-        setForm(data.address || {});
+        setForm({
+          line1: data?.address?.line1 || "",
+          line2: data?.address?.line2 || "",
+          city: data?.address?.city || "",
+          state: data?.address?.state || "",
+          postalCode: data?.address?.postalCode || "",
+          country: data?.address?.country || "",
+          phone: data?.address?.phone || data?.phone || "",
+        });
         setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+        setMsg("Failed to load profile");
       });
   }, [router]);
 
-  const handleChange = (e: any) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSave = async (e: any) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg("");
-    const token = localStorage.getItem("token");
+
     const res = await fetch("/api/me", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ address: form }),
     });
-    if (res.ok) setMsg("Profile updated!");
-    else setMsg("Update failed");
+
+    if (res.ok) {
+      const updated = await res.json();
+      setUser(updated);
+      setMsg("Profile updated!");
+    } else {
+      const data = await res.json().catch(() => null);
+      setMsg(data?.error || "Update failed");
+    }
   };
 
   if (loading) return <div>Loading...</div>;
@@ -60,13 +81,13 @@ export default function ProfilePage() {
       <hr />
       <h3>Home Delivery Address</h3>
       <form onSubmit={handleSave}>
-        <input name="line1" placeholder="Address Line 1" value={form.line1 || ""} onChange={handleChange} required style={{width:"100%",marginBottom:8}} /><br />
-        <input name="line2" placeholder="Address Line 2" value={form.line2 || ""} onChange={handleChange} style={{width:"100%",marginBottom:8}} /><br />
-        <input name="city" placeholder="City" value={form.city || ""} onChange={handleChange} required style={{width:"100%",marginBottom:8}} /><br />
-        <input name="state" placeholder="State" value={form.state || ""} onChange={handleChange} style={{width:"100%",marginBottom:8}} /><br />
-        <input name="postalCode" placeholder="Postal Code" value={form.postalCode || ""} onChange={handleChange} style={{width:"100%",marginBottom:8}} /><br />
-        <input name="country" placeholder="Country" value={form.country || ""} onChange={handleChange} required style={{width:"100%",marginBottom:8}} /><br />
-        <input name="phone" placeholder="Phone" value={form.phone || ""} onChange={handleChange} style={{width:"100%",marginBottom:8}} /><br />
+        <input name="line1" placeholder="Address Line 1" value={form.line1} onChange={handleChange} required style={{ width: "100%", marginBottom: 8 }} /><br />
+        <input name="line2" placeholder="Address Line 2" value={form.line2} onChange={handleChange} style={{ width: "100%", marginBottom: 8 }} /><br />
+        <input name="city" placeholder="City" value={form.city} onChange={handleChange} required style={{ width: "100%", marginBottom: 8 }} /><br />
+        <input name="state" placeholder="State" value={form.state} onChange={handleChange} style={{ width: "100%", marginBottom: 8 }} /><br />
+        <input name="postalCode" placeholder="Postal Code" value={form.postalCode} onChange={handleChange} style={{ width: "100%", marginBottom: 8 }} /><br />
+        <input name="country" placeholder="Country" value={form.country} onChange={handleChange} required style={{ width: "100%", marginBottom: 8 }} /><br />
+        <input name="phone" placeholder="Phone" value={form.phone} onChange={handleChange} style={{ width: "100%", marginBottom: 8 }} /><br />
         <button type="submit">Save</button>
       </form>
       <div style={{ color: "green" }}>{msg}</div>

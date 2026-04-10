@@ -1,3 +1,4 @@
+//pages\api\ai\chat.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import OpenAI from "openai";
 import { shippingFAQ } from "@/data/shippingFAQ";

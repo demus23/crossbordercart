@@ -8,6 +8,8 @@ import { authOptions } from "../../auth/[...nextauth]";
 import type { Session } from "next-auth";
 // import Package from "@/lib/models/Package"; // (unused) remove to avoid lint warning
 import TrackingEvent from "@/lib/models/TrackingEvent";
+import { sendEmail } from "@/lib/email/resend";
+import PackageReceivedEmail from "@/emails/PackageReceivedEmail";
 
 const { ObjectId } = mongoose.Types;
 
@@ -137,6 +139,63 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const updated = result?.value;
       if (!updated) return res.status(404).json({ error: "Package not found" });
 
+      // ===============================
+// 📩 PACKAGE RECEIVED EMAIL LOGIC
+// ===============================
+
+const newStatus = updated.status;
+const becameReceived =
+  prevStatus !== "Received" && newStatus === "Received";
+
+if (becameReceived && updated.userEmail) {
+  try {
+    const alreadySent = await ActivityLog.exists({
+      action: "email.package_received.sent",
+      entity: "package",
+      entityId: String(updated._id),
+    });
+
+    if (!alreadySent) {
+      const appUrl = process.env.APP_URL || "http://localhost:3000";
+
+      const trackingNo =
+        updated.tracking || existing.tracking || "";
+
+      const email = String(updated.userEmail).trim().toLowerCase();
+      const name = email.split("@")[0] || "Customer";
+
+      await sendEmail({
+        to: email,
+        subject: "Your package has arrived at our warehouse",
+        from: "Cross Border Cart <no-reply@crossbordercart.com>",
+        react: PackageReceivedEmail({
+          customerName: name,
+          tracking: trackingNo,
+          location: updated.location || existing.location || "Warehouse",
+          receivedAt: new Date().toLocaleString(),
+          trackUrl: `${appUrl}/track?tracking=${encodeURIComponent(trackingNo)}`,
+          brandName: "Cross Border Cart",
+          supportEmail: "support.crossbordercart@gmail.com",
+        }),
+      });
+
+      await ActivityLog.create({
+        action: "email.package_received.sent",
+        entity: "package",
+        entityId: String(updated._id),
+        performedBy: (session as any)?.user?.email,
+        details: {
+          to: email,
+          tracking: trackingNo,
+          status: newStatus,
+        },
+      });
+    }
+  } catch (err) {
+    console.error("Failed to send package received email:", err);
+  }
+}
+
       // Create a standalone TrackingEvent (preferred source for timelines)
       if (statusChanged || locationChanged || hasNote) {
         try {
@@ -190,6 +249,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json(updated);
     }
 
+    
+    
     if (req.method === "DELETE") {
       const found = await col.findOne({ _id: new ObjectId(id) });
       if (!found) return res.status(404).json({ error: "Package not found" });

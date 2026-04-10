@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-
 import { useRouter } from "next/router";
 import { useSession, signOut } from "next-auth/react";
-import axios from "axios";
-
 import { api, getAxiosErrorMessage } from "@/lib/api";
 
 import {
+  Alert,
+  Badge,
   Button,
   Card,
   Col,
@@ -20,54 +19,44 @@ import {
   Row,
   Spinner,
   Table,
-  Alert,
-  Badge,
 } from "react-bootstrap";
 
 import { useDropzone } from "react-dropzone";
 
 import {
   FiBell,
+  FiChevronRight,
+  FiFileText,
+  FiHelpCircle,
+  FiHome,
   FiLogOut,
+  FiMapPin,
+  FiMessageSquare,
   FiPackage,
-  FiPlus,
   FiSearch,
   FiSettings,
-  FiTruck,
-  FiUser,
-  FiZap,
-  FiCreditCard,
-  FiHome,
-  FiMessageSquare,
-  FiHelpCircle,
   FiShield,
-  FiCpu,
-  FiUpload,
   FiShoppingBag,
-  FiChevronRight,
-  FiMapPin,
-  FiFileText,
-  FiDollarSign,
-  FiSend,
+  FiTruck,
+  FiUpload,
+  FiUser,
 } from "react-icons/fi";
 
 import BillingSummary from "@/components/account/BillingSummary";
 import OutstandingInvoicesCard from "@/components/account/OutstandingInvoicesCard";
 import TrackingTimeline, { TrackingEvent } from "@/components/TrackingTimeline";
-// import ShippingQuoteModal from "@/components/ShippingQuoteModal";
-import ShippingQuoteSimple from "@/components/ShippingQuoteSimple";
 import TrackingSearchCard from "@/components/tracking/TrackingSearchCard";
-import QuickTrackHome from "@/components/tracking/QuickTrackHome";
 import AIChatbotModal from "@/components/AIChatbotModal";
+import SiteFooter from "@/components/SiteFooter";
 
-// -------------- Theme --------------
-const MAIN_COLOR = "#0ea5a2"; // teal
+// ---------- Theme ----------
+const MAIN_COLOR = "#0ea5a2";
 const DARK = "#0b3f3e";
 const LIGHT_BG = "#f6fbfb";
 const CARD_GRADIENT = "linear-gradient(135deg, #e6fffb 0%, #f0fdfa 100%)";
 const CHIP_BG = "#e7f9f8";
 
-// -------------- Types (API contracts) --------------
+// ---------- Types ----------
 type ProfileType = {
   name: string;
   email: string;
@@ -101,13 +90,6 @@ type AddressType = {
   postalCode?: string;
 };
 
-type PaymentMethodType = {
-  id: string;
-  type: "card" | "paypal" | "wire";
-  details: string; // **** 4242, paypal email, IBAN tail
-  isDefault?: boolean;
-};
-
 type DealType = {
   id: string;
   store: string;
@@ -139,27 +121,33 @@ type DocItem = {
   uploadedAt?: string | Date;
 };
 
-// -------------- Data Hook (Typed Axios) --------------
-const useDashboardData = () => {
+type AddressForm = {
+  label: string;
+  address: string;
+  city?: string;
+  country?: string;
+  postalCode?: string;
+};
+
+// ---------- Data Hook ----------
+function useDashboardData() {
   const { data: session } = useSession();
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [profile, setProfile] = useState<ProfileType | null>(null);
   const [packages, setPackages] = useState<PackageType[]>([]);
   const [transactions, setTransactions] = useState<TransactionType[]>([]);
   const [addresses, setAddresses] = useState<AddressType[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodType[]>([]);
   const [deals, setDeals] = useState<DealType[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [documents, setDocuments] = useState<DocItem[]>([]);
-  
 
   useEffect(() => {
     let cancelled = false;
 
-    const load = async () => {
+    async function load() {
       if (!session?.user?.id) return;
 
       try {
@@ -171,7 +159,6 @@ const useDashboardData = () => {
           pkgsRes,
           txRes,
           addrRes,
-          payRes,
           dealsRes,
           notifRes,
           docsRes,
@@ -184,7 +171,6 @@ const useDashboardData = () => {
             params: { user: session.user.id },
           }),
           api.get<{ addresses: AddressType[] }>("user/addresses"),
-          api.get<{ methods: PaymentMethodType[] }>("user/payment"),
           api.get<{ deals: DealType[] }>("deals"),
           api.get<{ notifications: NotificationItem[] }>("notifications"),
           api.get<{ documents: DocItem[] }>("user/documents"),
@@ -196,16 +182,15 @@ const useDashboardData = () => {
         setPackages(pkgsRes.data.packages ?? []);
         setTransactions(txRes.data.transactions ?? []);
         setAddresses(addrRes.data.addresses ?? []);
-        setPaymentMethods(payRes.data.methods ?? []);
         setDeals(dealsRes.data.deals ?? []);
         setNotifications(notifRes.data.notifications ?? []);
         setDocuments(docsRes.data.documents ?? []);
-      } catch (err: unknown) {
+      } catch (err) {
         if (!cancelled) setError(getAxiosErrorMessage(err));
       } finally {
         if (!cancelled) setLoading(false);
       }
-    };
+    }
 
     load();
     return () => {
@@ -213,7 +198,6 @@ const useDashboardData = () => {
     };
   }, [session?.user?.id]);
 
-  // refreshers
   const refetchPackages = async () => {
     if (!session?.user?.id) return;
     const r = await api.get<{ packages: PackageType[] }>("packages", {
@@ -224,12 +208,9 @@ const useDashboardData = () => {
 
   const refetchTransactions = async () => {
     if (!session?.user?.id) return;
-    const r = await api.get<{ transactions: TransactionType[] }>(
-      "transactions",
-      {
-        params: { user: session.user.id },
-      }
-    );
+    const r = await api.get<{ transactions: TransactionType[] }>("transactions", {
+      params: { user: session.user.id },
+    });
     setTransactions(r.data.transactions ?? []);
   };
 
@@ -238,31 +219,31 @@ const useDashboardData = () => {
     setAddresses(r.data.addresses ?? []);
   };
 
-  const refetchProfile = async () => {
-    const r = await api.get<ProfileType>("user/profile");
+  const refetchDocuments = async () => {
+    const r = await api.get<{ documents: DocItem[] }>("user/documents");
+    setDocuments(r.data.documents ?? []);
+  };
+
+  const saveProfile = async (data: Partial<ProfileType>) => {
+    const r = await api.put<ProfileType>("user/profile", data);
     setProfile(r.data);
   };
 
-  // actions
-  // ⬇️ Updated: Get latest tracking event from /api/tracking/events
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    await api.put("user/password", { currentPassword, newPassword });
+  };
+
   const trackPackage = async (tracking: string): Promise<TrackResponse> => {
     const t = (tracking || "").trim();
     if (!t) throw new Error("Tracking number is required");
 
-    // ✅ use the real tracking API
-    const res = await fetch(
-      `/api/track?trackingNo=${encodeURIComponent(t)}&limit=1`
-    );
+    const res = await fetch(`/api/track?trackingNo=${encodeURIComponent(t)}&limit=1`);
     if (!res.ok) throw new Error("Tracking lookup failed");
 
     const data = await res.json();
-
-    // /api/track returns { ok, package, events: [...] }
     const ev = Array.isArray(data.events) ? data.events[0] : null;
 
-    if (!ev) {
-      return { tracking: t, status: "Not found" };
-    }
+    if (!ev) return { tracking: t, status: "Not found" };
 
     return {
       tracking: t,
@@ -273,10 +254,7 @@ const useDashboardData = () => {
   };
 
   const addAddress = async (addr: AddressType) => {
-    const r = await api.post<{ addresses: AddressType[] }>(
-      "user/addresses",
-      addr
-    );
+    const r = await api.post<{ addresses: AddressType[] }>("user/addresses", addr);
     setAddresses(r.data.addresses ?? []);
   };
 
@@ -297,64 +275,22 @@ const useDashboardData = () => {
     setAddresses(r.data.addresses ?? []);
   };
 
-  const saveProfile = async (data: Partial<ProfileType>) => {
-    const r = await api.put<ProfileType>("user/profile", data);
-    setProfile(r.data);
-  };
-
-  const changePassword = async (
-    currentPassword: string,
-    newPassword: string
-  ) => {
-    await api.put<{ ok: boolean; message?: string }>("user/password", {
-      currentPassword,
-      newPassword,
-    });
-  };
-
-  const addPaymentMethod = async (payload: {
-    type: PaymentMethodType["type"];
-    tokenOrDetails: string;
-    makeDefault?: boolean;
-    billingAddress?: any;
-  }) => {
-    const r = await api.post<{ methods: PaymentMethodType[] }>(
-      "user/payment",
-      payload
-    );
-    setPaymentMethods(r.data.methods ?? []);
-  };
-
-  const deletePaymentMethod = async (id: string) => {
-    const r = await api.request<{ methods: PaymentMethodType[] }>({
-      url: "user/payment",
-      method: "DELETE",
-      data: { id } as any,
-    });
-    setPaymentMethods(r.data.methods ?? []);
-  };
-
-  // Documents
-  const refetchDocuments = async () => {
-    const r = await api.get<{ documents: DocItem[] }>("user/documents");
-    setDocuments(r.data.documents ?? []);
-  };
-
-  const uploadDocuments = async (files: File[], label?: string) => {
-    // Using fetch for multipart is fine
+  const uploadDocuments = async (files: File[]) => {
     for (const f of files) {
       const fd = new FormData();
       fd.append("file", f);
-      if (label) fd.append("label", label);
+
       const resp = await fetch("/api/user/documents", {
         method: "POST",
         body: fd,
       });
+
       if (!resp.ok) {
         const e = await resp.json().catch(() => ({}));
         throw new Error(e?.error || "Upload failed");
       }
     }
+
     await refetchDocuments();
   };
 
@@ -374,206 +310,33 @@ const useDashboardData = () => {
     packages,
     transactions,
     addresses,
-    paymentMethods,
     deals,
     notifications,
     documents,
     refetchPackages,
     refetchTransactions,
     refetchAddresses,
-    refetchProfile,
+    refetchDocuments,
+    saveProfile,
+    changePassword,
     trackPackage,
     addAddress,
     updateAddress,
     deleteAddress,
-    saveProfile,
-    changePassword,
-    addPaymentMethod,
-    deletePaymentMethod,
-    refetchDocuments,
     uploadDocuments,
     deleteDocument,
   };
-};
-
-// -------------- Modals (typed, trimmed logic) --------------
-type BasicModalProps = { show: boolean; onHide: () => void };
-
-// AI Chat
-function AIChatModal({ show, onHide }: BasicModalProps) {
-  const [messages, setMessages] = useState<
-    { role: "assistant" | "user"; content: string }[]
-  >([
-    {
-      role: "assistant",
-      content: "Hi! I can help with shipping, tracking, and store suggestions.",
-    },
-  ]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const endRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!show) {
-      setMessages([
-        {
-          role: "assistant",
-          content:
-            "Hi! I can help with shipping, tracking, and store suggestions.",
-        },
-      ]);
-      setInput("");
-    }
-  }, [show]);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, show]);
-
-  const send = async () => {
-    if (!input.trim()) return;
-    const next = [...messages, { role: "user" as const, content: input }];
-    setMessages(next);
-    setInput("");
-    setLoading(true);
-    try {
-      const r = await api.post<{ aiMessage: string }>("ai/chat", {
-        messages: next,
-      });
-      setMessages([
-        ...next,
-        { role: "assistant", content: r.data.aiMessage || "…" },
-      ]);
-    } catch {
-      setMessages([
-        ...next,
-        { role: "assistant", content: "Sorry, I couldn’t reach AI right now." },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
-      <Modal.Header closeButton>
-        <Modal.Title>
-          <FiCpu className="me-2" />
-          AI Assistant
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body style={{ background: LIGHT_BG }}>
-        <div style={{ maxHeight: 320, overflowY: "auto", paddingBottom: 8 }}>
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              style={{
-                textAlign: m.role === "user" ? "right" : "left",
-                margin: "8px 0",
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-block",
-                  background: m.role === "assistant" ? "#ccfbf1" : "#e9d5ff",
-                  color: "#064e3b",
-                  borderRadius: 12,
-                  padding: "8px 12px",
-                  maxWidth: 360,
-                }}
-              >
-                {m.content}
-              </span>
-            </div>
-          ))}
-          <div ref={endRef} />
-        </div>
-        <InputGroup>
-          <Form.Control
-            placeholder="Ask about shipping costs, delivery time, best stores…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !loading && send()}
-          />
-          <Button onClick={send} disabled={loading || !input.trim()}>
-            {loading ? <Spinner size="sm" /> : <FiSend />}
-          </Button>
-        </InputGroup>
-      </Modal.Body>
-    </Modal>
-  );
 }
 
-// Support
-type PassModalProps = BasicModalProps & {
-  onChangePass: (cur: string, next: string) => Promise<void>;
+// ---------- Modals ----------
+type BasicModalProps = {
+  show: boolean;
+  onHide: () => void;
 };
 
-function SupportModal({ show, onHide }: BasicModalProps) {
-  const [topic, setTopic] = useState("General");
-  const [message, setMessage] = useState("");
-  const [sent, setSent] = useState(false);
-
-  useEffect(() => {
-    if (!show) {
-      setTopic("General");
-      setMessage("");
-      setSent(false);
-    }
-  }, [show]);
-
-  return (
-    <Modal show={show} onHide={onHide} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>
-          <FiHelpCircle className="me-2" />
-          Support
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        {sent ? (
-          <Alert variant="success">
-            Thanks! We’ll get back to you at your email.
-          </Alert>
-        ) : (
-          <Form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSent(true);
-            }}
-          >
-            <Form.Label>Topic</Form.Label>
-            <Form.Select
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-            >
-              <option>General</option>
-              <option>Billing</option>
-              <option>Shipping</option>
-              <option>Technical</option>
-            </Form.Select>
-            <Form.Label className="mt-2">Message</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={4}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              required
-            />
-            <Button className="mt-3 w-100" type="submit" variant="primary">
-              Send
-            </Button>
-          </Form>
-        )}
-      </Modal.Body>
-    </Modal>
-  );
-}
-
-// Profile
 type ProfileModalProps = BasicModalProps & {
   profile: ProfileType | null;
-  onSave: (p: Partial<ProfileType>) => Promise<void>;
+  onSave: (data: Partial<ProfileType>) => Promise<void>;
 };
 
 function ProfileModal({ show, onHide, profile, onSave }: ProfileModalProps) {
@@ -581,12 +344,13 @@ function ProfileModal({ show, onHide, profile, onSave }: ProfileModalProps) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (show && profile)
+    if (show && profile) {
       setForm({
         name: profile.name,
         email: profile.email,
         phone: profile.phone,
       });
+    }
     if (!show) setForm({});
   }, [show, profile]);
 
@@ -595,7 +359,7 @@ function ProfileModal({ show, onHide, profile, onSave }: ProfileModalProps) {
       <Modal.Header closeButton>
         <Modal.Title>
           <FiUser className="me-2" />
-          Profile
+          Edit Profile
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
@@ -603,37 +367,37 @@ function ProfileModal({ show, onHide, profile, onSave }: ProfileModalProps) {
           onSubmit={async (e) => {
             e.preventDefault();
             setSaving(true);
-            await onSave(form);
-            setSaving(false);
-            onHide();
+            try {
+              await onSave(form);
+              onHide();
+            } finally {
+              setSaving(false);
+            }
           }}
         >
           <Form.Label>Name</Form.Label>
           <Form.Control
             value={form.name ?? ""}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, name: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             required
           />
+
           <Form.Label className="mt-2">Email</Form.Label>
           <Form.Control
             type="email"
             value={form.email ?? ""}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, email: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             required
           />
+
           <Form.Label className="mt-2">Phone</Form.Label>
           <Form.Control
             value={form.phone ?? ""}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, phone: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
           />
+
           <Button className="mt-3 w-100" type="submit" disabled={saving}>
-            {saving ? <Spinner size="sm" /> : "Save"}
+            {saving ? <Spinner size="sm" /> : "Save Changes"}
           </Button>
         </Form>
       </Modal.Body>
@@ -641,12 +405,15 @@ function ProfileModal({ show, onHide, profile, onSave }: ProfileModalProps) {
   );
 }
 
-// Password
+type PassModalProps = BasicModalProps & {
+  onChangePass: (cur: string, next: string) => Promise<void>;
+};
+
 function PassModal({ show, onHide, onChangePass }: PassModalProps) {
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string>("");
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
     if (!show) {
@@ -673,14 +440,8 @@ function PassModal({ show, onHide, onChangePass }: PassModalProps) {
             try {
               await onChangePass(cur, next);
               setMsg("Password updated.");
-            } catch (e: unknown) {
-              const errMsg =
-                e instanceof Error
-                  ? e.message
-                  : typeof e === "string"
-                  ? e
-                  : "Failed";
-              setMsg(errMsg);
+            } catch (e: any) {
+              setMsg(e?.message || "Failed");
             } finally {
               setSaving(false);
             }
@@ -693,6 +454,7 @@ function PassModal({ show, onHide, onChangePass }: PassModalProps) {
             onChange={(e) => setCur(e.target.value)}
             required
           />
+
           <Form.Label className="mt-2">New Password</Form.Label>
           <Form.Control
             type="password"
@@ -700,16 +462,18 @@ function PassModal({ show, onHide, onChangePass }: PassModalProps) {
             onChange={(e) => setNext(e.target.value)}
             required
           />
+
           {msg && (
             <Alert
-              className="mt-2"
+              className="mt-3"
               variant={msg.includes("updated") ? "success" : "danger"}
             >
               {msg}
             </Alert>
           )}
+
           <Button className="mt-3 w-100" type="submit" disabled={saving}>
-            {saving ? <Spinner size="sm" /> : "Update"}
+            {saving ? <Spinner size="sm" /> : "Update Password"}
           </Button>
         </Form>
       </Modal.Body>
@@ -717,476 +481,92 @@ function PassModal({ show, onHide, onChangePass }: PassModalProps) {
   );
 }
 
-// Membership
-type MembershipModalProps = BasicModalProps & {
-  profile: ProfileType | null;
-  onSave: (p: Partial<ProfileType>) => Promise<void>;
-};
-
-function MembershipModal({
-  show,
-  onHide,
-  profile,
-  onSave,
-}: MembershipModalProps) {
-  const [plan, setPlan] = useState<ProfileType["membership"]>("Free");
-  const [saving, setSaving] = useState(false);
+function SupportModal({ show, onHide }: BasicModalProps) {
+  const [topic, setTopic] = useState("General");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    if (show) setPlan(profile?.membership ?? "Free");
-  }, [show, profile]);
+    if (!show) {
+      setTopic("General");
+      setMessage("");
+      setSending(false);
+      setMsg("");
+    }
+  }, [show]);
 
   return (
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
         <Modal.Title>
-          <FiZap className="me-2" />
-          Membership
+          <FiHelpCircle className="me-2" />
+          Support
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form
           onSubmit={async (e) => {
             e.preventDefault();
-            setSaving(true);
-            await onSave({ membership: plan });
-            setSaving(false);
-            onHide();
+            setSending(true);
+            setMsg("");
+
+            try {
+              const res = await fetch("/api/support", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ topic, message }),
+              });
+
+              const data = await res.json().catch(() => ({}));
+
+              if (!res.ok) {
+                throw new Error(data?.error || "Failed to send support request");
+              }
+
+              setMsg("Your message has been sent successfully.");
+              setMessage("");
+            } catch (err: any) {
+              setMsg(err?.message || "Failed to send support request");
+            } finally {
+              setSending(false);
+            }
           }}
         >
-          <Form.Check
-            type="radio"
-            id="m-free"
-            name="m"
-            label="Free"
-            checked={plan === "Free"}
-            onChange={() => setPlan("Free")}
-            className="mb-2"
+          <Form.Label>Topic</Form.Label>
+          <Form.Select value={topic} onChange={(e) => setTopic(e.target.value)}>
+            <option>General</option>
+            <option>Billing</option>
+            <option>Shipping</option>
+            <option>Technical</option>
+          </Form.Select>
+
+          <Form.Label className="mt-3">Message</Form.Label>
+          <Form.Control
+            as="textarea"
+            rows={5}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            required
           />
-          <Form.Check
-            type="radio"
-            id="m-premium"
-            name="m"
-            label="Premium"
-            checked={plan === "Premium"}
-            onChange={() => setPlan("Premium")}
-            className="mb-2"
-          />
-          <Form.Check
-            type="radio"
-            id="m-pro"
-            name="m"
-            label="Pro"
-            checked={plan === "Pro"}
-            onChange={() => setPlan("Pro")}
-            className="mb-2"
-          />
-          <Button className="mt-2 w-100" type="submit" disabled={saving}>
-            {saving ? <Spinner size="sm" /> : "Save Plan"}
+
+          {msg && (
+            <Alert
+              className="mt-3"
+              variant={msg.toLowerCase().includes("success") ? "success" : "info"}
+            >
+              {msg}
+            </Alert>
+          )}
+
+          <Button className="mt-3 w-100" type="submit" disabled={sending}>
+            {sending ? <Spinner size="sm" /> : "Send"}
           </Button>
         </Form>
       </Modal.Body>
     </Modal>
   );
 }
-
-// Payment
-type BillingAddress = {
-  country: string;
-  fullName: string;
-  line1: string;
-  line2?: string;
-  state?: string;
-  city: string;
-  postalCode: string;
-};
-
-type PaymentModalProps = BasicModalProps & {
-  methods: PaymentMethodType[];
-  onAdd: (p: {
-    type: PaymentMethodType["type"];
-    tokenOrDetails: string;
-    makeDefault?: boolean;
-    billingAddress?: BillingAddress;
-  }) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
-};
-
-function PaymentModal({
-  show,
-  onHide,
-  methods,
-  onAdd,
-  onDelete,
-}: PaymentModalProps) {
-  const [step, setStep] = useState<0 | 1>(0);
-  const [makeDefault, setMakeDefault] = useState(true);
-
-  const [addr, setAddr] = useState<BillingAddress>({
-    country: "United Arab Emirates",
-    fullName: "",
-    line1: "",
-    line2: "",
-    state: "",
-    city: "",
-    postalCode: "",
-  });
-
-  const [type, setType] = useState<PaymentMethodType["type"]>("card");
-
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [exp, setExp] = useState(""); // MM/YY
-  const [cvv, setCvv] = useState("");
-  const [issuingBank, setIssuingBank] = useState("");
-  const [issuingPhone, setIssuingPhone] = useState("");
-  const [issuingCountry, setIssuingCountry] = useState("");
-
-  const [paypalEmail, setPaypalEmail] = useState("");
-  const [iban, setIban] = useState("");
-  const [swift, setSwift] = useState("");
-
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!show) {
-      setStep(0);
-      setMakeDefault(true);
-      setAddr({
-        country: "United Arab Emirates",
-        fullName: "",
-        line1: "",
-        line2: "",
-        state: "",
-        city: "",
-        postalCode: "",
-      });
-      setType("card");
-      setCardName("");
-      setCardNumber("");
-      setExp("");
-      setCvv("");
-      setIssuingBank("");
-      setIssuingPhone("");
-      setIssuingCountry("");
-      setPaypalEmail("");
-      setIban("");
-      setSwift("");
-      setLoading(false);
-    }
-  }, [show]);
-
-  function maskCard(num: string) {
-    const digits = (num || "").replace(/\D/g, "");
-    const last4 = digits.slice(-4) || "••••";
-    return `**** ${last4}`;
-  }
-
-  async function submit() {
-    setLoading(true);
-    try {
-      if (type === "card") {
-        const masked = `${maskCard(cardNumber)} (${exp || "MM/YY"})`;
-        await onAdd({
-          type: "card",
-          tokenOrDetails: masked,
-          makeDefault,
-          billingAddress: addr,
-        });
-      } else if (type === "paypal") {
-        await onAdd({
-          type: "paypal",
-          tokenOrDetails: paypalEmail.trim(),
-          makeDefault,
-          billingAddress: addr,
-        });
-      } else {
-        const details = `${iban.trim()} ${
-          swift ? `(${swift.trim()})` : ""
-        }`.trim();
-        await onAdd({
-          type: "wire",
-          tokenOrDetails: details,
-          makeDefault,
-          billingAddress: addr,
-        });
-      }
-      onHide();
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const canContinueBilling =
-    !!addr.country &&
-    !!addr.fullName &&
-    !!addr.line1 &&
-    !!addr.city &&
-    !!addr.postalCode;
-
-  const canSaveMethod =
-    type === "card"
-      ? !!cardName && !!cardNumber && !!exp && !!cvv
-      : type === "paypal"
-      ? !!paypalEmail
-      : !!iban;
-
-  return (
-    <Modal show={show} onHide={onHide} centered size="lg">
-      <Modal.Header closeButton>
-        <Modal.Title className="d-flex align-items-center gap-2">
-          <FiCreditCard /> Payment Methods
-        </Modal.Title>
-      </Modal.Header>
-
-      <Modal.Body>
-        {/* Saved methods */}
-        <h6 className="mb-2">Saved Methods</h6>
-        {methods.length === 0 ? (
-          <div className="text-muted mb-3">No saved methods.</div>
-        ) : (
-          <ul className="list-group mb-3">
-            {methods.map((m) => (
-              <li
-                key={m.id}
-                className="list-group-item d-flex justify-content-between align-items-center"
-              >
-                <span>
-                  <Badge bg="light" text="dark" className="me-2">
-                    {m.type.toUpperCase()}
-                  </Badge>
-                  {m.details}{" "}
-                  {m.isDefault && <Badge bg="success">Default</Badge>}
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline-danger"
-                  onClick={() => onDelete(m.id)}
-                >
-                  Remove
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Wizard steps */}
-        <div className="d-flex align-items-center gap-2 mb-2">
-          <Badge bg={step === 0 ? "primary" : "light"}>1</Badge>
-          <span className={step === 0 ? "fw-bold" : ""}>Billing Address</span>
-          <div className="flex-grow-1" />
-          <Badge bg={step === 1 ? "primary" : "light"}>2</Badge>
-          <span className={step === 1 ? "fw-bold" : ""}>Add Method</span>
-        </div>
-
-        {step === 0 ? (
-          <Form>
-            <Row className="g-2">
-              <Col md={12}>
-                <Form.Label>Country *</Form.Label>
-                <Form.Control
-                  value={addr.country}
-                  onChange={(e) =>
-                    setAddr({ ...addr, country: e.target.value })
-                  }
-                />
-              </Col>
-              <Col md={12}>
-                <Form.Label>Full Name *</Form.Label>
-                <Form.Control
-                  value={addr.fullName}
-                  onChange={(e) =>
-                    setAddr({ ...addr, fullName: e.target.value })
-                  }
-                />
-              </Col>
-              <Col md={12}>
-                <Form.Label>Address Line 1 *</Form.Label>
-                <Form.Control
-                  value={addr.line1}
-                  onChange={(e) =>
-                    setAddr({ ...addr, line1: e.target.value })
-                  }
-                />
-              </Col>
-              <Col md={12}>
-                <Form.Label>Address Line 2</Form.Label>
-                <Form.Control
-                  value={addr.line2 || ""}
-                  onChange={(e) =>
-                    setAddr({ ...addr, line2: e.target.value })
-                  }
-                />
-              </Col>
-              <Col md={6}>
-                <Form.Label>State / Province</Form.Label>
-                <Form.Control
-                  value={addr.state || ""}
-                  onChange={(e) =>
-                    setAddr({ ...addr, state: e.target.value })
-                  }
-                />
-              </Col>
-              <Col md={3}>
-                <Form.Label>City *</Form.Label>
-                <Form.Control
-                  value={addr.city}
-                  onChange={(e) =>
-                    setAddr({ ...addr, city: e.target.value })
-                  }
-                />
-              </Col>
-              <Col md={3}>
-                <Form.Label>Postal Code *</Form.Label>
-                <Form.Control
-                  value={addr.postalCode}
-                  onChange={(e) =>
-                    setAddr({ ...addr, postalCode: e.target.value })
-                  }
-                />
-              </Col>
-            </Row>
-          </Form>
-        ) : (
-          <>
-            <Row className="g-2">
-              <Col md={4}>
-                <Form.Label>Method</Form.Label>
-                <Form.Select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as any)}
-                >
-                  <option value="card">Card</option>
-                  <option value="paypal">PayPal</option>
-                  <option value="wire">Wire</option>
-                </Form.Select>
-              </Col>
-              <Col md={8} className="d-flex align-items-end">
-                <Form.Check
-                  type="checkbox"
-                  className="ms-auto"
-                  label="Make default"
-                  checked={makeDefault}
-                  onChange={(e) => setMakeDefault(e.target.checked)}
-                />
-              </Col>
-            </Row>
-
-            {type === "card" && (
-              <Form className="mt-2">
-                <Form.Label>First &amp; Last Name on Card *</Form.Label>
-                <Form.Control
-                  value={cardName}
-                  onChange={(e) => setCardName(e.target.value)}
-                />
-                <Form.Label className="mt-2">
-                  Credit Card Number *
-                </Form.Label>
-                <Form.Control
-                  inputMode="numeric"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                />
-                <Row className="g-2 mt-1">
-                  <Col md={4}>
-                    <Form.Label>Expiration (MM / YY) *</Form.Label>
-                    <Form.Control
-                      placeholder="MM / YY"
-                      value={exp}
-                      onChange={(e) => setExp(e.target.value)}
-                    />
-                  </Col>
-                  <Col md={4}>
-                    <Form.Label>CVV *</Form.Label>
-                    <Form.Control
-                      value={cvv}
-                      onChange={(e) => setCvv(e.target.value)}
-                    />
-                  </Col>
-                </Row>
-                <Form.Label className="mt-2">Name of Issuing Bank</Form.Label>
-                <Form.Control
-                  value={issuingBank}
-                  onChange={(e) => setIssuingBank(e.target.value)}
-                />
-                <Row className="g-2 mt-1">
-                  <Col md={6}>
-                    <Form.Label>Country of Issuing Bank</Form.Label>
-                    <Form.Control
-                      value={issuingCountry}
-                      onChange={(e) => setIssuingCountry(e.target.value)}
-                    />
-                  </Col>
-                  <Col md={6}>
-                    <Form.Label>Telephone of Issuing Bank</Form.Label>
-                    <Form.Control
-                      value={issuingPhone}
-                      onChange={(e) => setIssuingPhone(e.target.value)}
-                    />
-                  </Col>
-                </Row>
-              </Form>
-            )}
-
-            {type === "paypal" && (
-              <Form className="mt-2">
-                <Form.Label>PayPal Email *</Form.Label>
-                <Form.Control
-                  type="email"
-                  value={paypalEmail}
-                  onChange={(e) => setPaypalEmail(e.target.value)}
-                />
-              </Form>
-            )}
-
-            {type === "wire" && (
-              <Form className="mt-2">
-                <Form.Label>IBAN *</Form.Label>
-                <Form.Control
-                  value={iban}
-                  onChange={(e) => setIban(e.target.value)}
-                />
-                <Form.Label className="mt-2">SWIFT</Form.Label>
-                <Form.Control
-                  value={swift}
-                  onChange={(e) => setSwift(e.target.value)}
-                />
-              </Form>
-            )}
-          </>
-        )}
-      </Modal.Body>
-
-      <Modal.Footer>
-        {step === 0 ? (
-          <Button onClick={() => setStep(1)} disabled={!canContinueBilling}>
-            Continue
-          </Button>
-        ) : (
-          <>
-            <Button variant="outline-secondary" onClick={() => setStep(0)}>
-              Back
-            </Button>
-            <Button onClick={submit} disabled={!canSaveMethod || loading}>
-              {loading ? <Spinner size="sm" /> : "Add Method"}
-            </Button>
-          </>
-        )}
-      </Modal.Footer>
-    </Modal>
-  );
-}
-
-/* ===========================
-   Address Modal (REUSABLE)
-   =========================== */
-type AddressForm = {
-  label: string;
-  address: string;
-  city?: string;
-  country?: string;
-  postalCode?: string;
-};
 
 type AddressModalProps = {
   show: boolean;
@@ -1205,9 +585,13 @@ function AddressModal({
   saving,
   title = "Add Address",
 }: AddressModalProps) {
-  const [form, setForm] = useState<AddressForm>(
-    initial ?? { label: "", address: "", city: "", country: "", postalCode: "" }
-  );
+  const [form, setForm] = useState<AddressForm>({
+    label: "",
+    address: "",
+    city: "",
+    country: "",
+    postalCode: "",
+  });
 
   useEffect(() => {
     setForm(
@@ -1235,32 +619,30 @@ function AddressModal({
         >
           <Form.Label>Label</Form.Label>
           <Form.Control
-            placeholder="Home, Office, etc."
             value={form.label}
             onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
             required
           />
+
           <Form.Label className="mt-2">Address</Form.Label>
           <Form.Control
-            placeholder="Street / Building / Apt"
             value={form.address}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, address: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
             required
           />
+
           <Form.Label className="mt-2">City</Form.Label>
           <Form.Control
             value={form.city ?? ""}
             onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
           />
+
           <Form.Label className="mt-2">Country</Form.Label>
           <Form.Control
             value={form.country ?? ""}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, country: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
           />
+
           <Form.Label className="mt-2">Postal Code</Form.Label>
           <Form.Control
             value={form.postalCode ?? ""}
@@ -1268,6 +650,7 @@ function AddressModal({
               setForm((f) => ({ ...f, postalCode: e.target.value }))
             }
           />
+
           <Button type="submit" className="mt-3 w-100" disabled={!!saving}>
             {saving ? <Spinner size="sm" /> : "Save"}
           </Button>
@@ -1277,288 +660,7 @@ function AddressModal({
   );
 }
 
-type NewChargeModalProps = {
-  show: boolean;
-  onHide: () => void;
-  methods: PaymentMethodType[];
-  onCreated?: (invoiceNo?: string) => void;
-};
-
-function NewChargeModal({
-  show,
-  onHide,
-  methods,
-  onCreated,
-}: NewChargeModalProps) {
-  const [amount, setAmount] = useState<string>("100.00");
-  const [currency, setCurrency] = useState<string>("AED");
-  const [description, setDescription] = useState<string>("Manual charge");
-  const [methodId, setMethodId] = useState<string>("");
-  const [payType, setPayType] = useState<"saved" | "wire">("saved");
-  const [wireRef, setWireRef] = useState<string>("");
-
-  // minimal billing (required by the /api/charge route unless the user already has one saved)
-  const [bill, setBill] = useState<BillingAddress>({
-    country: "United Arab Emirates",
-    fullName: "",
-    line1: "",
-    city: "",
-    postalCode: "",
-    state: "",
-    line2: "",
-  });
-
-  const [submitting, setSubmitting] = useState(false);
-  const canSubmit =
-    Number.isFinite(Number(amount)) &&
-    Number(amount) > 0 &&
-    currency &&
-    ((payType === "saved" && methodId) || payType === "wire") &&
-    !!bill.fullName &&
-    !!bill.line1 &&
-    !!bill.city &&
-    !!bill.country &&
-    !!bill.postalCode;
-
-  useEffect(() => {
-    if (!show) {
-      setAmount("100.00");
-      setCurrency("AED");
-      setDescription("Manual charge");
-      setMethodId("");
-      setPayType("saved");
-      setWireRef("");
-      setBill({
-        country: "United Arab Emirates",
-        fullName: "",
-        line1: "",
-        city: "",
-        postalCode: "",
-        state: "",
-        line2: "",
-      });
-      setSubmitting(false);
-    }
-  }, [show]);
-
-  async function submit() {
-    if (!canSubmit) return;
-    setSubmitting(true);
-    try {
-      const amountMinor = Math.round(parseFloat(amount) * 100); // /api/charge expects minor units
-      const base = {
-        amount: amountMinor,
-        currency,
-        description,
-        billingAddress: bill,
-      };
-
-      const body =
-        payType === "saved"
-          ? { ...base, methodId }
-          : {
-              ...base,
-              method: {
-                type: "wire",
-                label: "Wire transfer",
-                wireReference: wireRef,
-              },
-            };
-
-      const r = await axios.post<{
-        ok: boolean;
-        data?: any;
-        error?: string;
-      }>("/api/charge", body);
-      if (!r.data?.ok) throw new Error(r.data?.error || "Charge failed");
-
-      onHide();
-      onCreated?.(r.data?.data?.invoiceNo);
-    } catch (e: unknown) {
-      const msg =
-        e instanceof Error
-          ? e.message
-          : typeof e === "string"
-          ? e
-          : "Charge failed";
-      alert(msg);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Modal show={show} onHide={onHide} centered size="lg">
-      <Modal.Header closeButton>
-        <Modal.Title>
-          <FiDollarSign className="me-2" /> Pay / Create Invoice
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        {/* Amount & currency */}
-        <Row className="g-2">
-          <Col md={6}>
-            <Form.Label>Amount</Form.Label>
-            <InputGroup>
-              <Form.Control
-                type="number"
-                min={0.01}
-                step={0.01}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-              <Form.Select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-              >
-                <option value="AED">AED</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-              </Form.Select>
-            </InputGroup>
-          </Col>
-          <Col md={6}>
-            <Form.Label>Description</Form.Label>
-            <Form.Control
-              placeholder="What is this for?"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </Col>
-        </Row>
-
-        {/* Payment method */}
-        <Row className="g-2 mt-3">
-          <Col md={12}>
-            <Form.Label>Payment</Form.Label>
-            <div className="d-flex gap-3">
-              <Form.Check
-                type="radio"
-                id="pay-saved"
-                label="Use saved method"
-                checked={payType === "saved"}
-                onChange={() => setPayType("saved")}
-              />
-              <Form.Check
-                type="radio"
-                id="pay-wire"
-                label="Wire (creates Pending invoice)"
-                checked={payType === "wire"}
-                onChange={() => setPayType("wire")}
-              />
-            </div>
-          </Col>
-
-          {payType === "saved" ? (
-            <Col md={12}>
-              {methods.length === 0 ? (
-                <Alert variant="warning" className="mt-2">
-                  You have no saved payment methods. Use the “Payment” button on
-                  the dashboard to add one, then come back here.
-                </Alert>
-              ) : (
-                <Form.Select
-                  className="mt-2"
-                  value={methodId}
-                  onChange={(e) => setMethodId(e.target.value)}
-                >
-                  <option value="">Select a saved method…</option>
-                  {methods.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.type.toUpperCase()} — {m.details}{" "}
-                      {m.isDefault ? "(default)" : ""}
-                    </option>
-                  ))}
-                </Form.Select>
-              )}
-            </Col>
-          ) : (
-            <Col md={12}>
-              <Form.Label className="mt-2">
-                Wire reference (optional)
-              </Form.Label>
-              <Form.Control
-                placeholder="Purchase ref / Note for accounting"
-                value={wireRef}
-                onChange={(e) => setWireRef(e.target.value)}
-              />
-              <div className="form-text">
-                The invoice will be created in “pending” status.
-              </div>
-            </Col>
-          )}
-        </Row>
-
-        {/* Billing address */}
-        <hr className="my-3" />
-        <h6>Billing Address</h6>
-        <Row className="g-2">
-          <Col md={6}>
-            <Form.Label>Full name *</Form.Label>
-            <Form.Control
-              value={bill.fullName}
-              onChange={(e) => setBill({ ...bill, fullName: e.target.value })}
-            />
-          </Col>
-          <Col md={6}>
-            <Form.Label>Country *</Form.Label>
-            <Form.Control
-              value={bill.country}
-              onChange={(e) => setBill({ ...bill, country: e.target.value })}
-            />
-          </Col>
-          <Col md={12}>
-            <Form.Label>Address line 1 *</Form.Label>
-            <Form.Control
-              value={bill.line1}
-              onChange={(e) => setBill({ ...bill, line1: e.target.value })}
-            />
-          </Col>
-          <Col md={12}>
-            <Form.Label>Address line 2</Form.Label>
-            <Form.Control
-              value={bill.line2 || ""}
-              onChange={(e) => setBill({ ...bill, line2: e.target.value })}
-            />
-          </Col>
-          <Col md={4}>
-            <Form.Label>City *</Form.Label>
-            <Form.Control
-              value={bill.city}
-              onChange={(e) => setBill({ ...bill, city: e.target.value })}
-            />
-          </Col>
-          <Col md={4}>
-            <Form.Label>State/Province</Form.Label>
-            <Form.Control
-              value={bill.state || ""}
-              onChange={(e) => setBill({ ...bill, state: e.target.value })}
-            />
-          </Col>
-          <Col md={4}>
-            <Form.Label>Postal code *</Form.Label>
-            <Form.Control
-              value={bill.postalCode}
-              onChange={(e) =>
-                setBill({ ...bill, postalCode: e.target.value })
-              }
-            />
-          </Col>
-        </Row>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="outline-secondary" onClick={onHide}>
-          Cancel
-        </Button>
-        <Button onClick={submit} disabled={!canSubmit || submitting}>
-          {submitting ? <Spinner size="sm" /> : "Create Invoice / Pay"}
-        </Button>
-      </Modal.Footer>
-    </Modal>
-  );
-}
-
-// -------------- Main Dashboard --------------
+// ---------- Main Page ----------
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -1570,126 +672,44 @@ export default function DashboardPage() {
     packages,
     transactions,
     addresses,
-    paymentMethods,
     deals,
     notifications,
     documents,
     refetchPackages,
     refetchTransactions,
     refetchAddresses,
-    refetchProfile,
+    refetchDocuments,
+    saveProfile,
+    changePassword,
     trackPackage,
     addAddress,
     updateAddress,
     deleteAddress,
-    saveProfile,
-    changePassword,
-    addPaymentMethod,
-    deletePaymentMethod,
-    refetchDocuments,
     uploadDocuments,
     deleteDocument,
   } = useDashboardData();
 
-  // UI state
-  const [showAI, setShowAI] = useState<boolean>(false);
-  const [showQuote, setShowQuote] = useState<boolean>(false); // currently unused
-  const [showSupport, setShowSupport] = useState<boolean>(false);
-  const [showProfile, setShowProfile] = useState<boolean>(false);
-  const [showPass, setShowPass] = useState<boolean>(false);
-  const [showMembership, setShowMembership] = useState<boolean>(false);
-  const [showPay, setShowPay] = useState<boolean>(false);
-  const [notifOpen, setNotifOpen] = useState<boolean>(false);
-  const [showCharge, setShowCharge] = useState(false);
+  const [showAI, setShowAI] = useState(false);
+  const [showSupport, setShowSupport] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
 
-  // Track
-  const [tracking, setTracking] = useState<string>("");
+  const [tracking, setTracking] = useState("");
   const [trackRes, setTrackRes] = useState<TrackResponse | null>(null);
-  const [trackLoading, setTrackLoading] = useState<boolean>(false);
-  // Tracking modal state
+  const [trackLoading, setTrackLoading] = useState(false);
+
   const [trackOpen, setTrackOpen] = useState(false);
   const [trackPkg, setTrackPkg] = useState<PackageType | null>(null);
   const [trackEvents, setTrackEvents] = useState<TrackingEvent[]>([]);
   const [trackBusy, setTrackBusy] = useState(false);
-  const [showUserQuote, setShowUserQuote] = useState(false);
-  
 
-  async function loadTrack(trackingNo: string) {
-    setTrackBusy(true);
-    try {
-      // ✅ use /api/track instead of /api/tracking/events
-      const r = await fetch(
-        `/api/track?trackingNo=${encodeURIComponent(trackingNo)}`
-      );
-      const data = await r.json().catch(() => ({} as any));
+  const [docUploading, setDocUploading] = useState(false);
 
-      if (!r.ok || data.ok === false) {
-        throw new Error(data.error || "Failed to load events");
-      }
-
-      // /api/track gives { ok, package, events: [...] }
-      setTrackEvents(Array.isArray(data.events) ? data.events : []);
-      setTrackPkg(data.package ?? null);
-    } catch (e: unknown) {
-      setTrackEvents([]);
-      const msg =
-        e instanceof Error
-          ? e.message
-          : typeof e === "string"
-          ? e
-          : "Failed to load tracking";
-      alert(msg);
-    } finally {
-      setTrackBusy(false);
-    }
-  }
-
-  function openTrackModal(p: PackageType) {
-    setTrackPkg(p);
-    setTrackOpen(true);
-    loadTrack(p.tracking);
-  }
-
-  // Documents upload UI state
-  const [docUploading, setDocUploading] = useState<boolean>(false);
-  const onDrop = async (files: File[]) => {
-    if (!files.length) return;
-    setDocUploading(true);
-    try {
-      await uploadDocuments(files);
-    } catch (e: unknown) {
-      const msg =
-        e instanceof Error
-          ? e.message
-          : typeof e === "string"
-          ? e
-          : "Upload failed";
-      alert(msg);
-    } finally {
-      setDocUploading(false);
-    }
-  };
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
-
-  // Address modal state
   const [addrModalOpen, setAddrModalOpen] = useState(false);
   const [addrEditingIndex, setAddrEditingIndex] = useState<number | null>(null);
-  const [addrInitial, setAddrInitial] = useState<AddressForm | undefined>(
-    undefined
-  );
+  const [addrInitial, setAddrInitial] = useState<AddressForm | undefined>(undefined);
   const [addrSaving, setAddrSaving] = useState(false);
-
-  async function saveAddress(form: AddressForm) {
-    setAddrSaving(true);
-    try {
-      if (addrEditingIndex === null) await addAddress(form);
-      else await updateAddress(addrEditingIndex, form);
-      await refetchAddresses();
-      setAddrModalOpen(false);
-    } finally {
-      setAddrSaving(false);
-    }
-  }
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
@@ -1700,29 +720,71 @@ export default function DashboardPage() {
     if (status === "unauthenticated") router.replace("/login");
   }, [status, router]);
 
-  // Pretty status helper
-  function prettyStatus(s?: string) {
+  const prettyStatus = (s?: string) => {
     if (!s) return "";
-    return s
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
+    return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 
-  if (status === "loading") {
-    return (
-      <div
-        className="d-flex justify-content-center align-items-center"
-        style={{ height: 300 }}
-      >
-        <Spinner animation="border" />
-      </div>
-    );
-  }
+  const loadTrack = async (trackingNo: string) => {
+    setTrackBusy(true);
+    try {
+      const r = await fetch(`/api/track?trackingNo=${encodeURIComponent(trackingNo)}`);
+      const data = await r.json().catch(() => ({} as any));
 
-  // ---- Handlers ----
+      if (!r.ok || data.ok === false) {
+        throw new Error(data.error || "Failed to load events");
+      }
+
+      setTrackEvents(Array.isArray(data.events) ? data.events : []);
+      setTrackPkg(data.package ?? null);
+    } catch (e: any) {
+      setTrackEvents([]);
+      alert(e?.message || "Failed to load tracking");
+    } finally {
+      setTrackBusy(false);
+    }
+  };
+
+  const openTrackModal = (p: PackageType) => {
+    setTrackPkg(p);
+    setTrackOpen(true);
+    loadTrack(p.tracking);
+  };
+
+  const onDrop = async (files: File[]) => {
+    if (!files.length) return;
+
+    setDocUploading(true);
+    try {
+      await uploadDocuments(files);
+    } catch (e: any) {
+      alert(e?.message || "Upload failed");
+    } finally {
+      setDocUploading(false);
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+
+  const saveAddress = async (form: AddressForm) => {
+    setAddrSaving(true);
+    try {
+      if (addrEditingIndex === null) {
+        await addAddress(form);
+      } else {
+        await updateAddress(addrEditingIndex, form);
+      }
+      await refetchAddresses();
+      setAddrModalOpen(false);
+    } finally {
+      setAddrSaving(false);
+    }
+  };
+
   const doTrack = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!tracking.trim()) return;
+
     setTrackLoading(true);
     try {
       const res = await trackPackage(tracking.trim());
@@ -1734,15 +796,21 @@ export default function DashboardPage() {
     }
   };
 
-  const virtualAddress = `CrossBorderChart Warehouse
+  const virtualAddress = `CrossBorderCart Warehouse
 ${profile?.suiteId ? `Suite ${profile.suiteId}` : "Suite —"}
-Mamazar Onyx Tower,  Dubai, UAE
+Mamzar / Dubai, UAE
 +971-52-535-0353`;
 
-  // ---- UI ----
+  if (status === "loading" || loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: 300 }}>
+        <Spinner animation="border" />
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: LIGHT_BG }}>
-      {/* Topbar */}
       <header
         style={{
           position: "sticky",
@@ -1754,21 +822,17 @@ Mamazar Onyx Tower,  Dubai, UAE
       >
         <Container fluid className="py-2">
           <div className="d-flex align-items-center justify-content-between">
-           <div className="dashBrand d-flex align-items-center gap-3">
-  <Image src="/logo-cart.svg" alt="logo" width={36} height={36} />
+            <div className="d-flex align-items-center gap-3">
+              <Image src="/logo-cart.svg" alt="logo" width={36} height={36} />
+              <h5 className="mb-0 d-none d-sm-block" style={{ color: MAIN_COLOR, fontWeight: 800 }}>
+                CrossBorderCart
+              </h5>
+              <Badge bg="light" text="dark" className="d-none d-md-inline">
+                Dashboard
+              </Badge>
+            </div>
 
-
-  <h5 className="mb-0 d-none d-sm-block" style={{ color: MAIN_COLOR, fontWeight: 800 }}>
-    CrossBorderChart
-  </h5>
-
-  <Badge bg="light" text="dark" className="d-none d-md-inline">
-    Dashboard
-  </Badge>
-</div>
-
-            <div className="dashActions d-flex align-items-center gap-2 ms-auto">
-
+            <div className="d-flex align-items-center gap-2 ms-auto">
               <Form onSubmit={doTrack} className="d-none d-md-flex">
                 <InputGroup>
                   <Form.Control
@@ -1776,45 +840,14 @@ Mamazar Onyx Tower,  Dubai, UAE
                     value={tracking}
                     onChange={(e) => setTracking(e.target.value)}
                   />
-                  <Button
-                    type="submit"
-                    variant="outline-secondary"
-                    disabled={trackLoading}
-                  >
+                  <Button type="submit" variant="outline-secondary" disabled={trackLoading}>
                     {trackLoading ? <Spinner size="sm" /> : <FiSearch />}
                   </Button>
                 </InputGroup>
               </Form>
 
-              {/* Inline result for desktop */}
-              {trackRes && (
-                <div className="d-none d-md-flex align-items-center ms-2 small">
-                  <Badge bg="light" text="dark" className="me-2">
-                    {trackRes.tracking}
-                  </Badge>
-                  <span className="fw-semibold">
-                    {prettyStatus(trackRes.status)}
-                  </span>
-                  {trackRes.location && (
-                    <span className="ms-2">• {trackRes.location}</span>
-                  )}
-                  {trackRes.lastUpdate && (
-                    <span className="text-muted ms-2">
-                      {new Date(trackRes.lastUpdate).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <Dropdown
-                show={notifOpen}
-                onToggle={(v) => setNotifOpen(Boolean(v))}
-                align="end"
-              >
-                <Dropdown.Toggle
-                  as="button"
-                  className="btn btn-light position-relative"
-                >
+              <Dropdown show={notifOpen} onToggle={(v) => setNotifOpen(Boolean(v))} align="end">
+                <Dropdown.Toggle as="button" className="btn btn-light position-relative">
                   <FiBell />
                   {unreadCount > 0 && (
                     <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
@@ -1825,73 +858,54 @@ Mamazar Onyx Tower,  Dubai, UAE
                 <Dropdown.Menu style={{ minWidth: 320 }}>
                   <Dropdown.Header>Notifications</Dropdown.Header>
                   {notifications.length === 0 ? (
-                    <span className="dropdown-item-text text-muted">
-                      No notifications.
-                    </span>
+                    <span className="dropdown-item-text text-muted">No notifications.</span>
                   ) : (
                     notifications.slice(0, 6).map((n) => (
                       <div key={n.id} className="dropdown-item-text">
                         <div className="fw-semibold">{n.title}</div>
                         <div className="small text-muted">
-                          {typeof n.createdAt === "string"
-                            ? new Date(n.createdAt).toLocaleString()
-                            : new Date(n.createdAt).toLocaleString()}
+                          {new Date(n.createdAt).toLocaleString()}
                         </div>
                         <div className="small">{n.body}</div>
                         <hr className="my-1" />
                       </div>
                     ))
                   )}
-                  <div className="px-3 pb-2">
-                    <Button
-                      size="sm"
-                      variant="outline-secondary"
-                      onClick={() => alert("Open full notifications page…")}
-                    >
-                      View all
-                    </Button>
-                  </div>
                 </Dropdown.Menu>
               </Dropdown>
 
-             {(profile?.role === "admin" || profile?.role === "superadmin") && (
-  <a
-    href="/admin/dashboard"
-    className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
-    aria-label="Switch to Admin"
-    title="Switch to Admin"
-  >
-    <FiSettings className="me-1" />
-    <span className="d-none d-sm-inline">Switch to Admin</span>
-  </a>
-)}
-
+              {(profile?.role === "admin" || profile?.role === "superadmin") && (
+                <a
+                  href="/admin/dashboard"
+                  className="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+                >
+                  <FiSettings />
+                  <span className="d-none d-sm-inline">Switch to Admin</span>
+                </a>
+              )}
 
               <a
                 href="/charges"
                 className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
               >
-                <FiFileText className="me-1" /> <span className="d-none d-sm-inline">My Invoices</span>
-
+                <FiFileText />
+                <span className="d-none d-sm-inline">My Invoices</span>
               </a>
 
               <button
                 type="button"
                 className="btn btn-outline-danger d-inline-flex align-items-center gap-2"
                 onClick={() => signOut({ callbackUrl: "/login" })}
-                aria-label="Logout"
               >
-                <FiLogOut /> <span className="d-none d-sm-inline">Logout</span>
+                <FiLogOut />
+                <span className="d-none d-sm-inline">Logout</span>
               </button>
             </div>
           </div>
         </Container>
       </header>
 
-      {/* Welcome stripe */}
-      <div
-        style={{ background: CARD_GRADIENT, borderBottom: "1px solid #eaf4f5" }}
-      >
+      <div style={{ background: CARD_GRADIENT, borderBottom: "1px solid #eaf4f5" }}>
         <Container className="py-3">
           <div className="d-flex flex-wrap align-items-center justify-content-between">
             <div>
@@ -1907,24 +921,25 @@ Mamazar Onyx Tower,  Dubai, UAE
                 </Badge>
               </div>
             </div>
-            <div className="d-flex gap-2">
-              <Button
-                variant="outline-secondary"
-                onClick={() => setShowUserQuote(true)}
-              >
-                <FiZap className="me-1" />
-                Shipping Calculator
-              </Button>
-              <Button variant="outline-secondary" onClick={() => setShowAI(true)}>
-                <FiCpu className="me-1" />
-                AI Assistant
-              </Button>
-              <Button
-                variant="outline-secondary"
-                onClick={() => setShowSupport(true)}
-              >
+
+            <div className="d-flex gap-2 flex-wrap">
+              <Button variant="outline-secondary" onClick={() => setShowSupport(true)}>
                 <FiMessageSquare className="me-1" />
                 Support
+              </Button>
+
+              <Button variant="outline-secondary" onClick={() => setShowAI(true)}>
+                AI Assistant
+              </Button>
+
+              <Button variant="outline-secondary" onClick={() => setShowProfile(true)}>
+                <FiUser className="me-1" />
+                Edit Profile
+              </Button>
+
+              <Button variant="outline-secondary" onClick={() => setShowPass(true)}>
+                <FiShield className="me-1" />
+                Password
               </Button>
             </div>
           </div>
@@ -1934,16 +949,13 @@ Mamazar Onyx Tower,  Dubai, UAE
       <Container className="py-4">
         {error && <Alert variant="danger">{error}</Alert>}
 
-        {/* Quick actions */}
         <Row className="g-3">
           <Col lg={4}>
             <Card className="shadow-sm">
               <Card.Body>
                 <div className="d-flex align-items-center justify-content-between">
                   <div>
-                    <div className="text-muted small">
-                      Recently Arrived / Shipped
-                    </div>
+                    <div className="text-muted small">Packages</div>
                     <h5 className="mb-0">{packages.length}</h5>
                   </div>
                   <div
@@ -1954,11 +966,12 @@ Mamazar Onyx Tower,  Dubai, UAE
                   </div>
                 </div>
                 <div className="mt-2 small text-muted">
-                  Latest: {packages[0] ? packages[0].tracking : "—"}
+                  Latest: {packages[0]?.tracking || "—"}
                 </div>
               </Card.Body>
             </Card>
           </Col>
+
           <Col lg={4}>
             <Card className="shadow-sm">
               <Card.Body>
@@ -1971,18 +984,16 @@ Mamazar Onyx Tower,  Dubai, UAE
                     className="rounded-circle d-flex align-items-center justify-content-center"
                     style={{ width: 44, height: 44, background: CHIP_BG }}
                   >
-                    <FiCreditCard color={MAIN_COLOR} />
+                    <FiFileText color={MAIN_COLOR} />
                   </div>
                 </div>
                 <div className="mt-2 small text-muted">
-                  Latest:{" "}
-                  {transactions[0]?.amount
-                    ? `${transactions[0].amount} AED`
-                    : "—"}
+                  Latest: {transactions[0] ? `${transactions[0].amount} AED` : "—"}
                 </div>
               </Card.Body>
             </Card>
           </Col>
+
           <Col lg={4}>
             <Card className="shadow-sm">
               <Card.Body>
@@ -1998,19 +1009,16 @@ Mamazar Onyx Tower,  Dubai, UAE
                     <FiHome color={MAIN_COLOR} />
                   </div>
                 </div>
-                <div className="mt-2 small text-muted">
-                  Manage delivery preferences
-                </div>
+                <div className="mt-2 small text-muted">Manage delivery details</div>
               </Card.Body>
             </Card>
           </Col>
         </Row>
 
         <div style={{ marginTop: 16 }}>
-          <TrackingSearchCard initialTrackingNo="AB23456" />
+          <TrackingSearchCard initialTrackingNo="" />
         </div>
 
-        {/* Track (mobile quick) */}
         <Form onSubmit={doTrack} className="d-md-none mt-3">
           <InputGroup>
             <Form.Control
@@ -2018,38 +1026,111 @@ Mamazar Onyx Tower,  Dubai, UAE
               value={tracking}
               onChange={(e) => setTracking(e.target.value)}
             />
-            <Button
-              type="submit"
-              variant="outline-secondary"
-              disabled={trackLoading}
-            >
+            <Button type="submit" variant="outline-secondary" disabled={trackLoading}>
               {trackLoading ? <Spinner size="sm" /> : <FiSearch />}
             </Button>
           </InputGroup>
+
           {trackRes && (
             <Alert className="mt-2" variant="light">
               <div>
-                <strong>{trackRes.tracking}</strong> —{" "}
-                {prettyStatus(trackRes.status)}
+                <strong>{trackRes.tracking}</strong> — {prettyStatus(trackRes.status)}
               </div>
               {trackRes.location && <div>Location: {trackRes.location}</div>}
               {trackRes.lastUpdate && (
-                <div>
-                  Updated:{" "}
-                  {new Date(trackRes.lastUpdate).toLocaleString()}
-                </div>
+                <div>Updated: {new Date(trackRes.lastUpdate).toLocaleString()}</div>
               )}
             </Alert>
           )}
         </Form>
 
-        {/* Address + Stores */}
         <Row className="g-3 mt-1">
-          <Col lg={7}>
+          <Col lg={8}>
             <Card className="shadow-sm">
               <Card.Header style={{ background: "white" }}>
                 <strong>
-                  <FiMapPin className="me-1" /> Your UAE Virtual Address
+                  <FiTruck className="me-1" />
+                  My Packages
+                </strong>
+              </Card.Header>
+              <Card.Body>
+                {packages.length === 0 ? (
+                  <div className="text-muted">No packages yet.</div>
+                ) : (
+                  <Table hover responsive>
+                    <thead>
+                      <tr>
+                        <th>Tracking</th>
+                        <th>Status</th>
+                        <th>Value</th>
+                        <th>Last Updated</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {packages.slice(0, 8).map((p, idx) => (
+                        <tr key={p._id || `${p.tracking}-${idx}`}>
+                          <td>{p.tracking}</td>
+                          <td>
+                            <Badge bg="light" text="dark">
+                              {prettyStatus(p.status)}
+                            </Badge>
+                          </td>
+                          <td>{p.value} AED</td>
+                          <td>{new Date(p.updatedAt).toLocaleString()}</td>
+                          <td>
+                            <Button
+                              size="sm"
+                              variant="outline-primary"
+                              onClick={() => openTrackModal(p)}
+                            >
+                              Track
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+
+                <div className="d-flex gap-2">
+                  <Button size="sm" variant="outline-secondary" onClick={refetchPackages}>
+                    Refresh
+                  </Button>
+                  <a href="/mypackages" className="btn btn-sm btn-outline-primary">
+                    View all packages
+                  </a>
+                </div>
+              </Card.Body>
+            </Card>
+
+            <Card className="shadow-sm mt-3">
+              <Card.Header style={{ background: "white" }}>
+                <strong>Billing</strong>
+              </Card.Header>
+              <Card.Body>
+                <BillingSummary />
+                <div className="mt-3">
+                  <OutstandingInvoicesCard />
+                </div>
+                <div className="mt-3 d-flex gap-2">
+                  <Button size="sm" variant="outline-secondary" onClick={refetchTransactions}>
+                    Refresh
+                  </Button>
+                  <a href="/charges" className="btn btn-sm btn-outline-primary">
+                    View invoices
+                  </a>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+
+          <Col lg={4}>
+            <Card className="shadow-sm">
+              <Card.Header style={{ background: "white" }}>
+                <strong>
+                  <FiMapPin className="me-1" />
+                  UAE Virtual Address
                 </strong>
               </Card.Header>
               <Card.Body>
@@ -2073,41 +1154,32 @@ Mamazar Onyx Tower,  Dubai, UAE
               </Card.Body>
             </Card>
 
-            {/* Address Book */}
             <Card className="shadow-sm mt-3">
               <Card.Header style={{ background: "white" }}>
                 <strong>
-                  <FiHome className="me-1" /> Address Book (Home Country)
+                  <FiHome className="me-1" />
+                  Address Book
                 </strong>
               </Card.Header>
               <Card.Body>
                 {addresses.length === 0 ? (
                   <div className="text-muted">No addresses yet.</div>
                 ) : (
-                  <Table hover responsive size="sm" className="mb-2">
-                    <thead>
-                      <tr>
-                        <th>Label</th>
-                        <th>Address</th>
-                        <th>City</th>
-                        <th>Country</th>
-                        <th>Postal</th>
-                        <th style={{ width: 120 }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {addresses.map((a, idx) => (
-                        <tr key={`${a.label}-${idx}`}>
-                          <td>{a.label}</td>
-                          <td>{a.address}</td>
-                          <td>{a.city || "—"}</td>
-                          <td>{a.country || "—"}</td>
-                          <td>{a.postalCode || "—"}</td>
-                          <td>
+                  <div className="d-grid gap-2">
+                    {addresses.map((a, idx) => (
+                      <Card key={`${a.label}-${idx}`} className="border">
+                        <Card.Body className="py-2">
+                          <div className="fw-semibold">{a.label}</div>
+                          <div className="small text-muted">
+                            {a.address}
+                            {a.city ? `, ${a.city}` : ""}
+                            {a.country ? `, ${a.country}` : ""}
+                            {a.postalCode ? `, ${a.postalCode}` : ""}
+                          </div>
+                          <div className="mt-2 d-flex gap-2">
                             <Button
                               size="sm"
                               variant="outline-secondary"
-                              className="me-2"
                               onClick={() => {
                                 setAddrEditingIndex(idx);
                                 setAddrInitial({
@@ -2133,31 +1205,36 @@ Mamazar Onyx Tower,  Dubai, UAE
                             >
                               Delete
                             </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    ))}
+                  </div>
                 )}
 
                 <Button
                   size="sm"
+                  className="mt-3"
                   onClick={() => {
                     setAddrEditingIndex(null);
                     setAddrInitial(undefined);
                     setAddrModalOpen(true);
                   }}
                 >
-                  <FiPlus className="me-1" /> Add Address
+                  Add Address
                 </Button>
               </Card.Body>
             </Card>
+          </Col>
+        </Row>
 
-            {/* Document upload */}
-            <Card className="shadow-sm mt-3">
+        <Row className="g-3 mt-1">
+          <Col lg={7}>
+            <Card className="shadow-sm">
               <Card.Header style={{ background: "white" }}>
                 <strong>
-                  <FiUpload className="me-1" /> Upload Documents
+                  <FiUpload className="me-1" />
+                  Documents
                 </strong>
               </Card.Header>
               <Card.Body>
@@ -2174,23 +1251,19 @@ Mamazar Onyx Tower,  Dubai, UAE
                 >
                   <input {...getInputProps()} />
                   <div className="text-muted">
-                    Drag &amp; drop documents here, or click to select files
+                    Drag and drop files here, or click to upload
                   </div>
                 </div>
 
                 {docUploading && (
                   <div className="mt-2">
-                    <Spinner size="sm" /> Uploading…
+                    <Spinner size="sm" /> Uploading...
                   </div>
                 )}
 
                 <div className="d-flex align-items-center justify-content-between mt-3">
                   <strong>Your Documents</strong>
-                  <Button
-                    size="sm"
-                    variant="outline-secondary"
-                    onClick={() => refetchDocuments()}
-                  >
+                  <Button size="sm" variant="outline-secondary" onClick={refetchDocuments}>
                     Refresh
                   </Button>
                 </div>
@@ -2203,7 +1276,7 @@ Mamazar Onyx Tower,  Dubai, UAE
                       <tr>
                         <th>Name</th>
                         <th>Uploaded</th>
-                        <th style={{ width: 160 }}>Action</th>
+                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2215,13 +1288,11 @@ Mamazar Onyx Tower,  Dubai, UAE
                                 {d.label || d.filename}
                               </a>
                             ) : (
-                              <span>{d.label || d.filename}</span>
+                              d.label || d.filename
                             )}
                           </td>
                           <td>
-                            {d.uploadedAt
-                              ? new Date(d.uploadedAt).toLocaleString()
-                              : "—"}
+                            {d.uploadedAt ? new Date(d.uploadedAt).toLocaleString() : "—"}
                           </td>
                           <td>
                             <div className="d-flex gap-2">
@@ -2253,54 +1324,25 @@ Mamazar Onyx Tower,  Dubai, UAE
           </Col>
 
           <Col lg={5}>
-            {/* Stores - big cards */}
             <Card className="shadow-sm">
               <Card.Header style={{ background: "white" }}>
                 <strong>
-                  <FiShoppingBag className="me-1" /> Shop Top Stores
+                  <FiShoppingBag className="me-1" />
+                  Top Stores
                 </strong>
               </Card.Header>
               <Card.Body>
                 <Row className="g-3">
                   {[
-                    {
-                      name: "Amazon AE",
-                      logo: "/amazon.svg",
-                      url: "https://amazon.ae",
-                      tag: "Everything",
-                    },
-                    {
-                      name: "Noon",
-                      logo: "/noon.svg",
-                      url: "https://noon.com",
-                      tag: "Hot deals",
-                    },
-                    {
-                      name: "eBay",
-                      logo: "/ebay.svg",
-                      url: "https://ebay.com",
-                      tag: "Auctions",
-                    },
-                    {
-                      name: "Walmart",
-                      logo: "/walmart.svg",
-                      url: "https://walmart.com",
-                      tag: "Value",
-                    },
-                    {
-                      name: "SHEIN",
-                      logo: "/shein.svg",
-                      url: "https://shein.com",
-                      tag: "Fashion",
-                    },
+                    { name: "Amazon AE", logo: "/amazon.svg", url: "https://amazon.ae", tag: "Everything" },
+                    { name: "Noon", logo: "/noon.svg", url: "https://noon.com", tag: "Deals" },
+                    { name: "eBay", logo: "/ebay.svg", url: "https://ebay.com", tag: "Auctions" },
+                    { name: "Walmart", logo: "/walmart.svg", url: "https://walmart.com", tag: "Value" },
                   ].map((s) => (
                     <Col sm={6} key={s.name}>
                       <Card
                         className="h-100 border-0"
-                        style={{
-                          background: "#fff",
-                          boxShadow: "0 8px 24px #0000000d",
-                        }}
+                        style={{ background: "#fff", boxShadow: "0 8px 24px #0000000d" }}
                       >
                         <Card.Body className="d-flex flex-column">
                           <div className="d-flex align-items-center justify-content-between">
@@ -2316,7 +1358,9 @@ Mamazar Onyx Tower,  Dubai, UAE
                               {s.tag}
                             </Badge>
                           </div>
+
                           <div className="mt-2 fw-bold">{s.name}</div>
+
                           <div className="mt-auto">
                             <a
                               href={s.url}
@@ -2334,15 +1378,9 @@ Mamazar Onyx Tower,  Dubai, UAE
                     </Col>
                   ))}
                 </Row>
-                <div className="text-end small mt-2">
-                  <a href="/stores" className="text-muted">
-                    See more stores →
-                  </a>
-                </div>
               </Card.Body>
             </Card>
 
-            {/* Deals (API) */}
             <Card className="shadow-sm mt-3">
               <Card.Header style={{ background: "white" }}>
                 <strong>Hot Deals</strong>
@@ -2358,17 +1396,9 @@ Mamazar Onyx Tower,  Dubai, UAE
                         className="list-group-item d-flex justify-content-between align-items-center"
                       >
                         <span>
-                          {d.logo && (
-                            <Image
-                              src={d.logo}
-                              alt={d.store}
-                              height={18}
-                              className="me-2"
-                            />
-                          )}
-                          <strong>{d.store}</strong> — {d.title}{" "}
+                          <strong>{d.store}</strong> — {d.title}
                           {d.discountText && (
-                            <Badge bg="success" className="ms-1">
+                            <Badge bg="success" className="ms-2">
                               {d.discountText}
                             </Badge>
                           )}
@@ -2384,324 +1414,39 @@ Mamazar Onyx Tower,  Dubai, UAE
             </Card>
           </Col>
         </Row>
-
-        {/* Packages */}
-        <Card className="shadow-sm mt-3">
-          <Card.Header style={{ background: "white" }}>
-            <strong>
-              <FiTruck className="me-1" /> My Packages
-            </strong>
-          </Card.Header>
-          <Card.Body>
-            <Table hover responsive>
-              <thead>
-                <tr>
-                  <th>Tracking</th>
-                  <th>Status</th>
-                  <th>Value</th>
-                  <th>Last Updated</th>
-                  <th style={{ width: 110 }}>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={5}>
-                      <Spinner size="sm" />
-                    </td>
-                  </tr>
-                ) : packages.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>No packages found.</td>
-                  </tr>
-                ) : (
-                  packages.map((p) => (
-                    <tr key={p._id || p.tracking}>
-                      <td>{p.tracking}</td>
-                      <td style={{ textTransform: "capitalize" }}>
-                        <Badge
-                          bg={
-                            p.status === "delivered"
-                              ? "success"
-                              : p.status === "pending"
-                              ? "warning"
-                              : p.status === "problem"
-                              ? "danger"
-                              : "info"
-                          }
-                        >
-                          {p.status}
-                        </Badge>
-                      </td>
-                      <td>{p.value} AED</td>
-                      <td>{new Date(p.updatedAt).toLocaleString()}</td>
-                      <td>
-                        <Button
-                          size="sm"
-                          variant="outline-primary"
-                          onClick={() => openTrackModal(p)}
-                        >
-                          Track
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </Table>
-            <Button
-              size="sm"
-              variant="outline-secondary"
-              onClick={refetchPackages}
-            >
-              Refresh
-            </Button>
-          </Card.Body>
-        </Card>
-        <div className="mt-2 small text-muted">
-          Latest: {packages[0]?.tracking ?? "—"}
-        </div>
-
-        {/* Transactions */}
-        <Card className="shadow-sm mt-3">
-          <Card.Header style={{ background: "white" }}>
-            <strong>
-              <FiCreditCard className="me-1" /> Transaction History
-            </strong>
-          </Card.Header>
-          <Card.Body>
-            <Table hover responsive>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.length === 0 ? (
-                  <tr>
-                    <td colSpan={4}>No transactions.</td>
-                  </tr>
-                ) : (
-                  transactions.map((t) => (
-                    <tr key={t.id}>
-                      <td>{t.id}</td>
-                      <td>{t.amount} AED</td>
-                      <td>
-                        <Badge
-                          bg={
-                            t.status === "Completed"
-                              ? "success"
-                              : t.status === "Pending"
-                              ? "warning"
-                              : "danger"
-                          }
-                        >
-                          {t.status}
-                        </Badge>
-                      </td>
-                      <td>{new Date(t.date).toLocaleString()}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </Table>
-            <Button
-              size="sm"
-              variant="outline-secondary"
-              onClick={refetchTransactions}
-            >
-              Refresh
-            </Button>
-          </Card.Body>
-        </Card>
-
-        <div className="col-12 col-lg-6">
-          <OutstandingInvoicesCard />
-        </div>
-
-        {/* Actions row */}
-        <Row className="g-3 mt-3">
-          <Col md={4}>
-            <Card className="shadow-sm">
-              <Card.Body className="d-flex align-items-center justify-content-between">
-                <div>
-                  <div className="text-muted small">Profile &amp; Membership</div>
-                  <Button
-                    size="sm"
-                    className="me-2 mt-1"
-                    variant="outline-primary"
-                    onClick={() => setShowProfile(true)}
-                  >
-                    <FiUser className="me-1" />
-                    Edit Profile
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="mt-1"
-                    variant="outline-success"
-                    onClick={() => setShowMembership(true)}
-                  >
-                    <FiZap className="me-1" />
-                    Membership
-                  </Button>
-                </div>
-                <FiUser color={MAIN_COLOR} size={28} />
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={4}>
-            <Card className="shadow-sm">
-              <Card.Body className="d-flex align-items-center justify-content-between">
-                <div>
-                  <div className="text-muted small">Security &amp; Payments</div>
-                  <Button
-                    size="sm"
-                    className="me-2 mt-1"
-                    variant="outline-secondary"
-                    onClick={() => setShowPass(true)}
-                  >
-                    <FiShield className="me-1" />
-                    Password
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="mt-1"
-                    variant="outline-info"
-                    onClick={() => setShowPay(true)}
-                  >
-                    <FiCreditCard className="me-1" />
-                    Payment
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="mt-1"
-                    variant="outline-primary"
-                    onClick={() => setShowCharge(true)}
-                  >
-                    <FiDollarSign className="me-1" /> Pay / Create Invoice
-                  </Button>
-                </div>
-                <FiShield color={MAIN_COLOR} size={28} />
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={4}>
-            <Card className="shadow-sm">
-              <Card.Body className="d-flex align-items-center justify-content-between">
-                <div>
-                  <div className="text-muted small">Help &amp; Support</div>
-                  <Button
-                    size="sm"
-                    className="me-2 mt-1"
-                    variant="outline-dark"
-                    onClick={() => setShowSupport(true)}
-                  >
-                    <FiHelpCircle className="me-1" />
-                    Support
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="mt-1"
-                    variant="outline-dark"
-                    onClick={() => router.push("/stores")}
-                  >
-                    <FiShoppingBag className="me-1" />
-                    All Stores
-                  </Button>
-                </div>
-                <FiMessageSquare color={MAIN_COLOR} size={28} />
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-
-        <h2 className="mb-3 mt-4">Billing</h2>
-        <BillingSummary />
-
-        {/* Footer */}
-        <footer className="mt-4 pt-3 pb-4 border-top">
-  <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-    <div className="small">
-      <span className="fw-bold" style={{ color: MAIN_COLOR }}>
-        Cross Border Cart
-      </span>{" "}
-      &copy; {new Date().getFullYear()} | <a href="/about">About Us</a> |{" "}
-      <a href="/legal/privacy">Privacy Policy</a> |{" "}
-      <a href="/legal/terms">Terms &amp; Conditions</a> |{" "}
-      <a href="/policies/refunds">Refund Policy</a>
-    </div>
-
-    <div className="small">
-      <a
-        href="https://wa.me/971501234567"
-        target="_blank"
-        rel="noreferrer"
-        style={{ marginRight: 10 }}
-      >
-        <Image src="/wa.svg" width={22} alt="wa" />
-      </a>
-      <a
-        href="https://facebook.com"
-        target="_blank"
-        rel="noreferrer"
-        style={{ marginRight: 10 }}
-      >
-        <Image src="/fb.svg" width={22} alt="fb" />
-      </a>
-      <a
-        href="https://instagram.com"
-        target="_blank"
-        rel="noreferrer"
-      >
-        <Image src="/ig.svg" width={22} alt="ig" />
-      </a>
-      <span className="ms-3">
-        <a href="/faq">FAQ</a> | <a href="/help">Help</a> |{" "}
-        <a href="/contact">Contact</a>
-      </span>
-    </div>
-  </div>
-</footer>
       </Container>
 
-      {/* Modals */}
-      <AIChatModal show={showAI} onHide={() => setShowAI(false)} />
-      <ShippingQuoteSimple
-        show={showUserQuote}
-        onHide={() => setShowUserQuote(false)}
-      />
+      <SiteFooter />
 
-      <SupportModal show={showSupport} onHide={() => setShowSupport(false)} />
       <ProfileModal
         show={showProfile}
         onHide={() => setShowProfile(false)}
         profile={profile}
         onSave={saveProfile}
       />
+
       <PassModal
         show={showPass}
         onHide={() => setShowPass(false)}
         onChangePass={changePassword}
       />
-      <MembershipModal
-        show={showMembership}
-        onHide={() => setShowMembership(false)}
-        profile={profile}
-        onSave={saveProfile}
-      />
-      <PaymentModal
-        show={showPay}
-        onHide={() => setShowPay(false)}
-        methods={paymentMethods}
-        onAdd={addPaymentMethod}
-        onDelete={deletePaymentMethod}
+
+      <SupportModal
+        show={showSupport}
+        onHide={() => setShowSupport(false)}
       />
 
-      {/* Address Modal */}
+      <AIChatbotModal
+        open={showAI}
+        onClose={() => setShowAI(false)}
+        userContext={{
+          name: profile?.name,
+          email: profile?.email,
+          suiteId: profile?.suiteId,
+          membership: profile?.membership,
+        }}
+      />
+
       <AddressModal
         show={addrModalOpen}
         onHide={() => setAddrModalOpen(false)}
@@ -2711,34 +1456,25 @@ Mamazar Onyx Tower,  Dubai, UAE
         title={addrEditingIndex === null ? "Add Address" : "Edit Address"}
       />
 
-      <NewChargeModal
-        show={showCharge}
-        onHide={() => setShowCharge(false)}
-        methods={paymentMethods}
-        onCreated={() => {
-          // After creating a charge, refresh data and go to My Invoices
-          refetchTransactions();
-          router.push("/charges");
-        }}
-      />
-
-      {/* Tracking timeline modal */}
-      <Modal
-        show={trackOpen}
-        onHide={() => setTrackOpen(false)}
-        centered
-        size="lg"
-      >
+      <Modal show={trackOpen} onHide={() => setTrackOpen(false)} size="lg" centered>
         <Modal.Header closeButton>
-          <Modal.Title>Tracking — {trackPkg?.tracking ?? ""}</Modal.Title>
+          <Modal.Title>
+            <FiTruck className="me-2" />
+            Package Tracking
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {trackBusy ? (
             <div className="d-flex justify-content-center py-4">
-              <Spinner animation="border" />
+              <Spinner />
             </div>
           ) : (
-            <TrackingTimeline events={trackEvents} />
+            <>
+              <div className="mb-3">
+                <strong>Tracking:</strong> {trackPkg?.tracking || "—"}
+              </div>
+              <TrackingTimeline events={trackEvents} />
+            </>
           )}
         </Modal.Body>
       </Modal>
