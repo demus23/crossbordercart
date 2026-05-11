@@ -1,3 +1,4 @@
+//pages\api\mypackages.ts//
 import { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
@@ -21,19 +22,29 @@ export default async function handler(
     .lean();
 
   // Return all relevant fields
-  const packages = userPackages.map((pkg: any) => ({
-    _id: pkg._id.toString(),
-    tracking: pkg.tracking || "",
-    courier: pkg.courier || "",
-    value: pkg.value || "",
-    status: pkg.status || "",
-    title: pkg.title || "",
-    recipient: pkg.recipient || "",
-    description: pkg.description || "",
-    suiteId: pkg.suiteId || "",
-    address: pkg.address || "",
-    createdAt: pkg.createdAt ? new Date(pkg.createdAt).toISOString() : "",
-  }));
+const packages = userPackages.map((pkg: any) => ({
+  _id: pkg._id.toString(),
+  tracking: pkg.tracking || "",
+  courier: pkg.courier || "",
+  value: pkg.value || "",
+  status: pkg.status || "",
+  title: pkg.title || "",
+  recipient: pkg.recipient || "",
+  description: pkg.description || "",
+  suiteId: pkg.suiteId || "",
+  address: pkg.address || "",
+  createdAt: pkg.createdAt ? new Date(pkg.createdAt).toISOString() : "",
+  updatedAt: pkg.updatedAt ? new Date(pkg.updatedAt).toISOString() : "",
 
-  return res.status(200).json(packages);
+  // ✅ add these
+  shipmentId: pkg.shipmentId ? String(pkg.shipmentId) : null,
+  shipmentTracking: pkg.shipmentTracking || null,
+  shipmentCarrier: pkg.shipmentCarrier || null,
+  shipmentStatus: pkg.shipmentStatus || null,
+}));
+
+  return res.status(200).json({
+  ok: true,
+  packages,
+});
 }

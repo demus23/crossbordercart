@@ -4,12 +4,13 @@ import { useRouter } from "next/router";
 import { Box, Typography, Paper, Chip, Stack, Button } from "@mui/material";
 
 type ServerPackage = {
-  _id: string;
+  _id?: string;
+  id?: string;
   suiteId?: string;
-  tracking?: string; // may be missing on some rows
+  tracking?: string;
   courier?: string;
   value?: number;
-  status?: string; // backend can send many values (out_for_delivery, in_transit, etc.)
+  status?: string;
   createdAt?: string | Date;
   forwardRequested?: boolean;
 };
@@ -21,7 +22,7 @@ type AccountPackagesResp =
 type DisplayPkg = {
   _id: string;
   suiteId: string;
-  tracking: string; // what we show / use for public tracking
+  tracking: string;
   courier: string;
   value: number;
   rawStatus: string;
@@ -35,7 +36,7 @@ export default function MyPackagesPage() {
   const [packages, setPackages] = useState<DisplayPkg[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ map ALL backend statuses -> 4 UI labels
+  // Map backend statuses → UI statuses
   const toDisplayStatus = (s?: string): DisplayPkg["displayStatus"] => {
     const k = String(s || "").toLowerCase();
 
@@ -68,29 +69,41 @@ export default function MyPackagesPage() {
       case "Problem":
         return "error";
       default:
-        return "info"; // In Transit
+        return "info";
     }
   };
 
-  const normalize = (p: ServerPackage): DisplayPkg => ({
-    _id: String(p._id),
-    suiteId: String(p.suiteId ?? ""),
-    tracking: String(p.tracking || p._id || ""), // ✅ fallback to _id if no tracking field
-    courier: String(p.courier || ""),
-    value: Number(p.value ?? 0),
-    rawStatus: String(p.status || "pending"),
-    displayStatus: toDisplayStatus(p.status),
-    createdAt: p.createdAt
-      ? new Date(p.createdAt).toISOString()
-      : new Date().toISOString(),
-    forwardRequested: !!p.forwardRequested,
-  });
+  const normalize = (p: ServerPackage): DisplayPkg => {
+    const id = String(p._id || p.id || "");
+
+    return {
+      _id: id,
+      suiteId: String(p.suiteId ?? ""),
+      tracking: String(p.tracking || id || ""),
+      courier: String(p.courier || ""),
+      value: Number(p.value ?? 0),
+      rawStatus: String(p.status || "pending"),
+      displayStatus: toDisplayStatus(p.status),
+      createdAt: p.createdAt
+        ? new Date(p.createdAt).toISOString()
+        : new Date().toISOString(),
+      forwardRequested: !!p.forwardRequested,
+    };
+  };
+
+  // ✅ FIXED forwarding condition
+  const canRequestForwarding = (pkg: DisplayPkg) => {
+    const s = pkg.rawStatus.toLowerCase().trim();
+    return (
+      !pkg.forwardRequested &&
+      (s === "received" || s === "processing")
+    );
+  };
 
   async function load() {
     try {
       setLoading(true);
 
-      // 1) Preferred: NextAuth session route
       const r = await fetch("/api/account/packages");
       if (r.ok) {
         const j: AccountPackagesResp = await r.json();
@@ -99,28 +112,26 @@ export default function MyPackagesPage() {
           setPackages(list.map(normalize));
           return;
         }
-      } else if (r.status === 401) {
-        // fall through to legacy if unauthenticated via NextAuth
       }
 
-      // 2) Legacy fallback: token route
       const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
       if (!token) {
-        // not logged in either way; push to login
         router.push("/login");
         return;
       }
+
       const r2 = await fetch("/api/mypackages", {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (r2.ok) {
-        const arr = (await r2.json()) as ServerPackage[]; // legacy returns array
+        const arr = (await r2.json()) as ServerPackage[];
         setPackages((arr || []).map(normalize));
         return;
       }
 
-      // if both fail:
       setPackages([]);
     } catch {
       setPackages([]);
@@ -131,11 +142,10 @@ export default function MyPackagesPage() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const trackingCodeFor = (pkg: DisplayPkg) =>
-    pkg.tracking || pkg._id; // ✅ helper for links
+    pkg.tracking || pkg._id;
 
   if (loading) {
     return (
@@ -158,29 +168,14 @@ export default function MyPackagesPage() {
       ) : (
         <Stack spacing={3}>
           {packages.map((pkg) => (
-            <Paper
-              key={pkg._id}
-              sx={{ p: 3, borderRadius: 4, boxShadow: 2 }}
-            >
-              <Stack
-                direction="row"
-                spacing={2}
-                alignItems="center"
-                mb={1}
-                flexWrap="wrap"
-              >
+            <Paper key={pkg._id} sx={{ p: 3, borderRadius: 4, boxShadow: 2 }}>
+              
+              <Stack direction="row" spacing={2} alignItems="center" mb={1} flexWrap="wrap">
                 {pkg.suiteId && (
-                  <Chip
-                    label={pkg.suiteId}
-                    color="primary"
-                    variant="outlined"
-                  />
+                  <Chip label={pkg.suiteId} color="primary" variant="outlined" />
                 )}
                 <Typography fontWeight={700}>{pkg.tracking}</Typography>
-                <Chip
-                  label={pkg.displayStatus}
-                  color={chipColor(pkg.displayStatus) as any}
-                />
+                <Chip label={pkg.displayStatus} color={chipColor(pkg.displayStatus) as any} />
               </Stack>
 
               {pkg.courier && (
@@ -190,19 +185,15 @@ export default function MyPackagesPage() {
               )}
 
               <Typography>
-                Value:{" "}
-                {Number.isFinite(pkg.value)
-                  ? pkg.value.toFixed(2)
-                  : "0.00"}{" "}
-                AED
+                Value: {Number.isFinite(pkg.value) ? pkg.value.toFixed(2) : "0.00"} AED
               </Typography>
 
               <Typography fontSize={13} color="gray">
                 Created: {new Date(pkg.createdAt).toLocaleString()}
               </Typography>
 
-              {/* Show forwarding button when "In Transit" (i.e., backend status not yet delivered) */}
-              {pkg.displayStatus === "In Transit" && !pkg.forwardRequested && (
+              {/* ✅ FIXED BUTTON */}
+              {canRequestForwarding(pkg) && (
                 <Button
                   sx={{ mt: 2 }}
                   variant="contained"
@@ -212,6 +203,9 @@ export default function MyPackagesPage() {
                         typeof window !== "undefined"
                           ? localStorage.getItem("token")
                           : null;
+
+                      console.log("Request forwarding package id:", pkg._id);
+
                       const res = await fetch("/api/mypackages/forward", {
                         method: "POST",
                         headers: {
@@ -220,17 +214,25 @@ export default function MyPackagesPage() {
                         },
                         body: JSON.stringify({ packageId: pkg._id }),
                       });
-                      if (res.ok) {
-                        setPackages((pkgs) =>
-                          pkgs.map((p) =>
-                            p._id === pkg._id
-                              ? { ...p, forwardRequested: true }
-                              : p
-                          )
-                        );
+
+                      const data = await res.json().catch(() => ({}));
+
+                      if (!res.ok) {
+                        alert(data?.error || "Failed to request forwarding");
+                        return;
                       }
-                    } catch {
-                      // ignore
+
+                      setPackages((pkgs) =>
+                        pkgs.map((p) =>
+                          p._id === pkg._id
+                            ? { ...p, forwardRequested: true }
+                            : p
+                        )
+                      );
+
+                      alert("Forwarding request sent ✅");
+                    } catch (e: any) {
+                      alert(e?.message || "Failed to request forwarding");
                     }
                   }}
                 >
@@ -242,7 +244,6 @@ export default function MyPackagesPage() {
                 <Chip label="Forwarding Requested" color="info" sx={{ mt: 2 }} />
               )}
 
-              {/* ✅ Actions row: View details + Track */}
               <Stack direction="row" spacing={1} sx={{ mt: 2 }} flexWrap="wrap">
                 <Button
                   variant="outlined"
@@ -250,17 +251,17 @@ export default function MyPackagesPage() {
                 >
                   View details
                 </Button>
+
                 <Button
                   variant="outlined"
                   onClick={() =>
-                    router.push(
-                      `/track/${encodeURIComponent(trackingCodeFor(pkg))}`
-                    )
+                    router.push(`/track/${encodeURIComponent(trackingCodeFor(pkg))}`)
                   }
                 >
                   Track
                 </Button>
               </Stack>
+
             </Paper>
           ))}
         </Stack>

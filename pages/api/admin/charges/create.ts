@@ -1,50 +1,32 @@
-// pages/api/admin/charges/create.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]";
+import mongoose, { Schema, model, models, Types } from "mongoose";
+
+import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import dbConnect from "@/lib/dbConnect";
-import mongoose, { Schema, Types, model, models } from "mongoose";
+import { stripe } from "@/lib/stripe";
 import { Payment } from "@/lib/models/Payment";
-import { stripe, getOrigin } from "@/lib/stripe"; // <-- use safe origin helper
-import { sendMail } from "@/lib/email/nodemailer";
-import { buildReceiptHtml } from "@/lib/invoices/receiptHtml";
-import { buildPayNowHtml } from "@/lib/invoices/payNowHtml";
-import { makeInvoiceToken } from "@/lib/tokens/signedUrl";
-import { logActivity } from "@/lib/activity";
+import { Shipment } from "@/lib/models/Shipment";
+import { Activity } from "@/lib/models/Activity";
+import User from "@/lib/models/User";
 
-type AdminSession =
-  | { user?: { id?: string; role?: string; email?: string } }
-  | null;
+type CounterDoc = {
+  _id: string;
+  seq: number;
+};
 
-type MethodType = "card" | "paypal" | "wire";
-type StatusType = "succeeded" | "pending" | "failed" | "refunded";
+const CounterSchema = new Schema<CounterDoc>(
+  {
+    _id: { type: String, required: true },
+    seq: { type: Number, required: true, default: 0 },
+  },
+  { collection: "invoice_counters", versionKey: false }
+);
 
-function fail(res: NextApiResponse, code: number, msg: string, details?: any) {
-  if (process.env.NODE_ENV !== "production") {
-    console.error("[admin/charges/create]", msg, details || "");
-  }
-  return res.status(code).json({ ok: false, error: msg, details });
-}
-const isDup = (e: any) => e?.code === 11000 || /E11000|duplicate key/i.test(e?.message || "");
+const InvoiceCounter =
+  (models.InvoiceCounter as mongoose.Model<CounterDoc>) ||
+  model<CounterDoc>("InvoiceCounter", CounterSchema);
 
-/* ------------ helpers ------------ */
-function normalizeEmail(b: any): string | undefined {
-  return b?.userEmail || b?.email || b?.user_email || b?.customerEmail || b?.customer_email;
-}
-function normalizeMethod(input: any): {
-  type: MethodType; brand?: string; last4?: string; label?: string; paypalEmail?: string;
-} {
-  const raw = input?.type ?? input;
-  const t = String(raw || "card").toLowerCase();
-  const type: MethodType = (["card", "paypal", "wire"].includes(t) ? t : "card") as MethodType;
-  return {
-    type,
-    brand: input?.brand || (type === "card" ? "manual" : undefined),
-    last4: input?.last4 || (type === "card" ? "0000" : undefined),
-    label: input?.label || (type === "card" ? "Admin charge" : type.toUpperCase()),
-    paypalEmail: input?.paypalEmail,
-  };
-}
 function todayBase() {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -53,233 +35,321 @@ function todayBase() {
   return `INV-${yyyy}${mm}${dd}`;
 }
 
-/* counter model */
-type CounterDoc = { _id: string; seq: number };
-const CounterSchema = new Schema<CounterDoc>(
-  { _id: { type: String, required: true }, seq: { type: Number, required: true, default: 0 } },
-  { collection: "invoice_counters", versionKey: false }
-);
-const InvoiceCounter =
-  (models.InvoiceCounter as mongoose.Model<CounterDoc>) ||
-  model<CounterDoc>("InvoiceCounter", CounterSchema);
+async function maxSeqInPayments(
+  db: mongoose.mongo.Db,
+  base: string
+): Promise<number> {
+  const start = `${base}-0000`;
+  const end = `${base}-9999`;
 
-/** max seq from payments */
-async function maxSeqInPayments(db: mongoose.mongo.Db, base: string): Promise<number> {
-  const start = `${base}-0000`, end = `${base}-9999`;
   const doc = await db
     .collection<{ invoiceNo: string }>("payments")
-    .find({ invoiceNo: { $gte: start, $lte: end } }, { projection: { invoiceNo: 1 } })
+    .find(
+      { invoiceNo: { $gte: start, $lte: end } },
+      { projection: { invoiceNo: 1 } }
+    )
     .sort({ invoiceNo: -1 })
     .limit(1)
     .next();
+
   if (!doc?.invoiceNo) return 0;
+
   const m = doc.invoiceNo.match(/-(\d{4})$/);
   return m ? parseInt(m[1], 10) : 0;
 }
+
 async function allocateInvoiceNo(db: mongoose.mongo.Db): Promise<string> {
   const base = todayBase();
+
   const [current, maxUsed] = await Promise.all([
     InvoiceCounter.findById(base).lean(),
     maxSeqInPayments(db, base),
   ]);
+
   if (!current || (current.seq ?? 0) < maxUsed) {
     await InvoiceCounter.findByIdAndUpdate(
-      base, { $set: { seq: maxUsed } }, { upsert: true, setDefaultsOnInsert: true }
+      base,
+      { $set: { seq: maxUsed } },
+      { upsert: true, setDefaultsOnInsert: true }
     );
   }
+
   const updated = await InvoiceCounter.findByIdAndUpdate(
-    base, { $inc: { seq: 1 } }, { new: true, upsert: true, setDefaultsOnInsert: true }
+    base,
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
   ).lean();
-  const seqNum = updated?.seq ?? (maxUsed + 1);
+
+  const seqNum = updated?.seq ?? maxUsed + 1;
   const seq = String(seqNum).padStart(4, "0");
+
   return `${base}-${seq}`;
 }
 
-async function getUserDoc(db: mongoose.mongo.Db, { userId, email }:{userId?:string; email?:string}) {
-  const users = db.collection("users");
-  if (userId) {
-    try {
-      const _id = new Types.ObjectId(String(userId));
-      const u = await users.findOne({_id});
-      if (u) return u;
-    } catch {}
-  }
-  if (email) {
-    const u = await users.findOne({ email: String(email) });
-    if (u) return u;
-    const ins = await users.insertOne({
-      email: String(email),
-      name: String(email).split("@")[0],
-      emailVerified: null,
-      createdAt: new Date(),
-    } as any);
-    const created = await users.findOne({ _id: ins.insertedId });
-    return created;
-  }
-  throw new Error("User not found and no email provided");
+function getOrigin(req: NextApiRequest) {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    `${req.headers["x-forwarded-proto"] || "http"}://${req.headers.host}`
+  );
 }
 
-/* -------------- handler -------------- */
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
-    return fail(res, 405, `Method ${req.method} Not Allowed`);
+    return res.status(405).json({
+      ok: false,
+      error: `Method ${req.method} Not Allowed`,
+    });
   }
 
-  const session = (await getServerSession(req, res, authOptions as any)) as AdminSession;
-  const role = session?.user?.role || "";
-  if (!session?.user?.id || !["admin","superadmin"].includes(role)) {
-    return fail(res, 403, "Forbidden");
-  }
+  const session: any = await getServerSession(req, res, authOptions as any);
 
-  const b: any = req.body || {};
-  const shipmentIdStr: string | undefined = b.shipmentId;
-  
-  const email = normalizeEmail(b);
-  const userIdStr: string | undefined = b.userId;
-
-  const amountMajor = Number(b.amount ?? b.total ?? b.price);
-  if (!Number.isFinite(amountMajor) || amountMajor <= 0 || amountMajor > 100000) {
-    return fail(res, 400, "Amount must be a positive number");
+  if (!session?.user?.id || !["admin", "superadmin"].includes(session.user.role)) {
+    return res.status(401).json({ ok: false, error: "Unauthorized" });
   }
-  const amountMinor = Math.round(amountMajor * 100);
-  const currency = String(b.currency || "AED").toUpperCase();
-  const description = b.description || "Shipment charge";
-  const methodRequested = normalizeMethod(b.method || b);
-  const desiredStatus: StatusType = "pending";
 
   try {
     await dbConnect();
-    const db = mongoose.connection.db as unknown as mongoose.mongo.Db;
-    if (!db) return fail(res, 500, "Database connection not ready");
 
-    // Load or create user document
-    const userDoc: any = await getUserDoc(db, { userId: userIdStr, email });
-    const userId = userDoc._id as Types.ObjectId;
+    const db = mongoose.connection.db!;
 
-    // Allocate invoice number & create payment (pending for now)
+    const {
+      amount,
+      currency = "AED",
+      description = "Shipment charge",
+      email,
+      userId,
+      shipmentId,
+      collectMode = "link",
+    } = req.body || {};
+
+    const amountMajor = Number(amount);
+
+    if (!Number.isFinite(amountMajor) || amountMajor <= 0) {
+      return res.status(400).json({
+        ok: false,
+        error: "Amount must be greater than 0",
+      });
+    }
+
+    const amountMinor = Math.round(amountMajor * 100);
+    const finalCurrency = String(currency || "AED").toUpperCase();
+
+    let finalShipment: any = null;
+    let finalShipmentId: string | undefined =
+      shipmentId && Types.ObjectId.isValid(String(shipmentId))
+        ? String(shipmentId)
+        : undefined;
+
+    if (finalShipmentId) {
+      finalShipment = await Shipment.findById(finalShipmentId).lean();
+
+      if (!finalShipment) {
+        return res.status(404).json({
+          ok: false,
+          error: "Shipment not found",
+        });
+      }
+    }
+
+    let finalUserId: any =
+      userId && Types.ObjectId.isValid(String(userId))
+        ? new Types.ObjectId(String(userId))
+        : undefined;
+
+    let finalEmail: string | undefined =
+      email ||
+      finalShipment?.customerEmail ||
+      finalShipment?.userEmail ||
+      finalShipment?.to?.email ||
+      undefined;
+
+    if (!finalUserId && finalShipment) {
+      const possibleUserId =
+        finalShipment.userId || finalShipment.user || finalShipment.ownerId;
+
+      if (possibleUserId && Types.ObjectId.isValid(String(possibleUserId))) {
+        finalUserId = new Types.ObjectId(String(possibleUserId));
+      }
+    }
+
+    if (!finalEmail && finalUserId) {
+      const userDoc: any = await User.findById(finalUserId).lean();
+      finalEmail = userDoc?.email;
+    }
+
+    if (!finalUserId && finalEmail) {
+      let userDoc: any = await User.findOne({ email: finalEmail }).lean();
+
+      if (!userDoc) {
+        userDoc = await User.create({
+          email: finalEmail,
+          name: finalEmail.split("@")[0],
+          emailVerified: null,
+          createdAt: new Date(),
+        });
+      }
+
+      finalUserId = userDoc._id;
+    }
+
+    if (!finalUserId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Cannot resolve customer user",
+      });
+    }
+
+    if (!finalEmail) {
+      const userDoc: any = await User.findById(finalUserId).lean();
+      finalEmail = userDoc?.email;
+    }
+
+    if (!finalEmail) {
+      return res.status(400).json({
+        ok: false,
+        error: "Customer email is required",
+      });
+    }
+
     const invoiceNo = await allocateInvoiceNo(db);
+
     const payment = await Payment.create({
       invoiceNo,
-      amount: Math.round(amountMajor * 100), // MINOR units
-      currency,
-      description,
-      status: desiredStatus,
-      method: methodRequested,
-      user: userId,
-      email: userDoc?.email || email, // store for admin search
-      shipmentId: shipmentIdStr ? new Types.ObjectId(String(shipmentIdStr)) : undefined,
-      
+      amount: amountMinor,
+      currency: finalCurrency,
+      description:
+        finalShipment?.trackingNumber || finalShipment?._id
+          ? `${description} (Shipment ${
+              finalShipment.trackingNumber || finalShipment._id
+            })`
+          : description,
+      status: "pending",
+      method: {
+        type: collectMode === "saved" ? "saved_card" : "card",
+        label: collectMode === "saved" ? "Saved card" : "Pay link",
+      },
+      user: finalUserId,
+
+      // ✅ IMPORTANT: this is what webhook uses to mark shipment paid
+      shipmentId: finalShipmentId ? new Types.ObjectId(finalShipmentId) : undefined,
+
       billingAddress: {
-        fullName: (b.billingAddress?.fullName || userDoc?.name || (email ? String(email).split("@")[0] : "Customer")),
-        line1: b.billingAddress?.line1 || "N/A",
-        line2: b.billingAddress?.line2 || "",
-        city: b.billingAddress?.city || "N/A",
-        state: b.billingAddress?.state || "",
-        postalCode: b.billingAddress?.postalCode || b.billingAddress?.postal || "00000", // <-- fix key
-        country: b.billingAddress?.country || "N/A",
-      },
+         name: finalShipment?.to?.name || finalEmail,
+         line1: finalShipment?.to?.line1 || "N/A",
+         city: finalShipment?.to?.city || "N/A",
+         country: finalShipment?.to?.country || "AE",
+},
+
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
-    await logActivity(req, {
-      action: "charge.created",
-      entity: "payment",
-      entityId: invoiceNo,
-      performedById: session.user?.id,
-      performedByEmail: session.user?.email,
-      details: {
-        userId: String(userId),
-        paymentId: String(payment._id),
-        amountMinor: payment.amount,
-        currency,
-        description,
-        status: payment.status,
-      },
-    });
+    const ORIGIN = getOrigin(req);
 
-    const amountMinor = payment.amount;
-    const token = makeInvoiceToken(invoiceNo); // for invoice HTML/PDF links
-    const ORIGIN = getOrigin(req);            // <-- always a valid http/https origin
-
-    // Create Checkout Session (pay link)
-    const sessionObj = await stripe.checkout.sessions.create({
+    const checkout = await stripe.checkout.sessions.create({
       mode: "payment",
-      customer: userDoc?.stripeCustomerId || undefined,
-      customer_email: userDoc?.email || email || undefined,
-      // include session_id so UI can reconcile if webhook is delayed/missed
-      success_url: `${ORIGIN}/pay/return?paid=1&inv=${encodeURIComponent(invoiceNo)}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${ORIGIN}/pay/return?canceled=1&inv=${encodeURIComponent(invoiceNo)}&session_id={CHECKOUT_SESSION_ID}`,
-      allow_promotion_codes: false,
-     metadata: {
-  invoiceNo,
-  shipmentId: shipmentIdStr || "",
-},
-payment_intent_data: {
-  metadata: {
-    invoiceNo,
-    shipmentId: shipmentIdStr || "",
-  },
-
-},
+      customer_email: finalEmail,
       line_items: [
         {
           quantity: 1,
           price_data: {
-            currency: currency.toLowerCase(),
+            currency: finalCurrency.toLowerCase(),
             unit_amount: amountMinor,
-            product_data: { name: description },
+            product_data: {
+              name: `Invoice ${invoiceNo}`,
+              description:
+                finalShipment?.trackingNumber
+                  ? `Shipment ${finalShipment.trackingNumber}`
+                  : description,
+            },
           },
         },
       ],
+      success_url: `${ORIGIN}/pay/return?paid=1&inv=${encodeURIComponent(
+        invoiceNo
+      )}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${ORIGIN}/pay/return?canceled=1&inv=${encodeURIComponent(
+        invoiceNo
+      )}&session_id={CHECKOUT_SESSION_ID}`,
+
+      // ✅ IMPORTANT: Stripe webhook can read shipmentId here
+      metadata: {
+        invoiceNo,
+        shipmentId: finalShipmentId || "",
+      },
+
+      // ✅ IMPORTANT: payment_intent.succeeded can also read shipmentId
+      payment_intent_data: {
+        metadata: {
+          invoiceNo,
+          shipmentId: finalShipmentId || "",
+        },
+      },
     });
 
     await Payment.updateOne(
       { invoiceNo },
-      { $set: { status: "pending", stripeCheckoutSessionId: sessionObj.id } as any }
-    );
-
-    await logActivity(req, {
-      action: "paylink.created",
-      entity: "payment",
-      entityId: invoiceNo,
-      performedById: session.user?.id,
-      performedByEmail: session.user?.email,
-      details: { checkoutSessionId: sessionObj.id },
-    });
-
-    // Email pay-now link (best effort)
-    const toEmail = userDoc?.email || email;
-    if (toEmail && sessionObj.url) {
-      try {
-        const html = buildPayNowHtml(
-          { invoiceNo, amount: amountMinor, currency, description, checkoutUrl: sessionObj.url },
-          ORIGIN,
-          token
-        );
-        await sendMail(toEmail, `Payment requested for ${invoiceNo}`, html);
-
-        await logActivity(req, {
-          action: "email.sent",
-          entity: "payment",
-          entityId: invoiceNo,
-          performedById: session.user?.id,
-          performedByEmail: session.user?.email,
-          details: { to: toEmail, template: "pay-now" },
-        });
-      } catch (e) {
-        if (process.env.NODE_ENV !== "production") console.error("[sendMail paylink] error:", e);
+      {
+        $set: {
+          stripeCheckoutSessionId: checkout.id,
+          checkoutUrl: checkout.url,
+          updatedAt: new Date(),
+        },
       }
+    ).exec();
+
+    if (finalShipmentId) {
+      await Shipment.findByIdAndUpdate(finalShipmentId, {
+        $set: {
+          paymentStatus: "pending_payment",
+          isPaid: false,
+          invoiceNo,
+          paymentId: payment._id,
+          stripeCheckoutSessionId: checkout.id,
+        },
+      }).exec();
     }
 
-    return res.status(201).json({ ok: true, data: { invoiceNo, status: "pending", payUrl: sessionObj.url } });
-  } catch (err: any) {
-    if (isDup(err)) {
-      try {
-        (req as any)._retries = ((req as any)._retries || 0) + 1;
-        if ((req as any)._retries <= 1) return handler(req, res);
-      } catch {}
+    try {
+      await Activity.create({
+        action: "charge.created",
+        entity: "payment",
+        entityId: invoiceNo,
+        performedBy:
+          session?.user?.id && Types.ObjectId.isValid(String(session.user.id))
+            ? new Types.ObjectId(String(session.user.id))
+            : undefined,
+        performedByEmail: session?.user?.email,
+        details: {
+          amount: amountMinor,
+          currency: finalCurrency,
+          shipmentId: finalShipmentId || null,
+          checkoutSessionId: checkout.id,
+        },
+        createdAt: new Date(),
+      });
+    } catch (activityErr) {
+      console.warn("[activity] charge.created failed:", activityErr);
     }
-    return fail(res, 500, "Server error", err?.message || String(err));
+
+    return res.status(201).json({
+      ok: true,
+      invoiceNo,
+      paymentId: String(payment._id),
+      checkoutUrl: checkout.url,
+      status: "pending",
+      shipmentId: finalShipmentId || null,
+    });
+  } catch (err: any) {
+    console.error("Create charge error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Server error",
+    });
   }
 }

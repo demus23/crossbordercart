@@ -30,6 +30,9 @@ type PackageSummary = {
   updatedAt: string | null;
   price?: number | null;
   currency?: string | null;
+  receivedAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
 };
 
 // New API shape: { ok, shipment, events }
@@ -118,10 +121,12 @@ export default function TrackPage() {
 
         const mappedPkg: PackageSummary = {
           tracking:
-            shipment.trackingNo ||
-            shipment.orderId ||
-            shipment.tracking ||
-            shipment._id,
+  shipment.trackingNumber ||
+  shipment.trackingNo ||
+  shipment.orderId ||
+  shipment.shipmentTracking ||
+  shipment.tracking ||
+  shipment._id,
           courier: shipment.carrier ?? null,
           status: shipment.status || "Pending",
           location:
@@ -134,6 +139,9 @@ export default function TrackPage() {
           updatedAt: shipment.updatedAt ?? null,
           price: shipment.priceAED ?? shipment.price ?? null,
           currency: shipment.currency ?? null,
+          receivedAt: shipment.receivedAt ?? null,
+          shippedAt: shipment.shippedAt ?? null,
+          deliveredAt: shipment.deliveredAt ?? null,
         };
 
         setPkg(mappedPkg);
@@ -289,6 +297,30 @@ export default function TrackPage() {
                 </div>
               </Card.Body>
             </Card>
+
+            <Card className="shadow-sm mb-3">
+  <Card.Header style={{ background: "white" }}>
+    <strong>Shipment Progress</strong>
+  </Card.Header>
+  <Card.Body>
+    <div className="d-flex flex-wrap justify-content-between gap-3">
+      <div>
+        <div className="text-muted small">📦 Received</div>
+        <div className="fw-semibold">{formatWhen(pkg.receivedAt)}</div>
+      </div>
+
+      <div>
+        <div className="text-muted small">🚚 Shipped</div>
+        <div className="fw-semibold">{formatWhen(pkg.shippedAt)}</div>
+      </div>
+
+      <div>
+        <div className="text-muted small">✅ Delivered</div>
+        <div className="fw-semibold">{formatWhen(pkg.deliveredAt)}</div>
+      </div>
+    </div>
+  </Card.Body>
+</Card>
 
             {/* Timeline */}
             <Card className="shadow-sm">

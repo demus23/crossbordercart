@@ -1,6 +1,7 @@
 // components/SiteFooter.tsx
 import React from "react";
 import Link from "next/link";
+import { FaWhatsapp, FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
 
 const footerShell: React.CSSProperties = {
   marginTop: 80,
@@ -71,17 +72,18 @@ const socialsRow: React.CSSProperties = {
   marginTop: 8,
 };
 
-const socialIcon: React.CSSProperties = {
-  width: 30,
-  height: 30,
-  borderRadius: "999px",
-  border: "1px solid rgba(148,163,184,0.7)",
+const socialIcon = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: 14,
-  color: "#e5e7eb",
+  width: 36,
+  height: 36,
+  borderRadius: "50%",
+  background: "#f5f5f5",
+  color: "#111",
   textDecoration: "none",
+  transition: "all 0.2s ease",
+  cursor: "pointer",
 };
 
 const disclaimerBox: React.CSSProperties = {
@@ -119,17 +121,47 @@ export default function SiteFooter() {
             <div style={{ marginTop: 10 }}>
               <div style={colTitle}>Connect</div>
 
-              <div style={socialsRow}>
-                <a
-                  href="https://wa.me/971588178057"
-                  target="_blank"
-                  rel="noreferrer"
-                  style={socialIcon}
-                  aria-label="WhatsApp"
-                >
-                  WA
-                </a>
-              </div>
+             <div style={socialsRow}>
+  <a
+    href="https://wa.me/971588178057"
+    target="_blank"
+    rel="noreferrer"
+    style={socialIcon}
+    aria-label="WhatsApp"
+  >
+    <FaWhatsapp size={20} />
+  </a>
+
+  <a
+    href="https://www.facebook.com/profile.php?id=61574342094222"
+    target="_blank"
+    rel="noreferrer"
+    style={socialIcon}
+    aria-label="Facebook"
+  >
+    <FaFacebook size={20} />
+  </a>
+
+  <a
+    href="https://instagram.com/YOUR_USERNAME"
+    target="_blank"
+    rel="noreferrer"
+    style={socialIcon}
+    aria-label="Instagram"
+  >
+    <FaInstagram size={20} />
+  </a>
+
+  <a
+    href="https://www.tiktok.com/@YOUR_USERNAME"
+    target="_blank"
+    rel="noreferrer"
+    style={socialIcon}
+    aria-label="TikTok"
+  >
+    <FaTiktok size={20} />
+  </a>
+</div>
             </div>
           </div>
 

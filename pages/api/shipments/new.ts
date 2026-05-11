@@ -19,21 +19,15 @@ type Address = {
 type Body = Partial<{
   from: Address;
   to: Address;
-
-  // link to packages
   packageIds: string[];
   packageId: string;
   userId: string;
-
-  // NEW schema
   parcel: {
     weight?: number;
     length?: number;
     width?: number;
     height?: number;
   };
-
-  // OLD schema fallback
   weightKg: number;
   dims: {
     L?: number;
@@ -43,23 +37,48 @@ type Body = Partial<{
     width?: number;
     height?: number;
   };
-
   speed: string;
-  carrier: string;        // display name e.g. "Aramex"
-  carrierSlug: string;    // canonical e.g. "aramex"
+  carrier: string;
+  carrierSlug: string;
   service: string;
-
-  trackingNumber: string; // carrier tracking
+  trackingNumber: string;
   status: ShipmentStatus | string;
-
   priceAED: number;
   customerEmail: string;
-
   currency: string;
 }>;
 
+function generateTrackingNumber() {
+  const date = new Date();
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `CBC-${y}${m}${d}-${random}`;
+}
+
 function isValidObjectId(id: string) {
   return mongoose.Types.ObjectId.isValid(id);
+}
+
+async function findPackage(input: string) {
+  const value = input.trim();
+  if (!value) return null;
+
+  if (isValidObjectId(value)) {
+    const byId = await PackageModel.findById(value).lean();
+    if (byId) return byId as any;
+  }
+
+  return PackageModel.findOne({
+    $or: [
+      { tracking: value },
+      { trackingNumber: value },
+      { carrierTrackingNumber: value },
+      { courierTrackingNumber: value },
+      { trackingNo: value },
+    ],
+  }).lean() as any;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -71,22 +90,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const body = req.body as Body;
-
     const { from, to } = body;
 
     if (!from || !to) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Both from and to addresses are required." });
+      return res.status(400).json({
+        ok: false,
+        error: "Both from and to addresses are required.",
+      });
     }
 
-    // 1) Normalize parcel dimensions
     let weight: number | undefined;
     let length: number | undefined;
     let width: number | undefined;
     let height: number | undefined;
 
-    // Prefer NEW shape if present
     if (
       body.parcel?.weight != null &&
       body.parcel.length != null &&
@@ -98,7 +115,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       width = Number(body.parcel.width);
       height = Number(body.parcel.height);
     } else if (body.weightKg != null && body.dims) {
-      // Fall back to OLD shape
       weight = Number(body.weightKg);
       length = Number(body.dims.length ?? body.dims.L);
       width = Number(body.dims.width ?? body.dims.W);
@@ -112,15 +128,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // currency default
     const currency = (body.currency || "AED").toUpperCase();
+    const status = (body.status as ShipmentStatus) || ("draft" as ShipmentStatus);
 
-    // status default must match schema union (snake_case)
-    const status =
-      (body.status as ShipmentStatus) ||
-      ("draft" as ShipmentStatus);
+    // ✅ IMPORTANT:
+    // Try packageId first. If empty, use trackingNumber like AR245.
+    const packageInput =
+      typeof body.packageId === "string" && body.packageId.trim()
+        ? body.packageId.trim()
+        : typeof body.trackingNumber === "string"
+        ? body.trackingNumber.trim()
+        : "";
 
-    // 2) Create shipment
+    const linkedPackage = await findPackage(packageInput);
+
+    const linkedPackageId = linkedPackage?._id || null;
+
+    const finalPackageIds = linkedPackageId
+      ? [linkedPackageId]
+      : Array.isArray(body.packageIds)
+      ? body.packageIds.filter((id) => typeof id === "string" && isValidObjectId(id))
+      : [];
+
+    const finalUserId =
+      linkedPackage?.userId ||
+      linkedPackage?.user ||
+      linkedPackage?.ownerId ||
+      (body.userId && isValidObjectId(body.userId) ? body.userId : null);
+
+    const finalCustomerEmail =
+      linkedPackage?.customerEmail ||
+      linkedPackage?.userEmail ||
+      linkedPackage?.email ||
+      body.customerEmail ||
+      null;
+
+    const finalSuiteId =
+      linkedPackage?.suiteId ||
+      linkedPackage?.suite ||
+      linkedPackage?.suiteNumber ||
+      null;
+
     const shipment = await Shipment.create({
       from,
       to,
@@ -130,84 +178,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       carrierSlug: body.carrierSlug || null,
       service: body.service,
 
-      trackingNumber: body.trackingNumber || null,
+     trackingNumber: generateTrackingNumber(),
+     packageTrackingNumber: body.trackingNumber?.trim() || packageInput || null,
       status,
 
       priceAED: body.priceAED,
       currency,
 
-      customerEmail: body.customerEmail || null,
+      customerEmail: finalCustomerEmail,
+      userEmail: finalCustomerEmail,
 
-      packageIds: Array.isArray(body.packageIds)
-        ? body.packageIds.filter((id) => typeof id === "string" && isValidObjectId(id))
-        : [],
-      userId: body.userId && isValidObjectId(body.userId) ? body.userId : null,
+      packageIds: finalPackageIds,
+      packageId: linkedPackageId,
+      userId: finalUserId,
+      user: finalUserId,
+      suiteId: finalSuiteId,
+
+      paymentStatus: "unpaid",
+      isPaid: false,
 
       parcel: { weight, length, width, height },
       weightKg: weight,
+
+      ratesSnapshot: [],
+      events: [],
+      activity: [],
     });
 
-    // Use real carrier tracking if provided, else fallback to shipment id
-    const publicTracking = shipment.trackingNumber || shipment._id.toString();
+    const publicTracking = shipment.trackingNumber;
 
-    // 3) Link packages (bulk first)
-    if (Array.isArray(body.packageIds) && body.packageIds.length > 0) {
-      const ids = body.packageIds
-        .filter((id) => typeof id === "string" && isValidObjectId(id))
-        .map((id) => new mongoose.Types.ObjectId(id));
+    // ✅ update linked package if found by AR245 / Mongo ID
+  if (linkedPackageId) {
+  await PackageModel.findByIdAndUpdate(linkedPackageId, {
+    $set: {
+      shipmentId: shipment._id,
+      shipmentTracking: shipment.trackingNumber,
+      shipmentCarrier: shipment.carrier || null,
+      shipmentStatus: shipment.status || "draft",
+      status: "Shipped",
+      lastNote: "Shipment created",
+      lastLocation: shipment.from?.city || "Dubai",
+      updatedAt: new Date(),
+    },
+  });
+}
 
-      if (ids.length > 0) {
-        await PackageModel.updateMany(
-          { _id: { $in: ids } },
-          {
-            $set: {
-              shipmentId: shipment._id,
-              shipmentTracking: publicTracking,
-              shipmentCarrier: shipment.carrier ?? null,
-
-              // keep old fields in sync (optional)
-              tracking: publicTracking,
-              courier: shipment.carrier ?? null,
-              status: "Shipped",
-              lastNote: "Shipment created",
-              lastLocation: shipment.from?.city ?? "",
-              userEmail: shipment.customerEmail ?? undefined,
-            },
-          }
-        );
-      }
-    }
-
-    // 4) Link single packageId
-    const singlePackageId = typeof body.packageId === "string" ? body.packageId.trim() : "";
-    if (singlePackageId) {
-      if (!isValidObjectId(singlePackageId)) {
-        return res
-          .status(400)
-          .json({ ok: false, error: "Invalid packageId (must be Mongo ObjectId)" });
-      }
-
-      await PackageModel.findByIdAndUpdate(
-        new mongoose.Types.ObjectId(singlePackageId),
-        {
-          $set: {
-            shipmentId: shipment._id,
-            shipmentTracking: publicTracking,
-            shipmentCarrier: shipment.carrier ?? null,
-
-            tracking: publicTracking,
-            courier: shipment.carrier ?? null,
-            status: "Shipped",
-            lastNote: "Shipment created",
-            lastLocation: shipment.from?.city ?? "",
-            userEmail: shipment.customerEmail ?? undefined,
-          },
-        },
-        { new: true }
-      );
-    }
-
-    return res.status(200).json({ ok: true, id: shipment._id });
+    return res.status(200).json({
+      ok: true,
+      id: shipment._id,
+      linkedPackageFound: !!linkedPackage,
+      linkedPackageId: linkedPackageId ? String(linkedPackageId) : null,
+    });
   } catch (err: any) {
     console.error("Error creating shipment", err);
     return res.status(500).json({

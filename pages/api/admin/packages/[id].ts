@@ -10,6 +10,8 @@ import type { Session } from "next-auth";
 import TrackingEvent from "@/lib/models/TrackingEvent";
 import { sendEmail } from "@/lib/email/resend";
 import PackageReceivedEmail from "@/emails/PackageReceivedEmail";
+import PackageShippedEmail from "@/emails/PackageShippedEmail";
+import PackageDeliveredEmail from "@/emails/PackageDeliveredEmail";
 
 const { ObjectId } = mongoose.Types;
 
@@ -96,9 +98,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (typeof location === "string") setUpdate.location = location.trim();
       setUpdate.value = coercedValue;
 
-      // Status normalization
       const normalized = normalizeStatus(status);
-      if (normalized) setUpdate.status = normalized;
+
+if (normalized) {
+  setUpdate.status = normalized;
+
+  // ✅ ADD THIS BLOCK HERE
+  if (normalized === "Received" && !existing.receivedAt) {
+    setUpdate.receivedAt = new Date();
+  }
+
+  if (normalized === "Shipped" && !existing.shippedAt) {
+    setUpdate.shippedAt = new Date();
+  }
+
+  if (normalized === "Delivered" && !existing.deliveredAt) {
+    setUpdate.deliveredAt = new Date();
+  }
+}
 
       const updateOps: any = { $set: setUpdate };
 
@@ -130,59 +147,74 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Update the package and get the new version
-      const result = await col.findOneAndUpdate(
-        { _id: new ObjectId(id) },
-        updateOps,
-        { returnDocument: "after" }
-      );
+     const updated = await col.findOneAndUpdate(
+  { _id: new ObjectId(id) },
+  updateOps,
+  { returnDocument: "after" }
+);
 
-      const updated = result?.value;
-      if (!updated) return res.status(404).json({ error: "Package not found" });
-
+if (!updated) {
+  return res.status(404).json({ error: "Package not found" });
+}
       // ===============================
 // 📩 PACKAGE RECEIVED EMAIL LOGIC
 // ===============================
 
-const newStatus = updated.status;
+const newStatus = normalizeStatus(updated.status) || updated.status;
+const oldStatus = normalizeStatus(prevStatus) || prevStatus;
 const becameReceived =
-  prevStatus !== "Received" && newStatus === "Received";
+  oldStatus !== "Received" && newStatus === "Received";
+
+console.log("=== PACKAGE EMAIL DEBUG ===");
+console.log("id:", id);
+console.log("oldStatus:", oldStatus);
+console.log("newStatus:", newStatus);
+console.log("existing.userEmail:", existing.userEmail);
+console.log("updated.userEmail:", updated.userEmail);
+console.log("becameReceived:", becameReceived);
 
 if (becameReceived && updated.userEmail) {
   try {
+    console.log("Entered package email block");
+
     const alreadySent = await ActivityLog.exists({
       action: "email.package_received.sent",
       entity: "package",
-      entityId: String(updated._id),
+      entityId: String(id),
     });
+
+    console.log("alreadySent:", !!alreadySent);
 
     if (!alreadySent) {
       const appUrl = process.env.APP_URL || "http://localhost:3000";
-
-      const trackingNo =
-        updated.tracking || existing.tracking || "";
-
+      const trackingNo = updated.tracking || existing.tracking || "";
       const email = String(updated.userEmail).trim().toLowerCase();
       const name = email.split("@")[0] || "Customer";
+
+      console.log("Sending package received email to:", email);
 
       await sendEmail({
         to: email,
         subject: "Your package has arrived at our warehouse",
-        from: "Cross Border Cart <no-reply@crossbordercart.com>",
         react: PackageReceivedEmail({
           customerName: name,
           tracking: trackingNo,
           location: updated.location || existing.location || "Warehouse",
-          receivedAt: new Date().toLocaleString(),
+          receivedAt: updated.receivedAt
+          ? new Date(updated.receivedAt).toLocaleString()
+          : new Date().toLocaleString(),
           trackUrl: `${appUrl}/track?tracking=${encodeURIComponent(trackingNo)}`,
           brandName: "Cross Border Cart",
           supportEmail: "support.crossbordercart@gmail.com",
         }),
       });
 
+      console.log("Package received email sent successfully");
+
       await ActivityLog.create({
         action: "email.package_received.sent",
         entity: "package",
-        entityId: String(updated._id),
+        entityId: String(id),
         performedBy: (session as any)?.user?.email,
         details: {
           to: email,
@@ -191,8 +223,133 @@ if (becameReceived && updated.userEmail) {
         },
       });
     }
-  } catch (err) {
-    console.error("Failed to send package received email:", err);
+  } catch (err: any) {
+    console.error("Failed to send package received email:", err?.message || err);
+  }
+} else {
+  console.log("Skipped package email block");
+}
+
+// ===============================
+// 🚀 PACKAGE SHIPPED EMAIL LOGIC
+// ===============================
+
+const becameShipped =
+  oldStatus !== "Shipped" && newStatus === "Shipped";
+
+if (becameShipped && updated.userEmail) {
+  try {
+    console.log("Entered SHIPPED email block");
+
+    const alreadySent = await ActivityLog.exists({
+      action: "email.package_shipped.sent",
+      entity: "package",
+      entityId: String(id),
+    });
+
+    console.log("shipped alreadySent:", !!alreadySent);
+
+    if (!alreadySent) {
+      const appUrl = process.env.APP_URL || "http://localhost:3000";
+
+      const trackingNo = updated.tracking || existing.tracking || "";
+      const email = String(updated.userEmail).trim().toLowerCase();
+      const name = email.split("@")[0] || "Customer";
+
+      console.log("Sending SHIPPED email to:", email);
+
+      await sendEmail({
+        to: email,
+        subject: "Your package has been shipped 🚀",
+        react: PackageShippedEmail({
+          customerName: name,
+          tracking: trackingNo,
+          location: updated.location || existing.location || "In transit",
+          shippedAt: updated.shippedAt
+           ? new Date(updated.shippedAt).toLocaleString()
+           : new Date().toLocaleString(),
+          trackUrl: `${appUrl}/track?tracking=${encodeURIComponent(trackingNo)}`,
+          brandName: "Cross Border Cart",
+          supportEmail: "support.crossbordercart@gmail.com",
+        }),
+      });
+
+      console.log("Shipped email sent successfully");
+
+      await ActivityLog.create({
+        action: "email.package_shipped.sent",
+        entity: "package",
+        entityId: String(id),
+        performedBy: (session as any)?.user?.email,
+        details: {
+          to: email,
+          tracking: trackingNo,
+          status: newStatus,
+        },
+      });
+    }
+  } catch (err: any) {
+    console.error("Failed to send shipped email:", err?.message || err);
+  }
+}
+
+// ===============================
+// ✅ PACKAGE DELIVERED EMAIL LOGIC
+// ===============================
+
+const becameDelivered =
+  oldStatus !== "Delivered" && newStatus === "Delivered";
+
+if (becameDelivered && updated.userEmail) {
+  try {
+    console.log("Entered DELIVERED email block");
+
+    const alreadySent = await ActivityLog.exists({
+      action: "email.package_delivered.sent",
+      entity: "package",
+      entityId: String(id),
+    });
+
+    console.log("delivered alreadySent:", !!alreadySent);
+
+    if (!alreadySent) {
+      const trackingNo = updated.tracking || existing.tracking || "";
+      const email = String(updated.userEmail).trim().toLowerCase();
+      const name = email.split("@")[0] || "Customer";
+
+      console.log("Sending DELIVERED email to:", email);
+
+      await sendEmail({
+        to: email,
+        subject: "Your package has been delivered ✅",
+        react: PackageDeliveredEmail({
+          customerName: name,
+          tracking: trackingNo,
+          deliveredAt: updated.deliveredAt
+           ? new Date(updated.deliveredAt).toLocaleString()
+           : new Date().toLocaleString(),
+          location: updated.location || existing.location || "Destination",
+          brandName: "Cross Border Cart",
+          supportEmail: "support.crossbordercart@gmail.com",
+        }),
+      });
+
+      console.log("Delivered email sent successfully");
+
+      await ActivityLog.create({
+        action: "email.package_delivered.sent",
+        entity: "package",
+        entityId: String(id),
+        performedBy: (session as any)?.user?.email,
+        details: {
+          to: email,
+          tracking: trackingNo,
+          status: newStatus,
+        },
+      });
+    }
+  } catch (err: any) {
+    console.error("Failed to send delivered email:", err?.message || err);
   }
 }
 
@@ -210,19 +367,15 @@ if (becameReceived && updated.userEmail) {
 
           // If your TrackingEvent expects ObjectId for packageId, use new ObjectId(id)
           await TrackingEvent.create({
-            // If schema uses ObjectId:
-            // packageId: new ObjectId(id),
-            // If schema uses string:
-            packageId: String(updated._id),
-
-            trackingNo: updated.tracking || existing.tracking,
-            status: statusChanged ? normalized : prevStatus,
-            location: locationChanged ? setUpdate.location : undefined,
-            note: hasNote ? String(note).trim() : undefined,
-            actorId,
-            actorName,
-            createdAt: new Date(),
-          });
+  packageId: new ObjectId(id),
+  trackingNo: updated.tracking || existing.tracking,
+  status: statusChanged ? normalized : prevStatus,
+  location: locationChanged ? setUpdate.location : undefined,
+  note: hasNote ? String(note).trim() : undefined,
+  actorId,
+  actorName,
+  createdAt: new Date(),
+});
         } catch (e) {
           // Don't block the update if event creation fails
           console.error("Failed to create TrackingEvent:", e);
@@ -234,7 +387,7 @@ if (becameReceived && updated.userEmail) {
         await ActivityLog.create({
           action: "update_package",
           entity: "package",
-          entityId: String(updated._id),
+          entityId: String(id),
           performedBy: (session as any)?.user?.email,
           details: {
             ...setUpdate,

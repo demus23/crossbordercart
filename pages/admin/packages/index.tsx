@@ -39,6 +39,8 @@ type Package = {
   location?: string;
   createdAt?: string;
   updatedAt?: string;
+  shipmentId?: string;
+  shipmentTracking?: string;
 };
 
 type TrackingEvent = {
@@ -371,6 +373,8 @@ export default function AdminPackagesPage() {
         return <Badge bg="primary">Shipped</Badge>;
       default:
         return <Badge bg="light" text="dark">{status || "—"}</Badge>;
+        case "forwarded":
+         return <Badge bg="dark">Forwarding Requested</Badge>;
     }
   };
 
@@ -448,6 +452,7 @@ export default function AdminPackagesPage() {
               <th>Location</th>
               <th>Created</th>
               <th>Updated</th>
+              <th>Shipment</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -467,6 +472,23 @@ export default function AdminPackagesPage() {
                 <td>{pkg.location || "—"}</td>
                 <td>{pkg.createdAt ? new Date(pkg.createdAt).toLocaleDateString() : "—"}</td>
                 <td>{pkg.updatedAt ? new Date(pkg.updatedAt).toLocaleDateString() : "—"}</td>
+                <td>
+  {pkg.shipmentId ? (
+    <div>
+      <div style={{ fontSize: 12 }}>
+        {pkg.shipmentTracking || "No tracking"}
+      </div>
+      <a
+        href={`/dashboard/shipments/${pkg.shipmentId}`}
+        target="_blank"
+      >
+        Open
+      </a>
+    </div>
+  ) : (
+    <span style={{ color: "#999" }}>—</span>
+  )}
+</td>
                 <td>
                   <div className="d-flex flex-wrap gap-1">
                     <Button
@@ -523,6 +545,17 @@ export default function AdminPackagesPage() {
                     >
                       Delete
                     </Button>
+                    {pkg.shipmentId && (
+  <Button
+    size="sm"
+    variant="outline-dark"
+    onClick={() =>
+      window.open(`/dashboard/shipments/${pkg.shipmentId}`, "_blank")
+    }
+  >
+    Open Shipment
+  </Button>
+)}
                   </div>
                 </td>
               </tr>

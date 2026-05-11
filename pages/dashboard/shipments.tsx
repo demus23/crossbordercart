@@ -5,6 +5,7 @@ import { getSession } from "next-auth/react";
 import type { GetServerSideProps } from "next";
 import { Modal, Button, Form } from "react-bootstrap";
 
+
 // ✅ Server-side protection
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const session = await getSession(ctx);
@@ -397,8 +398,11 @@ export default function DashboardShipmentsPage() {
           {/* Parcel */}
           <div>
             <label>Weight (kg)</label>
-            <input type="number" step="0.01" value={weight}
-              onChange={(e) => setWeight(parseFloat(e.target.value))} required />
+           <input
+  type="number"
+  value={Number.isFinite(weight) ? weight : ""}
+  onChange={(e) => setWeight(e.target.value === "" ? 0 : Number(e.target.value))}
+/>
           </div>
           <div>
             <label>Length (cm)</label>
@@ -458,8 +462,11 @@ export default function DashboardShipmentsPage() {
 
           <div>
             <label>Price (AED)</label>
-            <input type="number" step="0.01" value={priceAED}
-              onChange={(e) => setPriceAED(parseFloat(e.target.value))} required />
+            <input
+  type="number"
+  value={Number.isFinite(priceAED) ? priceAED : ""}
+  onChange={(e) => setPriceAED(e.target.value === "" ? 0 : Number(e.target.value))}
+/>
           </div>
           <div>
             <label>Currency</label>

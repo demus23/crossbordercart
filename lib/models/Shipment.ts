@@ -77,6 +77,8 @@ export interface IShipment {
 
   status: ShipmentStatus;
 
+  paymentStatus?: "unpaid" | "pending" | "pending_payment" | "paid" | "refunded";
+
   ratesSnapshot?: any[];
   activity?: Array<{ at: Date; type: string; payload?: any }>;
 

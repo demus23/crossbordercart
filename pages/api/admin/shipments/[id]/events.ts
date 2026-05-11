@@ -54,11 +54,23 @@ export default async function handler(
           .json({ ok: false, error: "status is required" });
       }
 
-      const shipment = await Shipment.findOne(query);
+            const shipment = await Shipment.findOne(query);
       if (!shipment) {
         return res
           .status(404)
           .json({ ok: false, error: "Shipment not found" });
+      }
+
+      const lockedStatuses = ["in_transit", "out_for_delivery", "delivered"];
+
+      if (
+        lockedStatuses.includes(status) &&
+        shipment.paymentStatus !== "paid"
+      ) {
+        return res.status(403).json({
+          ok: false,
+          error: "Payment required before shipment can move forward",
+        });
       }
 
       const event = {

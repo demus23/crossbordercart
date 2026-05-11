@@ -28,6 +28,12 @@ export interface IPackage extends Document {
   shipmentId?: Types.ObjectId;
   shipmentTracking?: string;
   shipmentCarrier?: string;
+  receivedAt?: Date;
+  shippedAt?: Date;
+  deliveredAt?: Date;
+  forwardRequested?: boolean;
+  forwardRequestedAt?: Date;
+  forwardRequestedBy?: Types.ObjectId | string;
 
 }
 
@@ -50,10 +56,15 @@ const PackageSchema = new Schema<IPackage>(
       index: true,  
     },
 
+   forwardRequested: { type: Boolean, default: false },
+   forwardRequestedAt: { type: Date },
+   forwardRequestedBy: { type: Schema.Types.ObjectId, ref: "User" },
+   
     shipmentId: { type: Schema.Types.ObjectId, ref: "Shipment" },
     shipmentTracking: { type: String, trim: true },
     shipmentCarrier: { type: String, trim: true },
 
+    
     status: {
       type: String,
       enum: [
@@ -70,12 +81,17 @@ const PackageSchema = new Schema<IPackage>(
       index: true,
     },
 
+      receivedAt: { type: Date },
+      shippedAt: { type: Date },
+      deliveredAt: { type: Date },
+
     lastLocation: { type: String, trim: true },
     lastNote: { type: String, trim: true },
 
     adminCreatedBy: { type: String, trim: true },
   },
   { timestamps: true }
+  
 );
 
 /** Normalize update payloads (prevent empty suiteId, normalize status). */

@@ -73,6 +73,11 @@ type PackageType = {
   status: "pending" | "in transit" | "delivered" | "problem" | string;
   value: number;
   updatedAt: string | number;
+  receivedAt?: string | Date;
+  shippedAt?: string | Date;
+  deliveredAt?: string | Date;
+  location?: string;
+  shipmentTracking?: string;
 };
 
 type TransactionType = {
@@ -1070,7 +1075,14 @@ Mamzar / Dubai, UAE
                     <tbody>
                       {packages.slice(0, 8).map((p, idx) => (
                         <tr key={p._id || `${p.tracking}-${idx}`}>
-                          <td>{p.tracking}</td>
+                          <td>
+  <div>
+    <strong>Package:</strong> {p.tracking || "—"}
+  </div>
+  <div style={{ color: "#0f766e", fontSize: 14 }}>
+    <strong>Shipment:</strong> {p.shipmentTracking || "Not created yet"}
+  </div>
+</td>
                           <td>
                             <Badge bg="light" text="dark">
                               {prettyStatus(p.status)}
@@ -1079,13 +1091,30 @@ Mamzar / Dubai, UAE
                           <td>{p.value} AED</td>
                           <td>{new Date(p.updatedAt).toLocaleString()}</td>
                           <td>
-                            <Button
-                              size="sm"
-                              variant="outline-primary"
-                              onClick={() => openTrackModal(p)}
-                            >
-                              Track
-                            </Button>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+  <Button
+    size="sm"
+    variant="outline-primary"
+    onClick={() => openTrackModal(p)}
+  >
+    Track Package
+  </Button>
+
+  {p.shipmentTracking && (
+    <Button
+      size="sm"
+      variant="outline-success"
+      onClick={() =>
+        openTrackModal({
+          ...p,
+          tracking: p.shipmentTracking || p.tracking,
+        })
+      }
+    >
+      Track Shipment
+    </Button>
+  )}
+</div>
                           </td>
                         </tr>
                       ))}
@@ -1470,6 +1499,30 @@ Mamzar / Dubai, UAE
             </div>
           ) : (
             <>
+            <Card className="mb-3 border-0 bg-light">
+  <Card.Body>
+    <Row className="g-3">
+      <Col md={4}>
+        <div className="text-muted small">📦 Received</div>
+        <div className="fw-semibold">
+          {trackPkg?.receivedAt ? new Date(trackPkg.receivedAt).toLocaleString() : "—"}
+        </div>
+      </Col>
+      <Col md={4}>
+        <div className="text-muted small">🚚 Shipped</div>
+        <div className="fw-semibold">
+          {trackPkg?.shippedAt ? new Date(trackPkg.shippedAt).toLocaleString() : "—"}
+        </div>
+      </Col>
+      <Col md={4}>
+        <div className="text-muted small">✅ Delivered</div>
+        <div className="fw-semibold">
+          {trackPkg?.deliveredAt ? new Date(trackPkg.deliveredAt).toLocaleString() : "—"}
+        </div>
+      </Col>
+    </Row>
+  </Card.Body>
+</Card>
               <div className="mb-3">
                 <strong>Tracking:</strong> {trackPkg?.tracking || "—"}
               </div>

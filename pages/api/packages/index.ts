@@ -117,6 +117,17 @@ export default async function handler(
         userId: d.userId ? String(d.userId) : undefined,
         createdAt: baseCreated.toISOString(),
         updatedAt: baseUpdated.toISOString(),
+        shipmentId: d.shipmentId
+  ? String(d.shipmentId)
+  : linked?._id
+  ? String(linked._id)
+  : null,
+
+shipmentTracking: d.shipmentTracking || linked?.trackingNumber || null,
+
+shipmentCarrier: d.shipmentCarrier || linked?.carrier || null,
+
+shipmentStatus: d.shipmentStatus || linked?.status || null,
       };
     });
 

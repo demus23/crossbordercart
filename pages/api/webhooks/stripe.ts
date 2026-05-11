@@ -1,5 +1,3 @@
-// pages/api/webhooks/stripe.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import getRawBody from "raw-body";
 import Stripe from "stripe";
@@ -20,9 +18,48 @@ export const config = {
 const fromStripeAmount = (amount: number | null | undefined) =>
   (amount ?? 0) / 100;
 
-/* -------------------------------------------------- */
-/* Email Resolver */
-/* -------------------------------------------------- */
+async function markShipmentPaid({
+  invoiceNo,
+  shipmentId,
+  stripeCheckoutSessionId,
+  stripePaymentIntentId,
+}: {
+  invoiceNo: string;
+  shipmentId?: string;
+  stripeCheckoutSessionId?: string;
+  stripePaymentIntentId?: string;
+}) {
+  let resolvedShipmentId = shipmentId;
+
+  if (!resolvedShipmentId) {
+    const paymentDoc: any = await Payment.findOne({ invoiceNo }).lean();
+    resolvedShipmentId = paymentDoc?.shipmentId?.toString();
+  }
+
+  console.log("🔥 Resolved shipmentId:", resolvedShipmentId);
+
+  if (!resolvedShipmentId) {
+    console.warn("❌ No shipmentId found for invoice:", invoiceNo);
+    return;
+  }
+
+  const updatedShipment = await Shipment.findByIdAndUpdate(
+    resolvedShipmentId,
+    {
+      $set: {
+        paymentStatus: "paid",
+        isPaid: true,
+        paidAt: new Date(),
+        invoiceNo,
+        stripeCheckoutSessionId,
+        stripePaymentIntentId,
+      },
+    },
+    { new: true }
+  ).exec();
+
+  console.log("✅ Shipment auto-paid:", updatedShipment?._id);
+}
 
 async function getEmailNameAndItemsFromPI(
   pi: Stripe.PaymentIntent
@@ -43,6 +80,7 @@ async function getEmailNameAndItemsFromPI(
     });
 
     const cs = sessions.data[0];
+
     if (cs) {
       email =
         email ||
@@ -53,6 +91,7 @@ async function getEmailNameAndItemsFromPI(
       name = cs.customer_details?.name || name;
 
       const li = await stripe.checkout.sessions.listLineItems(cs.id);
+
       items = li.data.map((d) => ({
         name: d.description || "Item",
         qty: d.quantity || 1,
@@ -62,10 +101,6 @@ async function getEmailNameAndItemsFromPI(
 
   return { email, name, items };
 }
-
-/* -------------------------------------------------- */
-/* Handler */
-/* -------------------------------------------------- */
 
 export default async function handler(
   req: NextApiRequest,
@@ -97,9 +132,8 @@ export default async function handler(
   await dbConnect();
 
   try {
-    /* -------------------------------------------------- */
-    /* Global idempotency guard for Stripe event retries   */
-    /* -------------------------------------------------- */
+    console.log("🔥 STRIPE WEBHOOK RECEIVED:", event.type);
+
     const alreadyProcessed = await Activity.exists({
       action: "stripe.event.processed",
       entity: "stripe",
@@ -111,49 +145,71 @@ export default async function handler(
     }
 
     switch (event.type) {
-      /* ========================================================= */
-      /* CHECKOUT SESSION */
-      /* ========================================================= */
-
       case "checkout.session.completed":
       case "checkout.session.async_payment_succeeded": {
         const cs = event.data.object as Stripe.Checkout.Session;
-        const invoiceNo =
-          (cs.metadata?.invoiceNo as string | undefined) || undefined;
+
+        const invoiceNo = cs.metadata?.invoiceNo;
+        const shipmentId = cs.metadata?.shipmentId;
+
+        console.log("🔥 CHECKOUT METADATA:", cs.metadata);
 
         if (!invoiceNo) {
-          console.warn("[stripe webhook] checkout session missing invoiceNo", cs.id);
+          console.warn("❌ Checkout session missing invoiceNo:", cs.id);
           break;
         }
 
-        const paymentDoc = await Payment.findOne({ invoiceNo }).lean();
-        if (!paymentDoc) {
-          console.warn("[stripe webhook] payment not found for invoice", invoiceNo);
-          break;
-        }
+        const paymentIntentId =
+          typeof cs.payment_intent === "string"
+            ? cs.payment_intent
+            : undefined;
 
         await Payment.updateOne(
           { invoiceNo },
-          { $set: { stripeCheckoutSessionId: cs.id } }
+          {
+            $set: {
+              status: "succeeded",
+              stripeCheckoutSessionId: cs.id,
+              stripePaymentIntentId: paymentIntentId,
+              paidAt: new Date(),
+            },
+          }
         ).exec();
+
+        await markShipmentPaid({
+          invoiceNo,
+          shipmentId,
+          stripeCheckoutSessionId: cs.id,
+          stripePaymentIntentId: paymentIntentId,
+        });
 
         await Activity.create({
           action: "checkout.completed",
           entity: "payment",
           entityId: invoiceNo,
-          details: { checkoutSessionId: cs.id },
+          details: {
+            checkoutSessionId: cs.id,
+            paymentIntentId,
+            shipmentId,
+          },
           createdAt: new Date(),
         });
 
         break;
       }
 
-      /* ========================================================= */
-      /* PAYMENT SUCCESS */
-      /* ========================================================= */
-
       case "payment_intent.succeeded": {
         const pi = event.data.object as Stripe.PaymentIntent;
+
+        const invoiceNo = pi.metadata?.invoiceNo;
+        const shipmentId = pi.metadata?.shipmentId;
+
+        console.log("🔥 PI METADATA:", pi.metadata);
+
+        if (!invoiceNo) {
+          console.warn("❌ payment_intent.succeeded missing invoiceNo:", pi.id);
+          break;
+        }
 
         let receiptUrl: string | undefined;
         let brand: string | undefined;
@@ -173,22 +229,8 @@ export default async function handler(
           last4 = pmCard?.last4 || undefined;
         }
 
-        const invoiceNo =
-          (pi.metadata?.invoiceNo as string | undefined) || undefined;
-
-        if (!invoiceNo) {
-          console.warn("[stripe webhook] payment_intent.succeeded missing invoiceNo", pi.id);
-          break;
-        }
-
-        const paymentDoc = await Payment.findOne({ invoiceNo }).lean();
-        if (!paymentDoc) {
-          console.warn("[stripe webhook] payment not found for invoice", invoiceNo);
-          break;
-        }
-
-        const updatePaymentResult = await Payment.updateOne(
-          { invoiceNo, status: { $ne: "succeeded" } },
+        await Payment.updateOne(
+          { invoiceNo },
           {
             $set: {
               status: "succeeded",
@@ -198,54 +240,29 @@ export default async function handler(
               stripePaymentIntentId: pi.id,
               receiptUrl,
               paidAt: new Date(),
-            } as any,
+            },
           }
         ).exec();
 
-        const paymentWasUpdated =
-          (updatePaymentResult as any)?.modifiedCount > 0 ||
-          (updatePaymentResult as any)?.nModified > 0;
+        await markShipmentPaid({
+          invoiceNo,
+          shipmentId,
+          stripePaymentIntentId: pi.id,
+        });
 
-        if (paymentWasUpdated) {
-          await Activity.create({
-            action: "payment.succeeded",
-            entity: "payment",
-            entityId: invoiceNo,
-            details: { paymentIntentId: pi.id, receiptUrl },
-            createdAt: new Date(),
-          });
-        }
+        await Activity.create({
+          action: "payment.succeeded",
+          entity: "payment",
+          entityId: invoiceNo,
+          details: {
+            paymentIntentId: pi.id,
+            receiptUrl,
+            shipmentId,
+          },
+          createdAt: new Date(),
+        });
 
-        const freshPaymentDoc = await Payment.findOne({ invoiceNo }).lean();
-
-        if (freshPaymentDoc?.shipmentId) {
-          const shipmentUpdateResult = await Shipment.updateOne(
-            { _id: freshPaymentDoc.shipmentId, isPaid: { $ne: true } },
-            {
-              $set: {
-                isPaid: true,
-                paidAt: new Date(),
-                invoiceNo,
-              } as any,
-            }
-          ).exec();
-
-          const shipmentWasUpdated =
-            (shipmentUpdateResult as any)?.modifiedCount > 0 ||
-            (shipmentUpdateResult as any)?.nModified > 0;
-
-          if (shipmentWasUpdated) {
-            await Activity.create({
-              action: "shipping.paid",
-              entity: "shipping",
-              entityId: String(freshPaymentDoc.shipmentId),
-              details: { invoiceNo, paymentIntentId: pi.id },
-              createdAt: new Date(),
-            });
-          }
-        }
-
-        const orderId = invoiceNo ?? pi.id;
+        const orderId = invoiceNo;
         const { email, name, items } = await getEmailNameAndItemsFromPI(pi);
 
         const alreadySent = await Activity.exists({
@@ -257,7 +274,7 @@ export default async function handler(
         if (!alreadySent && email) {
           const appUrl = process.env.APP_URL || "http://localhost:3000";
           const trackUrl = `${appUrl}/track?invoiceNo=${encodeURIComponent(
-            invoiceNo || pi.id
+            invoiceNo
           )}`;
 
           try {
@@ -293,23 +310,12 @@ export default async function handler(
         break;
       }
 
-      /* ========================================================= */
-      /* PAYMENT FAILED */
-      /* ========================================================= */
-
       case "payment_intent.payment_failed": {
         const pi = event.data.object as Stripe.PaymentIntent;
-        const invoiceNo =
-          (pi.metadata?.invoiceNo as string | undefined) || undefined;
+        const invoiceNo = pi.metadata?.invoiceNo;
 
         if (!invoiceNo) {
-          console.warn("[stripe webhook] payment_intent.payment_failed missing invoiceNo", pi.id);
-          break;
-        }
-
-        const paymentDoc = await Payment.findOne({ invoiceNo }).lean();
-        if (!paymentDoc) {
-          console.warn("[stripe webhook] payment not found for invoice", invoiceNo);
+          console.warn("❌ payment_intent.payment_failed missing invoiceNo:", pi.id);
           break;
         }
 
@@ -329,16 +335,12 @@ export default async function handler(
         break;
       }
 
-      /* ========================================================= */
-      /* REFUND */
-      /* ========================================================= */
-
       case "charge.refunded":
       case "refund.created":
       case "refund.updated": {
         const obj = event.data.object as any;
 
-        let invoiceNo: string | undefined = obj?.metadata?.invoiceNo || undefined;
+        let invoiceNo: string | undefined = obj?.metadata?.invoiceNo;
 
         if (!invoiceNo && obj?.payment_intent) {
           try {
@@ -348,13 +350,13 @@ export default async function handler(
         }
 
         if (!invoiceNo) {
-          console.warn("[stripe webhook] refund event missing invoiceNo", event.type, obj?.id);
+          console.warn("❌ Refund event missing invoiceNo:", event.type);
           break;
         }
 
-        const paymentDoc = await Payment.findOne({ invoiceNo }).lean();
+        const paymentDoc: any = await Payment.findOne({ invoiceNo }).lean();
         if (!paymentDoc) {
-          console.warn("[stripe webhook] payment not found for refund invoice", invoiceNo);
+          console.warn("❌ Payment not found for refund invoice:", invoiceNo);
           break;
         }
 
@@ -363,6 +365,7 @@ export default async function handler(
 
         if (event.type === "charge.refunded") {
           refundedAmount = fromStripeAmount(obj.amount_refunded || 0);
+
           const originalAmountMinor = Number(obj.amount || 0);
           const refundedAmountMinor = Number(obj.amount_refunded || 0);
 
@@ -371,56 +374,48 @@ export default async function handler(
             refundedAmountMinor < originalAmountMinor
           ) {
             paymentStatus = "partially_refunded";
-          } else if (refundedAmountMinor === originalAmountMinor) {
+          } else {
             paymentStatus = "refunded";
           }
         } else {
           refundedAmount = fromStripeAmount(obj.amount || 0);
-
-          const existingPaidAmount =
-            Number((paymentDoc as any)?.amountPaid || 0) * 100 ||
-            Number((paymentDoc as any)?.amount || 0);
-
-          const currentRefundMinor = Number(obj.amount || 0);
-
-          if (
-            existingPaidAmount > 0 &&
-            currentRefundMinor > 0 &&
-            currentRefundMinor < existingPaidAmount
-          ) {
-            paymentStatus = "partially_refunded";
-          }
         }
 
         await Payment.updateOne(
-          { invoiceNo, status: { $in: ["succeeded", "partially_refunded", "refunded"] } },
+          {
+            invoiceNo,
+            status: { $in: ["succeeded", "partially_refunded", "refunded"] },
+          },
           {
             $set: {
               status: paymentStatus,
               refundedAmount,
               refundedAt: new Date(),
               stripeRefundId: obj.id,
-            } as any,
+            },
           }
         ).exec();
 
-        const freshPaymentDoc = await Payment.findOne({ invoiceNo }).lean();
-
-        if (freshPaymentDoc?.shipmentId) {
-          await Shipment.updateOne(
-            { _id: freshPaymentDoc.shipmentId },
-            {
-              $set: {
-                isPaid: paymentStatus === "partially_refunded",
-              } as any,
-            }
-          ).exec();
+        if (paymentDoc.shipmentId) {
+          await Shipment.findByIdAndUpdate(paymentDoc.shipmentId, {
+            $set: {
+              isPaid: paymentStatus === "partially_refunded",
+              paymentStatus:
+                paymentStatus === "partially_refunded"
+                  ? "paid"
+                  : "refunded",
+            },
+          }).exec();
 
           await Activity.create({
             action: "shipping.refunded",
             entity: "shipping",
-            entityId: String(freshPaymentDoc.shipmentId),
-            details: { invoiceNo, refundId: obj.id, status: paymentStatus },
+            entityId: String(paymentDoc.shipmentId),
+            details: {
+              invoiceNo,
+              refundId: obj.id,
+              status: paymentStatus,
+            },
             createdAt: new Date(),
           });
         }
@@ -441,6 +436,7 @@ export default async function handler(
       }
 
       default:
+        console.log("Unhandled Stripe event:", event.type);
         break;
     }
 
