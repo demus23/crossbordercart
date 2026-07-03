@@ -1,29 +1,28 @@
-export function calculatePrice(baseCost: number) {
-  const fuel = baseCost * 0.15;
-  const costWithFuel = baseCost + fuel;
-
-  const handling = 25;
-
-  const subtotal = costWithFuel + handling;
-
-  const profit = subtotal * 0.25;
-
-  let priceBeforeStripe = subtotal + profit;
-
-  // Add Stripe fee buffer
-  const stripeFee = priceBeforeStripe * 0.029 + 1;
-
-  let finalPrice = priceBeforeStripe + stripeFee;
-
-  // Round to nearest 5
-  finalPrice = Math.ceil(finalPrice / 5) * 5;
+export function calculateShippingPrice({
+  weightKg,
+  pricePerKg,
+  fuelPercent = 10,
+  profitPercent = 20,
+  stripePercent = 3,
+}: {
+  weightKg: number;
+  pricePerKg: number;
+  fuelPercent?: number;
+  profitPercent?: number;
+  stripePercent?: number;
+}) {
+  const base = weightKg * pricePerKg;
+  const fuel = base * (fuelPercent / 100);
+  const profit = base * (profitPercent / 100);
+  const beforeStripe = base + fuel + profit;
+  const stripeFee = beforeStripe * (stripePercent / 100);
+  const total = beforeStripe + stripeFee;
 
   return {
-    baseCost,
-    fuel,
-    handling,
-    profit,
-    stripeFee,
-    finalPrice
+    base: Number(base.toFixed(2)),
+    fuel: Number(fuel.toFixed(2)),
+    profit: Number(profit.toFixed(2)),
+    stripeFee: Number(stripeFee.toFixed(2)),
+    total: Number(total.toFixed(2)),
   };
 }

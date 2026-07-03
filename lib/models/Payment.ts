@@ -56,6 +56,7 @@ export interface IPayment {
 
   createdAt?: Date;
   updatedAt?: Date;
+ checkoutUrl?: string | null;
 }
 
 const BillingAddressSchema = new Schema<IBillingAddress>(
@@ -96,6 +97,8 @@ const PaymentSchema = new Schema<IPayment>(
 
     amount: { type: Number, required: true, min: 1 },
     currency: { type: String, required: true, uppercase: true, trim: true },
+    checkoutUrl: { type: String, default: null },
+    
 
     status: {
       type: String,

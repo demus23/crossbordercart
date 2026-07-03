@@ -19,6 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     lastName,
     email,
     password,
+    confirmPassword,
     country,
     phone,
     addressLabel = "Home",
@@ -32,6 +33,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!firstName || !lastName || !email || !password || !country) {
     return res.status(400).json({ error: "Missing required fields." });
   }
+
+  if (password !== confirmPassword) {
+  return res.status(400).json({ error: "Passwords do not match." });
+}
 
   // simple password rule (same as before)
   const PASS = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;

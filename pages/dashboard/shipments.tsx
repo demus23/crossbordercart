@@ -63,7 +63,19 @@ export default function DashboardShipmentsPage() {
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [packageId, setPackageId] = useState(""); // optional: admin can paste package _id
+  const [packageId, setPackageId] = useState("");
+  type WarehousePackage = {
+  _id: string;
+  tracking: string;
+  courier: string;
+  value: number;
+  weightKg: number;
+  suiteId: string;
+  userEmail: string;
+};
+
+const [availablePackages, setAvailablePackages] = useState<WarehousePackage[]>([]);
+const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
 
 
   // Form state
@@ -119,6 +131,19 @@ export default function DashboardShipmentsPage() {
     }
   };
 
+  const loadAvailablePackages = async () => {
+  try {
+    const res = await fetch("/api/admin/packages/unshipped");
+    const data = await res.json();
+
+    if (data.ok) {
+      setAvailablePackages(data.packages || []);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
+
   const filteredShipments = shipments.filter((s) => {
   // status filter
   if (statusFilter !== "all" && s.status !== statusFilter) return false;
@@ -133,6 +158,7 @@ export default function DashboardShipmentsPage() {
 
   useEffect(() => {
     loadShipments();
+    loadAvailablePackages();
   }, []);
 
   const handleCreateShipment = async (e: FormEvent) => {
@@ -175,7 +201,7 @@ export default function DashboardShipmentsPage() {
         service,
         priceAED,
         currency,
-        packageId: packageId || undefined,
+        packageIds: selectedPackages,
       };
 
       const res = await fetch("/api/shipments/new", {

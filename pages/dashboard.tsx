@@ -78,6 +78,10 @@ type PackageType = {
   deliveredAt?: string | Date;
   location?: string;
   shipmentTracking?: string;
+  checkoutUrl?: string | null;
+  invoiceNo?: string | null;
+  paymentId?: string | null;
+  isPaid?: boolean;
 };
 
 type TransactionType = {
@@ -1091,6 +1095,11 @@ Mamzar / Dubai, UAE
                           <td>{p.value} AED</td>
                           <td>{new Date(p.updatedAt).toLocaleString()}</td>
                           <td>
+                            {!p.isPaid && p.shipmentTracking && (
+  <div style={{ color: "#e53935", fontSize: 12 }}>
+    🔒 Payment required
+  </div>
+)}
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
   <Button
     size="sm"
@@ -1113,7 +1122,33 @@ Mamzar / Dubai, UAE
     >
       Track Shipment
     </Button>
+    
   )}
+{p.shipmentTracking && !p.isPaid && (
+  <Button
+  size="sm"
+  variant="success"
+  onClick={async () => {
+    const res = await fetch(`/api/me/pay-package?packageId=${p._id}`);
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      alert(data.error || "Payment link is not ready yet.");
+      return;
+    }
+
+    if (data.paid) {
+      alert("This shipment is already paid.");
+      return;
+    }
+
+    window.open(data.checkoutUrl, "_blank");
+  }}
+>
+  Pay Now
+</Button>
+)}
+
 </div>
                           </td>
                         </tr>

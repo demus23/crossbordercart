@@ -47,6 +47,7 @@ export default async function handler(
   if (req.method === "POST") {
     try {
       const { status, description = "", location = "", code } = req.body || {};
+      
 
       if (!status) {
         return res
@@ -60,6 +61,11 @@ export default async function handler(
           .status(404)
           .json({ ok: false, error: "Shipment not found" });
       }
+      if (!shipment.isPaid && ["in_transit", "out_for_delivery", "delivered"].includes(status)) {
+  return res.status(400).json({
+    error: "Payment required before shipment can proceed",
+  });
+}
 
       const lockedStatuses = ["in_transit", "out_for_delivery", "delivered"];
 

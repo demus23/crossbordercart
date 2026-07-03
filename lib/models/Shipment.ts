@@ -35,6 +35,9 @@ export interface IShipment {
 
   isPaid?: boolean;
   paidAt?: Date;
+  checkoutUrl?: string | null;
+  invoiceNo?: string | null;
+  paymentId?: any;
 
   to: {
     name?: string;
@@ -154,7 +157,9 @@ const ShipmentSchema = new Schema<IShipment>(
 
     packageIds: [{ type: Schema.Types.ObjectId, ref: "Package" }],
     userId: { type: Schema.Types.ObjectId, ref: "User" },
-
+checkoutUrl: { type: String, default: null },
+invoiceNo: { type: String, default: null },
+paymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment", default: null },
     // ✅ Matches your union type (snake_case)
     status: {
       type: String,

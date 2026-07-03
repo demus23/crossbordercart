@@ -128,6 +128,10 @@ shipmentTracking: d.shipmentTracking || linked?.trackingNumber || null,
 shipmentCarrier: d.shipmentCarrier || linked?.carrier || null,
 
 shipmentStatus: d.shipmentStatus || linked?.status || null,
+
+checkoutUrl: linked?.checkoutUrl || null,
+isPaid: Boolean(linked?.isPaid),
+paymentStatus: linked?.paymentStatus || null,
       };
     });
 

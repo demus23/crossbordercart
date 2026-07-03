@@ -311,6 +311,7 @@ export default async function handler(
           invoiceNo,
           paymentId: payment._id,
           stripeCheckoutSessionId: checkout.id,
+          checkoutUrl: checkout.url,
         },
       }).exec();
     }

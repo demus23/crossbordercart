@@ -129,6 +129,7 @@ export default function AdminPackagesPage() {
   const [editPkgId, setEditPkgId] = useState<string | null>(null);
   const [showDelete, setShowDelete] = useState(false);
   const [deletePkgId, setDeletePkgId] = useState<string | null>(null);
+  const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
 
   // Billing
   const [billing, setBilling] = useState<{ open: boolean; packageId?: string; email?: string }>({ open: false });
@@ -352,6 +353,12 @@ export default function AdminPackagesPage() {
     }
   }
 
+  function togglePackage(id: string) {
+  setSelectedPackages((prev) =>
+    prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+  );
+}
+
   // ---------- Status Badge ----------
   const renderStatusBadge = (status?: string) => {
     switch (normStatusKey(status)) {
@@ -435,7 +442,17 @@ export default function AdminPackagesPage() {
             + Add New Package
           </Button>
         </div>
-
+<Button
+  variant="primary"
+  disabled={selectedPackages.length === 0}
+  onClick={() => {
+    router.push(
+      `/admin/shipments/new?packages=${selectedPackages.join(",")}`
+    );
+  }}
+>
+  Create Shipment ({selectedPackages.length})
+</Button>
         <div className="text-muted mb-2">
           {loading ? "Loading…" : `Showing ${paged.length} of ${total}`}
         </div>
@@ -443,6 +460,7 @@ export default function AdminPackagesPage() {
         <Table hover responsive className="bg-white shadow-sm rounded">
           <thead>
             <tr>
+              <th style={{ width: 40 }}></th>
               <th>Tracking #</th>
               <th>Courier</th>
               <th>Value</th>
@@ -463,6 +481,17 @@ export default function AdminPackagesPage() {
               <tr><td colSpan={10}>No packages found.</td></tr>
             ) : paged.map((pkg) => (
               <tr key={pkg._id}>
+                <td>
+  <Form.Check
+    type="checkbox"
+    checked={pkg._id ? selectedPackages.includes(pkg._id) : false}
+    onChange={() => {
+      if (!pkg._id) return;
+      togglePackage(pkg._id);
+    }}
+    disabled={!pkg._id || !!pkg.shipmentId}
+  />
+</td>
                 <td>{pkg.tracking}</td>
                 <td>{pkg.courier}</td>
                 <td>{typeof pkg.value === "number" ? pkg.value : Number(pkg.value) || 0}</td>

@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 import { dbConnect } from "@/lib/mongoose";
 import { Shipment, ShipmentStatus } from "@/lib/models/Shipment";
 import PackageModel from "@/lib/models/Package";
+import { Rate, IRate } from "@/lib/models/Rate";
+import { calculateShippingPrice } from "@/lib/pricing";
 
 type Address = {
   name?: string;
@@ -59,6 +61,26 @@ function generateTrackingNumber() {
 
 function isValidObjectId(id: string) {
   return mongoose.Types.ObjectId.isValid(id);
+}
+
+function normalizeCountryCode(country?: string) {
+  const value = String(country || "").trim().toUpperCase();
+
+  const map: Record<string, string> = {
+    KENYA: "KE",
+    KE: "KE",
+    UGANDA: "UG",
+    UG: "UG",
+    ETHIOPIA: "ET",
+    ET: "ET",
+    "SOUTH SUDAN": "SS",
+    SS: "SS",
+    UAE: "AE",
+    "UNITED ARAB EMIRATES": "AE",
+    AE: "AE",
+  };
+
+  return map[value] || value;
 }
 
 async function findPackage(input: string) {
@@ -131,8 +153,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const currency = (body.currency || "AED").toUpperCase();
     const status = (body.status as ShipmentStatus) || ("draft" as ShipmentStatus);
 
-    // ✅ IMPORTANT:
-    // Try packageId first. If empty, use trackingNumber like AR245.
     const packageInput =
       typeof body.packageId === "string" && body.packageId.trim()
         ? body.packageId.trim()
@@ -141,7 +161,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         : "";
 
     const linkedPackage = await findPackage(packageInput);
-
     const linkedPackageId = linkedPackage?._id || null;
 
     const finalPackageIds = linkedPackageId
@@ -169,6 +188,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       linkedPackage?.suiteNumber ||
       null;
 
+    // ✅ AUTO PRICING
+    const destinationCode = normalizeCountryCode(to.country);
+    const rate = (await Rate.findOne({
+      countryCode: destinationCode,
+      active: true,
+    }).lean()) as IRate | null;
+
+    let finalPriceAED = Number(body.priceAED || 0);
+    let pricingBreakdown: any = null;
+
+    if (rate) {
+      pricingBreakdown = calculateShippingPrice({
+        weightKg: weight,
+        pricePerKg: rate.pricePerKg,
+        fuelPercent: rate.fuelPercent,
+        profitPercent: rate.profitPercent,
+        stripePercent: rate.stripePercent,
+      });
+
+      finalPriceAED = pricingBreakdown.total;
+    }
+
     const shipment = await Shipment.create({
       from,
       to,
@@ -178,11 +219,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       carrierSlug: body.carrierSlug || null,
       service: body.service,
 
-     trackingNumber: generateTrackingNumber(),
-     packageTrackingNumber: body.trackingNumber?.trim() || packageInput || null,
+      trackingNumber: generateTrackingNumber(),
+      packageTrackingNumber: body.trackingNumber?.trim() || packageInput || null,
       status,
 
-      priceAED: body.priceAED,
+      priceAED: finalPriceAED,
       currency,
 
       customerEmail: finalCustomerEmail,
@@ -200,32 +241,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       parcel: { weight, length, width, height },
       weightKg: weight,
 
-      ratesSnapshot: [],
+      ratesSnapshot: rate
+        ? [
+            {
+              country: rate.country,
+              countryCode: rate.countryCode,
+              pricePerKg: rate.pricePerKg,
+              fuelPercent: rate.fuelPercent,
+              profitPercent: rate.profitPercent,
+              stripePercent: rate.stripePercent,
+              breakdown: pricingBreakdown,
+            },
+          ]
+        : [],
+
       events: [],
       activity: [],
     });
 
-    const publicTracking = shipment.trackingNumber;
-
-    // ✅ update linked package if found by AR245 / Mongo ID
-  if (linkedPackageId) {
-  await PackageModel.findByIdAndUpdate(linkedPackageId, {
-    $set: {
-      shipmentId: shipment._id,
-      shipmentTracking: shipment.trackingNumber,
-      shipmentCarrier: shipment.carrier || null,
-      shipmentStatus: shipment.status || "draft",
-      status: "Shipped",
-      lastNote: "Shipment created",
-      lastLocation: shipment.from?.city || "Dubai",
-      updatedAt: new Date(),
-    },
-  });
-}
+    if (linkedPackageId) {
+      await PackageModel.findByIdAndUpdate(linkedPackageId, {
+        $set: {
+          shipmentId: shipment._id,
+          shipmentTracking: shipment.trackingNumber,
+          shipmentCarrier: shipment.carrier || null,
+          shipmentStatus: shipment.status || "draft",
+          status: "Shipped",
+          lastNote: "Shipment created",
+          lastLocation: shipment.from?.city || "Dubai",
+          updatedAt: new Date(),
+        },
+      });
+    }
 
     return res.status(200).json({
       ok: true,
       id: shipment._id,
+      priceAED: finalPriceAED,
+      pricingBreakdown,
+      autoPriced: !!rate,
+      destinationCode,
       linkedPackageFound: !!linkedPackage,
       linkedPackageId: linkedPackageId ? String(linkedPackageId) : null,
     });
