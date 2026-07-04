@@ -479,7 +479,7 @@ export default function HomePage() {
   const visStores = Array.from({ length: 4 }, (_, i) => STORES[(storeOff + i) % STORES.length]);
 
   return (
-    <div style={{ background:C.bg0, minHeight:"100vh",
+    <div style={{ background:C.bg0, minHeight:"100vh", overflowX:"hidden" as any,
       fontFamily:"Inter, system-ui, -apple-system, sans-serif", color:C.text }}>
 
       <Head>
@@ -501,9 +501,9 @@ export default function HomePage() {
       <SiteHeader />
 
       {/* ═══ HERO ═══ */}
-      <section style={{ minHeight:"92vh", position:"relative", overflow:"hidden", padding:"60px 40px 0", background:`linear-gradient(180deg,${C.bg0} 0%,${C.bg1} 100%)` }}>
+      <section style={{ minHeight:"92vh", position:"relative", overflow:"hidden", padding:"60px clamp(16px, 4vw, 40px) 0", background:`linear-gradient(180deg,${C.bg0} 0%,${C.bg1} 100%)` }}>
         <ParticleCanvas />
-        <div style={{ maxWidth:1200, margin:"0 auto", display:"grid", gridTemplateColumns:"1fr 1fr", gap:40, alignItems:"center", position:"relative", zIndex:2 }}>
+        <div className="hero-grid" style={{ maxWidth:1200, margin:"0 auto", position:"relative", zIndex:2 }}>
           {/* Left */}
           <div style={{ display:"flex", flexDirection:"column" }}>
             <div style={S.heroBadge}><span style={S.pulseDot} />Now shipping to 220+ countries</div>
@@ -523,7 +523,7 @@ export default function HomePage() {
           </div>
 
           {/* Right — Globe */}
-          <div style={{ display:"flex", justifyContent:"center", alignItems:"center", position:"relative" }}>
+          <div className="hero-globe-col" style={{ display:"flex", justifyContent:"center", alignItems:"center", position:"relative" }}>
             <GlobeCanvas />
             {/* Floating cards */}
             <div style={{ ...S.floatCard, top:"10%", left:"-16%", animation:"floatA 6s ease-in-out infinite" }}>
@@ -549,7 +549,7 @@ export default function HomePage() {
         </div>
 
         {/* Live rotator strip */}
-        <div style={{ maxWidth:500, margin:"28px auto 0", position:"relative", zIndex:2, paddingBottom:48 }}>
+        <div className="rot-wrap" style={{ maxWidth:500, margin:"28px auto 0", position:"relative", zIndex:2, paddingBottom:48 }}>
           <LiveRotator items={visibleLive} />
           <button
             onClick={() => setShowAll((v) => !v)}
@@ -562,7 +562,7 @@ export default function HomePage() {
       </section>
 
       {/* ═══ TRUST BAND ═══ */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:1, background:"rgba(255,255,255,0.05)", borderTop:"1px solid rgba(255,255,255,0.05)", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+      <div className="trust-band" style={{ background:"rgba(255,255,255,0.05)", borderTop:"1px solid rgba(255,255,255,0.05)", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
         {[["10K+","Parcels handled"],["220+","Destinations served"],["4.9★","Average rating"],["24/7","Human support"]].map(([n,l]) => (
           <div key={l} style={{ padding:"26px 24px", background:C.bg0, textAlign:"center" as any }}>
             <div style={{ fontSize:30, fontWeight:900, letterSpacing:-1, backgroundImage:"linear-gradient(135deg,#00e5a0,#38bdf8)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>{n}</div>
@@ -572,16 +572,16 @@ export default function HomePage() {
       </div>
 
       {/* ═══ LIVE SHIPMENTS SECTION ═══ */}
-      <section style={{ padding:"68px 40px", background:`linear-gradient(180deg,${C.bg0} 0%,${C.bg1} 100%)`, position:"relative", overflow:"hidden" }}>
+      <section style={{ padding:"68px clamp(16px, 4vw, 40px)", background:`linear-gradient(180deg,${C.bg0} 0%,${C.bg1} 100%)`, position:"relative", overflow:"hidden" }}>
         {/* top glow */}
         <div style={{ position:"absolute", width:700, height:280, background:"radial-gradient(ellipse,rgba(0,229,160,0.07),transparent 70%)", top:-60, left:"50%", transform:"translateX(-50%)", pointerEvents:"none" }} />
-        <div style={{ maxWidth:1100, margin:"0 auto" }}>
+        <div style={{ maxWidth:1100, margin:"0 auto", width:"100%" }}>
           <div style={{ textAlign:"center" as any, marginBottom:40 }}>
             <div style={S.eyebrow}>Real-time activity</div>
             <h2 style={{ ...S.h2, textAlign:"center" as any }}>Shipments moving right now</h2>
             <p style={{ fontSize:14, color:C.dim, textAlign:"center" as any, maxWidth:440, margin:"0 auto" }}>Every parcel tracked from our Dubai warehouse to your door, live.</p>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 360px", gap:20, alignItems:"start" }}>
+          <div className="live-layout">
             {/* Map panel */}
             <div style={{ background:C.bg2, border:"1px solid rgba(255,255,255,0.1)", borderRadius:24, padding:24 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
@@ -618,7 +618,7 @@ export default function HomePage() {
                 <circle r="2.5" fill="#fbbf24"><animateMotion dur="5s" repeatCount="indefinite" begin=".5s" path="M402 68 Q440 60 490 72"/></circle>
               </svg>
               {/* Route cards */}
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+              <div className="route-cards-grid">
                 {[
                   { route:"DXB → NBO", city:"Dubai · Nairobi",  status:"In transit",  color:C.mint,   time:"2h ago" },
                   { route:"DXB → LOS", city:"Dubai · Lagos",    status:"Customs",     color:C.sky,    time:"5h ago" },
@@ -640,7 +640,7 @@ export default function HomePage() {
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               <LiveRotator items={visibleLive} />
               {/* Stats */}
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+              <div className="stats-3-grid">
                 {[["6","In transit"],["47","Delivered today"],["220+","Countries"]].map(([n,l]) => (
                   <div key={l} style={{ background:C.bg2, border:"1px solid rgba(255,255,255,0.08)", borderRadius:14, padding:14, textAlign:"center" as any }}>
                     <div style={{ fontSize:20, fontWeight:900, backgroundImage:"linear-gradient(135deg,#00e5a0,#38bdf8)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>{n}</div>
@@ -671,10 +671,10 @@ export default function HomePage() {
       </section>
 
       {/* ═══ HOW IT WORKS ═══ */}
-      <section style={{ padding:"70px 40px", background:C.bg0, position:"relative", overflow:"hidden" }}>
+      <section style={{ padding:"70px clamp(16px, 4vw, 40px)", background:C.bg0, position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", width:700, height:400, background:"radial-gradient(ellipse,rgba(56,189,248,0.05),transparent 70%)", bottom:-120, right:-200, pointerEvents:"none" }} />
-        <div style={{ maxWidth:1100, margin:"0 auto" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:40, alignItems:"center", marginBottom:44 }}>
+        <div style={{ maxWidth:1100, margin:"0 auto", width:"100%" }}>
+          <div className="how-head-grid" style={{ marginBottom:44 }}>
             <div>
               <div style={S.eyebrow}>How it works</div>
               <h2 style={S.h2}>Three steps.<br />Door to door.</h2>
@@ -685,8 +685,8 @@ export default function HomePage() {
           </div>
           {/* Connector line */}
           <div style={{ position:"relative" }}>
-            <div style={{ position:"absolute", top:57, left:"calc(16.66% + 18px)", right:"calc(16.66% + 18px)", height:1, background:"linear-gradient(90deg,transparent,rgba(0,229,160,0.35) 20%,rgba(0,229,160,0.35) 80%,transparent)", zIndex:0 }} />
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:18 }}>
+            <div className="steps-connector" style={{ position:"absolute", top:57, left:"calc(16.66% + 18px)", right:"calc(16.66% + 18px)", height:1, background:"linear-gradient(90deg,transparent,rgba(0,229,160,0.35) 20%,rgba(0,229,160,0.35) 80%,transparent)", zIndex:0 }} />
+            <div className="steps-3-grid">
               <StepCard no="01" icon="🏠" iconBg="rgba(0,229,160,0.1)"  accentColor={C.mint}   title="Get your UAE address" active={activeStep===0} onClick={()=>setActiveStep(0)}
                 desc="Sign up free and receive your personal Cross Border Cart address in Dubai. Use it at any UAE or international store checkout."
                 details={["Instant — no waiting","Works with any online store","Full dashboard access"]} />
@@ -702,8 +702,8 @@ export default function HomePage() {
       </section>
 
       {/* ═══ STORES ═══ */}
-      <section style={{ padding:"64px 40px", background:`linear-gradient(180deg,${C.bg0},${C.bg1})`, overflow:"hidden" }}>
-        <div style={{ maxWidth:1100, margin:"0 auto" }}>
+      <section style={{ padding:"64px clamp(16px, 4vw, 40px)", background:`linear-gradient(180deg,${C.bg0},${C.bg1})`, overflow:"hidden" }}>
+        <div style={{ maxWidth:1100, margin:"0 auto", width:"100%" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:30 }}>
             <div>
               <span style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(56,189,248,0.1)", border:"1px solid rgba(56,189,248,0.2)", color:C.sky, fontSize:10, fontWeight:700, letterSpacing:"1.5px", textTransform:"uppercase" as any, padding:"4px 12px", borderRadius:99, marginBottom:10 }}>🛍 Popular UAE stores</span>
@@ -722,7 +722,7 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14 }}>
+          <div className="stores-4-grid">
             {visStores.map((s) => (
               <div key={s.name} style={{ background:C.bg2, border:"1px solid rgba(255,255,255,0.09)", borderRadius:20, padding:20, display:"flex", flexDirection:"column" as any, alignItems:"center", gap:11, transition:"all .25s", cursor:"pointer", position:"relative", overflow:"hidden" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor="rgba(0,229,160,0.38)"; (e.currentTarget as HTMLElement).style.transform="translateY(-4px)"; }}
@@ -742,9 +742,9 @@ export default function HomePage() {
       </section>
 
       {/* ═══ FEATURES — BUILT FOR SHIPPERS ═══ */}
-      <section style={{ padding:"70px 40px", background:C.bg0 }}>
-        <div style={{ maxWidth:1100, margin:"0 auto" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:48, alignItems:"start", marginBottom:40 }}>
+      <section style={{ padding:"70px clamp(16px, 4vw, 40px)", background:C.bg0 }}>
+        <div style={{ maxWidth:1100, margin:"0 auto", width:"100%" }}>
+          <div className="feat-top-grid" style={{ marginBottom:40 }}>
             <div>
               <div style={S.eyebrow}>Features</div>
               <h2 style={S.h2}>Built for serious shippers.</h2>
@@ -769,7 +769,7 @@ export default function HomePage() {
             </div>
           </div>
           {/* Bento */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:14 }}>
+          <div className="feat-bento-grid">
             {/* Wide tracking card */}
             <div style={{ ...S.featCard, gridColumn:"span 2" }}>
               <div style={{ width:40, height:40, borderRadius:13, background:"rgba(0,229,160,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, marginBottom:14 }}>📡</div>
@@ -811,12 +811,12 @@ export default function HomePage() {
       </section>
 
       {/* ═══ PRICING ═══ */}
-      <section style={{ padding:"70px 40px", background:`linear-gradient(180deg,${C.bg0},${C.bg1})` }}>
-        <div style={{ maxWidth:1100, margin:"0 auto" }}>
+      <section style={{ padding:"70px clamp(16px, 4vw, 40px)", background:`linear-gradient(180deg,${C.bg0},${C.bg1})` }}>
+        <div style={{ maxWidth:1100, margin:"0 auto", width:"100%" }}>
           <div style={S.eyebrow}>Pricing</div>
           <h2 style={{ ...S.h2, textAlign:"center" as any }}>Simple. Transparent. Fair.</h2>
           <p style={{ fontSize:14, color:C.dim, textAlign:"center" as any, maxWidth:440, margin:"0 auto 44px" }}>Early-access pricing for beta users. No credit card needed to get started.</p>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
+          <div className="pricing-3-grid">
             <PricingCard badge="Personal" badgeColor={C.sky}    name="Lite"     price="Pay per shipment · No monthly fee" note="Ideal for occasional shoppers."    bullets={["Free UAE address","No monthly fees","1–3 shipments / month","Photo proof of contents"]} />
             <PricingCard badge="Reseller" badgeColor={C.mint}   name="Standard" price="Monthly plan · Coming soon"         note="Extra savings for frequent shippers." bullets={["Discounted kg rates","Consolidation included","Priority support & routing","WhatsApp notifications","Bulk dashboard tools"]} highlight />
             <PricingCard badge="Business" badgeColor={C.purple} name="Business" price="Custom rates · Talk to us"          note="Tailored routes and SLAs for your volumes." bullets={["Custom contracts","API / integration options","Dedicated account manager","Custom SLA & reporting"]} />
@@ -825,11 +825,11 @@ export default function HomePage() {
       </section>
 
       {/* ═══ TESTIMONIALS ═══ */}
-      <section style={{ padding:"70px 40px", background:C.bg0 }}>
-        <div style={{ maxWidth:1100, margin:"0 auto" }}>
+      <section style={{ padding:"70px clamp(16px, 4vw, 40px)", background:C.bg0 }}>
+        <div style={{ maxWidth:1100, margin:"0 auto", width:"100%" }}>
           <div style={S.eyebrow}>Early users</div>
           <h2 style={S.h2}>People love it already.</h2>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16, marginBottom:32 }}>
+          <div className="testi-3-grid" style={{ marginBottom:32 }}>
             <Testimonial name="Aisha M."  loc="Lusaka, Zambia"  text="I finally have a simple way to order from UAE stores. My parcels from Dubai arrived faster than I expected — and the tracking was spot on every step." />
             <Testimonial name="Carlos N." loc="Lagos, Nigeria"  text="As a reseller, consolidating multiple parcels into one shipment saves me a serious amount every month. This is exactly what I needed." />
             <Testimonial name="Fatima K." loc="Nairobi, Kenya" text="Support replied on WhatsApp within minutes. They helped me choose the best route for my budget. That kind of service is rare." />
@@ -839,14 +839,14 @@ export default function HomePage() {
       </section>
 
       {/* ═══ FAQ — 3-COLUMN ═══ */}
-      <section style={{ padding:"72px 40px", background:`linear-gradient(180deg,${C.bg0},${C.bg1})`, position:"relative", overflow:"hidden" }}>
+      <section style={{ padding:"72px clamp(16px, 4vw, 40px)", background:`linear-gradient(180deg,${C.bg0},${C.bg1})`, position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", width:500, height:500, background:"radial-gradient(ellipse,rgba(0,229,160,0.05),transparent 70%)", left:-160, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }} />
         <div style={{ position:"absolute", width:500, height:500, background:"radial-gradient(ellipse,rgba(56,189,248,0.05),transparent 70%)", right:-160, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }} />
-        <div style={{ maxWidth:1100, margin:"0 auto", position:"relative", zIndex:1 }}>
+        <div style={{ maxWidth:1100, margin:"0 auto", width:"100%", position:"relative", zIndex:1 }}>
           <div style={{ ...S.eyebrow, textAlign:"center" as any }}>FAQ</div>
           <h2 style={{ ...S.h2, textAlign:"center" as any, marginBottom:6 }}>Common questions</h2>
           <p style={{ fontSize:14, color:C.dim, textAlign:"center" as any, maxWidth:440, margin:"0 auto 40px" }}>Everything you need to know before you start shipping.</p>
-          <div style={{ display:"grid", gridTemplateColumns:"220px 1fr 220px", gap:24 }}>
+          <div className="faq-3-grid">
             {/* Left side cards */}
             <div style={{ display:"flex", flexDirection:"column" as any, gap:12 }}>
               <SideCard icon="📦" title="Free to start"   desc="Get your UAE address at zero cost. Pay only when you ship." />
@@ -876,9 +876,9 @@ export default function HomePage() {
       </section>
 
       {/* ═══ WAITLIST CTA ═══ */}
-      <section style={{ margin:"0 40px 80px", borderRadius:28, padding:"60px 48px", background:"linear-gradient(135deg,rgba(0,229,160,0.07) 0%,rgba(56,189,248,0.05) 100%)", border:"1px solid rgba(0,229,160,0.18)", position:"relative", overflow:"hidden" }}>
+      <section style={{ margin:"0 clamp(16px, 4vw, 40px) 80px", borderRadius:28, padding:"clamp(32px,5vw,60px) clamp(20px,4vw,48px)", background:"linear-gradient(135deg,rgba(0,229,160,0.07) 0%,rgba(56,189,248,0.05) 100%)", border:"1px solid rgba(0,229,160,0.18)", position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle,rgba(0,229,160,0.07),transparent 70%)", top:-100, left:"50%", transform:"translateX(-50%)", pointerEvents:"none" }} />
-        <div style={{ display:"grid", gridTemplateColumns:"1.2fr 1fr", gap:40, position:"relative", zIndex:1 }}>
+        <div className="cta-2-grid" style={{ position:"relative", zIndex:1 }}>
           <div>
             <h2 style={{ fontSize:32, fontWeight:900, color:C.text, letterSpacing:-1, marginBottom:10 }}>Ready to try Cross Border Cart?</h2>
             <p style={{ fontSize:15, color:C.dim, lineHeight:1.7, marginBottom:18 }}>Join the early access list. Free account, no credit card. Be one of the first to ship smarter from Dubai.</p>
