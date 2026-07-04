@@ -978,11 +978,49 @@ export default function HomePage() {
         .store-tile-logo{ width:56px; height:56px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:22px; }
         .store-tile-name{ font-size:12px; font-weight:700; color:#f1f5f9; text-align:center; }
         .store-tile-cat{ font-size:10px; color:#475569; text-align:center; }
-        @media (prefers-reduced-motion:reduce){ *,*::before,*::after{ animation:none!important; transition:none!important; } }
-        @media (max-width:900px){
-          .hero-grid,.steps-3,.feats-2,.pricing-3,.testi-3,.faq-3,.cta-2{ grid-template-columns:1fr!important; }
-          .trust-4{ grid-template-columns:repeat(2,1fr)!important; }
+        /* ══ DESKTOP BASE GRIDS — always active ══ */
+        .hero-grid       { display:grid; grid-template-columns:1fr 1fr;         gap:40px;  align-items:center; }
+        .trust-band      { display:grid; grid-template-columns:repeat(4,1fr);   gap:1px; }
+        .live-layout     { display:grid; grid-template-columns:1fr 360px;       gap:20px;  align-items:start; }
+        .route-cards-grid{ display:grid; grid-template-columns:repeat(3,1fr);   gap:10px; }
+        .stats-3-grid    { display:grid; grid-template-columns:repeat(3,1fr);   gap:8px; }
+        .how-head-grid   { display:grid; grid-template-columns:1fr 1fr;         gap:40px;  align-items:center; }
+        .steps-3-grid    { display:grid; grid-template-columns:repeat(3,1fr);   gap:18px;  position:relative; }
+        .stores-4-grid   { display:grid; grid-template-columns:repeat(4,1fr);   gap:14px; }
+        .feat-top-grid   { display:grid; grid-template-columns:1fr 1fr;         gap:48px;  align-items:start; }
+        .feat-bento-grid { display:grid; grid-template-columns:repeat(2,1fr);   gap:14px; }
+        .pricing-3-grid  { display:grid; grid-template-columns:repeat(3,1fr);   gap:16px; }
+        .testi-3-grid    { display:grid; grid-template-columns:repeat(3,1fr);   gap:16px; }
+        .faq-3-grid      { display:grid; grid-template-columns:220px 1fr 220px; gap:24px; }
+        .cta-2-grid      { display:grid; grid-template-columns:1.2fr 1fr;       gap:40px; }
+        /* Desktop: show static grid, hide marquee, show globe */
+        .store-marquee-wrap { display:none; }
+        .stores-static-wrap { display:block; }
+        .hero-globe-col     { display:flex; }
+        .steps-connector    { display:block; }
+
+        /* ══ MOBILE ONLY ≤640px — stack everything ══ */
+        @media (max-width:640px){
+          .hero-grid        { grid-template-columns:1fr;          gap:24px; }
+          .hero-globe-col   { display:none !important; }
+          .trust-band       { grid-template-columns:repeat(2,1fr); }
+          .live-layout      { grid-template-columns:1fr;           gap:16px; }
+          .route-cards-grid { grid-template-columns:1fr; }
+          .stats-3-grid     { grid-template-columns:repeat(3,1fr); }
+          .how-head-grid    { grid-template-columns:1fr;           gap:16px; }
+          .steps-3-grid     { grid-template-columns:1fr;           gap:14px; }
+          .steps-connector  { display:none !important; }
+          .stores-static-wrap { display:none !important; }
+          .store-marquee-wrap { display:block !important; }
+          .feat-top-grid    { grid-template-columns:1fr; }
+          .feat-bento-grid  { grid-template-columns:1fr; }
+          .pricing-3-grid   { grid-template-columns:1fr; }
+          .testi-3-grid     { grid-template-columns:1fr; }
+          .faq-3-grid       { grid-template-columns:1fr; }
+          .cta-2-grid       { grid-template-columns:1fr; }
+          h1,h2,h3          { word-break:keep-all; hyphens:none; }
         }
+        @media (prefers-reduced-motion:reduce){ *,*::before,*::after{ animation:none!important; transition:none!important; } }
       `}</style>
     </div>
   );
