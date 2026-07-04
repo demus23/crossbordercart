@@ -722,16 +722,32 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          <div className="stores-4-grid">
-            {visStores.map((s) => (
-              <div key={s.name} style={{ background:C.bg2, border:"1px solid rgba(255,255,255,0.09)", borderRadius:20, padding:20, display:"flex", flexDirection:"column" as any, alignItems:"center", gap:11, transition:"all .25s", cursor:"pointer", position:"relative", overflow:"hidden" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor="rgba(0,229,160,0.38)"; (e.currentTarget as HTMLElement).style.transform="translateY(-4px)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor="rgba(255,255,255,0.09)"; (e.currentTarget as HTMLElement).style.transform="none"; }}>
-                <div style={{ width:64, height:64, borderRadius:16, background:s.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26 }}>{s.emoji}</div>
-                <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{s.name}</div>
-                <div style={{ fontSize:10, color:C.faint }}>{s.cat}</div>
-              </div>
-            ))}
+          {/* Desktop: static 4-col grid */}
+          <div className="stores-static-wrap">
+            <div className="stores-4-grid">
+              {visStores.map((s) => (
+                <div key={s.name} style={{ background:C.bg2, border:"1px solid rgba(255,255,255,0.09)", borderRadius:20, padding:20, display:"flex", flexDirection:"column" as any, alignItems:"center", gap:11, transition:"all .25s", cursor:"pointer" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor="rgba(0,229,160,0.38)"; (e.currentTarget as HTMLElement).style.transform="translateY(-4px)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor="rgba(255,255,255,0.09)"; (e.currentTarget as HTMLElement).style.transform="none"; }}>
+                  <div style={{ width:64, height:64, borderRadius:16, background:s.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26 }}>{s.emoji}</div>
+                  <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{s.name}</div>
+                  <div style={{ fontSize:10, color:C.faint }}>{s.cat}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mobile: auto-scrolling marquee right-to-left */}
+          <div className="store-marquee-wrap">
+            <div className="store-marquee-track">
+              {[...STORES, ...STORES].map((s, i) => (
+                <div key={i} className="store-tile">
+                  <div className="store-tile-logo" style={{ background:s.bg }}>{s.emoji}</div>
+                  <div className="store-tile-name">{s.name}</div>
+                  <div className="store-tile-cat">{s.cat}</div>
+                </div>
+              ))}
+            </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:13, border:"1px dashed rgba(255,255,255,0.12)", borderRadius:14, fontSize:12, color:"#334155", cursor:"pointer", marginTop:12, transition:"all .2s" }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor="rgba(0,229,160,0.3)"; (e.currentTarget as HTMLElement).style.color=C.mint; }}
@@ -936,6 +952,32 @@ export default function HomePage() {
         @keyframes floatA { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
         @keyframes floatB { 0%,100%{transform:translateY(0)} 50%{transform:translateY(8px)} }
         @keyframes pulse  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.5)} }
+
+        /* ── Store Marquee (mobile sliding) ── */
+        .store-marquee-wrap{ overflow:hidden; width:100%; }
+        .store-marquee-track{
+          display:flex; gap:14px;
+          width:max-content;
+          animation: marqueeScroll 18s linear infinite;
+        }
+        .store-marquee-wrap:hover .store-marquee-track{ animation-play-state:paused; }
+        @keyframes marqueeScroll{
+          0%{ transform:translateX(0); }
+          100%{ transform:translateX(-50%); }
+        }
+        .store-tile{
+          flex-shrink:0; width:140px;
+          background:rgba(255,255,255,0.04);
+          border:1px solid rgba(255,255,255,0.09);
+          border-radius:18px; padding:16px;
+          display:flex; flex-direction:column;
+          align-items:center; gap:8px;
+          transition:border-color .2s;
+        }
+        .store-tile:hover{ border-color:rgba(0,229,160,0.35); }
+        .store-tile-logo{ width:56px; height:56px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+        .store-tile-name{ font-size:12px; font-weight:700; color:#f1f5f9; text-align:center; }
+        .store-tile-cat{ font-size:10px; color:#475569; text-align:center; }
         @media (prefers-reduced-motion:reduce){ *,*::before,*::after{ animation:none!important; transition:none!important; } }
         @media (max-width:900px){
           .hero-grid,.steps-3,.feats-2,.pricing-3,.testi-3,.faq-3,.cta-2{ grid-template-columns:1fr!important; }
