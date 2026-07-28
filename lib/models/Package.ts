@@ -1,4 +1,5 @@
-// /lib/models/Package.ts
+// lib/models/Package.ts
+
 import { Schema, model, models, Document, Types } from "mongoose";
 
 export type PackageStatus =
@@ -12,59 +13,105 @@ export type PackageStatus =
   | "In Transit";
 
 export interface IPackage extends Document {
-  title: string;                 // matches admin API
-  user: Types.ObjectId;          // matches admin API (User _id)
+  title: string;
+  user: Types.ObjectId;
+
   tracking?: string;
   courier?: string;
+
   value?: number;
+  weightKg?: number;
+
   userEmail?: string;
-  suiteId?: string;              // unique + sparse
+  suiteId?: string;
+
   status: PackageStatus;
+
   lastLocation?: string;
   lastNote?: string;
-  adminCreatedBy?: string;       // matches admin API
+
+  adminCreatedBy?: string;
+
   createdAt?: Date;
   updatedAt?: Date;
+
   shipmentId?: Types.ObjectId;
   shipmentTracking?: string;
   shipmentCarrier?: string;
+
   receivedAt?: Date;
   shippedAt?: Date;
   deliveredAt?: Date;
+
   forwardRequested?: boolean;
   forwardRequestedAt?: Date;
   forwardRequestedBy?: Types.ObjectId | string;
-
 }
 
 const PackageSchema = new Schema<IPackage>(
   {
-    title: { type: String, required: true, trim: true },
-    user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-    tracking: { type: String, trim: true, index: true },
-    courier: { type: String, trim: true },
-    value: { type: Number, default: 0 },
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
 
-    userEmail: { type: String, trim: true },
+    tracking: {
+      type: String,
+      trim: true,
+      index: true,
+    },
 
-    // IMPORTANT: unique + sparse; keep field missing unless set
+    courier: {
+      type: String,
+      trim: true,
+    },
+
+    value: {
+      type: Number,
+      default: 0,
+    },
+
+    weightKg: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    userEmail: {
+      type: String,
+      trim: true,
+    },
+
     suiteId: {
       type: String,
       trim: true,
       default: undefined,
-      index: true,  
+      index: true,
     },
 
-   forwardRequested: { type: Boolean, default: false },
-   forwardRequestedAt: { type: Date },
-   forwardRequestedBy: { type: Schema.Types.ObjectId, ref: "User" },
-   
-    shipmentId: { type: Schema.Types.ObjectId, ref: "Shipment" },
-    shipmentTracking: { type: String, trim: true },
-    shipmentCarrier: { type: String, trim: true },
+    shipmentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Shipment",
+      default: null,
+    },
 
-    
+    shipmentTracking: {
+      type: String,
+      trim: true,
+    },
+
+    shipmentCarrier: {
+      type: String,
+      trim: true,
+    },
+
     status: {
       type: String,
       enum: [
@@ -81,29 +128,57 @@ const PackageSchema = new Schema<IPackage>(
       index: true,
     },
 
-      receivedAt: { type: Date },
-      shippedAt: { type: Date },
-      deliveredAt: { type: Date },
+    receivedAt: Date,
+    shippedAt: Date,
+    deliveredAt: Date,
 
-    lastLocation: { type: String, trim: true },
-    lastNote: { type: String, trim: true },
+    lastLocation: {
+      type: String,
+      trim: true,
+    },
 
-    adminCreatedBy: { type: String, trim: true },
+    lastNote: {
+      type: String,
+      trim: true,
+    },
+
+    adminCreatedBy: {
+      type: String,
+      trim: true,
+    },
+
+    forwardRequested: {
+      type: Boolean,
+      default: false,
+    },
+
+    forwardRequestedAt: Date,
+
+    forwardRequestedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
-  { timestamps: true }
-  
+  {
+    timestamps: true,
+  }
 );
 
-/** Normalize update payloads (prevent empty suiteId, normalize status). */
 function normalizeUpdateObject(update: any) {
   if (!update) return;
 
   const scrubSuiteId = (obj: any) => {
     if (!obj || typeof obj !== "object") return;
+
     if ("suiteId" in obj) {
       const s = obj.suiteId;
+
       if (s === null || (typeof s === "string" && s.trim() === "")) {
-        obj.$unset = { ...(obj.$unset || {}), suiteId: "" };
+        obj.$unset = {
+          ...(obj.$unset || {}),
+          suiteId: "",
+        };
+
         delete obj.suiteId;
       } else if (typeof s === "string") {
         obj.suiteId = s.trim();
@@ -112,44 +187,65 @@ function normalizeUpdateObject(update: any) {
   };
 
   scrubSuiteId(update);
-  if (update.$set) scrubSuiteId(update.$set);
 
-  // Accept "Canceled" but store "Cancelled"
-  const fixStatus = (v: any) =>
-    typeof v === "string" && v.toLowerCase() === "canceled" ? "Cancelled" : v;
+  if (update.$set) {
+    scrubSuiteId(update.$set);
+  }
 
-  if ("status" in update) update.status = fixStatus(update.status);
+  const normalizeStatus = (status: any) => {
+    if (
+      typeof status === "string" &&
+      status.toLowerCase() === "canceled"
+    ) {
+      return "Cancelled";
+    }
+
+    return status;
+  };
+
+  if ("status" in update) {
+    update.status = normalizeStatus(update.status);
+  }
+
   if (update.$set && "status" in update.$set) {
-    update.$set.status = fixStatus(update.$set.status);
+    update.$set.status = normalizeStatus(update.$set.status);
   }
 }
 
 PackageSchema.pre("save", function (next) {
   if (this.suiteId === "" || this.suiteId === null) {
-    // @ts-ignore – make field missing so sparse index ignores it
+    // @ts-ignore
     this.suiteId = undefined;
   }
+
   if ((this.status as any) === "Canceled") {
     this.status = "Cancelled";
   }
-  next();
-});
-PackageSchema.pre("findOneAndUpdate", function (next) {
-  // getUpdate() can be null; default to {}
-  const update = (this.getUpdate() ?? {}) as Record<string, any>;
-  normalizeUpdateObject(update);
-  this.setUpdate(update as any);
+
   next();
 });
 
+PackageSchema.pre("findOneAndUpdate", function (next) {
+  const update = (this.getUpdate() ?? {}) as Record<string, any>;
+
+  normalizeUpdateObject(update);
+
+  this.setUpdate(update as any);
+
+  next();
+});
 
 PackageSchema.pre("updateOne", function (next) {
   const update = (this.getUpdate() ?? {}) as Record<string, any>;
+
   normalizeUpdateObject(update);
+
   this.setUpdate(update as any);
+
   next();
 });
 
-// Avoid model recompilation in Next.js dev
-const PackageModel = models.Package || model<IPackage>("Package", PackageSchema);
+const PackageModel =
+  models.Package || model<IPackage>("Package", PackageSchema);
+
 export default PackageModel;

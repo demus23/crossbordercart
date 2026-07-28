@@ -12,14 +12,27 @@ export type ShipmentStatus =
   | "exception"
   | "cancelled";
 
-// 👇 One tracking event entry
+export type ShipmentPaymentStatus =
+  | "unpaid"
+  | "pending"
+  | "pending_payment"
+  | "paid"
+  | "refunded";
+
 export interface IShipmentEvent {
   _id?: Types.ObjectId;
-  code?: string;        // e.g. "IN_TRANSIT"
-  status: string;       // e.g. "In transit"
-  description?: string; // e.g. "Left Dubai hub"
-  location?: string;    // e.g. "DXB, United Arab Emirates"
+  code?: string;
+  status: string;
+  description?: string;
+  location?: string;
   createdAt: Date;
+}
+
+export interface IShipmentActivity {
+  _id?: Types.ObjectId;
+  at: Date;
+  type: string;
+  payload?: any;
 }
 
 export interface IShipment {
@@ -31,13 +44,25 @@ export interface IShipment {
   priceAED?: number;
 
   packageIds?: Types.ObjectId[];
-  userId?: Types.ObjectId;
+  packageId?: Types.ObjectId | null;
+
+  userId?: Types.ObjectId | null;
+  user?: Types.ObjectId | null;
+
+  customerEmail?: string | null;
+  userEmail?: string | null;
+  suiteId?: string | null;
+
+  packageTrackingNumber?: string | null;
 
   isPaid?: boolean;
   paidAt?: Date;
+
+  paymentStatus?: ShipmentPaymentStatus;
+
   checkoutUrl?: string | null;
   invoiceNo?: string | null;
-  paymentId?: any;
+  paymentId?: Types.ObjectId | null;
 
   to: {
     name?: string;
@@ -62,108 +87,402 @@ export interface IShipment {
   };
 
   weightKg: number;
-  dims?: { L?: number; W?: number; H?: number };
-  parcel?: { length?: number; width?: number; height?: number; weight?: number };
+
+  dims?: {
+    L?: number;
+    W?: number;
+    H?: number;
+  };
+
+  parcel?: {
+    length?: number;
+    width?: number;
+    height?: number;
+    weight?: number;
+  };
 
   providerShipmentId?: string;
   selectedRateId?: string;
 
-  carrier?: string;        // display name e.g. "Aramex"
-  carrierSlug?: string;    // canonical id e.g. "aramex" (needed for tracking providers)
+  speed?: string;
 
+  carrier?: string;
+  carrierSlug?: string;
   service?: string;
 
   trackingNumber?: string;
   labelUrl?: string;
 
-  customerEmail?: string | null;
-
   status: ShipmentStatus;
 
-  paymentStatus?: "unpaid" | "pending" | "pending_payment" | "paid" | "refunded";
-
   ratesSnapshot?: any[];
-  activity?: Array<{ at: Date; type: string; payload?: any }>;
-
-  // 👇 Tracking timeline events
+  activity?: IShipmentActivity[];
   events?: IShipmentEvent[];
 
   createdAt: Date;
   updatedAt: Date;
 }
 
+const ShipmentEventSchema = new Schema<IShipmentEvent>(
+  {
+    code: {
+      type: String,
+      trim: true,
+    },
+
+    status: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    description: {
+      type: String,
+      trim: true,
+    },
+
+    location: {
+      type: String,
+      trim: true,
+    },
+
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    _id: true,
+  }
+);
+
+const ShipmentActivitySchema = new Schema<IShipmentActivity>(
+  {
+    at: {
+      type: Date,
+      default: Date.now,
+    },
+
+    type: {
+      type: String,
+      default: "status",
+      trim: true,
+    },
+
+    payload: {
+      type: Schema.Types.Mixed,
+    },
+  },
+  {
+    _id: true,
+  }
+);
+
 const ShipmentSchema = new Schema<IShipment>(
   {
-    orderId: { type: String, index: true },
+    orderId: {
+      type: String,
+      index: true,
+      trim: true,
+    },
 
-    currency: { type: String, required: true, uppercase: true },
-    priceAED: { type: Number, required: false },
+    currency: {
+      type: String,
+      required: true,
+      uppercase: true,
+      trim: true,
+      default: "AED",
+    },
 
-    isPaid: { type: Boolean, default: false },
-    paidAt: { type: Date },
+    priceAED: {
+      type: Number,
+      required: false,
+      min: 0,
+    },
+
+    packageIds: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Package",
+      },
+    ],
+
+    packageId: {
+      type: Schema.Types.ObjectId,
+      ref: "Package",
+      default: null,
+    },
+
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
+
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    customerEmail: {
+      type: String,
+      index: true,
+      sparse: true,
+      trim: true,
+      lowercase: true,
+    },
+
+    userEmail: {
+      type: String,
+      index: true,
+      sparse: true,
+      trim: true,
+      lowercase: true,
+    },
+
+    suiteId: {
+      type: String,
+      index: true,
+      sparse: true,
+      trim: true,
+    },
+
+    packageTrackingNumber: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    isPaid: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    paidAt: {
+      type: Date,
+      default: null,
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: [
+        "unpaid",
+        "pending",
+        "pending_payment",
+        "paid",
+        "refunded",
+      ],
+      default: "unpaid",
+      index: true,
+    },
+
+    checkoutUrl: {
+      type: String,
+      default: null,
+    },
+
+    invoiceNo: {
+      type: String,
+      default: null,
+      index: true,
+      sparse: true,
+      trim: true,
+    },
+
+    paymentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Payment",
+      default: null,
+    },
 
     to: {
-      name: String,
-      line1: { type: String, required: true },
-      line2: String,
-      city: { type: String, required: true },
-      postalCode: String,
-      country: { type: String, required: true },
-      phone: String,
-      email: String,
+      name: {
+        type: String,
+        trim: true,
+      },
+
+      line1: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      line2: {
+        type: String,
+        trim: true,
+      },
+
+      city: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      postalCode: {
+        type: String,
+        trim: true,
+      },
+
+      country: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      phone: {
+        type: String,
+        trim: true,
+      },
+
+      email: {
+        type: String,
+        trim: true,
+        lowercase: true,
+      },
     },
 
     from: {
-      name: String,
-      line1: { type: String, required: true },
-      line2: String,
-      city: { type: String, required: true },
-      postalCode: String,
-      country: { type: String, required: true },
-      phone: String,
-      email: String,
+      name: {
+        type: String,
+        trim: true,
+      },
+
+      line1: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      line2: {
+        type: String,
+        trim: true,
+      },
+
+      city: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      postalCode: {
+        type: String,
+        trim: true,
+      },
+
+      country: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      phone: {
+        type: String,
+        trim: true,
+      },
+
+      email: {
+        type: String,
+        trim: true,
+        lowercase: true,
+      },
     },
 
-    weightKg: { type: Number, required: true, min: 0 },
+    weightKg: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
 
     dims: {
-      L: { type: Number, min: 0 },
-      W: { type: Number, min: 0 },
-      H: { type: Number, min: 0 },
+      L: {
+        type: Number,
+        min: 0,
+      },
+
+      W: {
+        type: Number,
+        min: 0,
+      },
+
+      H: {
+        type: Number,
+        min: 0,
+      },
     },
 
     parcel: {
-      length: { type: Number, required: false, min: 0 },
-      width: { type: Number, required: false, min: 0 },
-      height: { type: Number, required: false, min: 0 },
-      weight: { type: Number, required: false, min: 0 },
+      length: {
+        type: Number,
+        min: 0,
+      },
+
+      width: {
+        type: Number,
+        min: 0,
+      },
+
+      height: {
+        type: Number,
+        min: 0,
+      },
+
+      weight: {
+        type: Number,
+        min: 0,
+      },
     },
 
-    providerShipmentId: { type: String, index: true, sparse: true },
+    providerShipmentId: {
+      type: String,
+      index: true,
+      sparse: true,
+      trim: true,
+    },
 
-    selectedRateId: { type: String },
+    selectedRateId: {
+      type: String,
+      trim: true,
+    },
 
-    carrier: { type: String },
-    // ✅ NEW: carrierSlug for tracking providers (e.g., aftership)
-    carrierSlug: { type: String, index: true, sparse: true },
+    speed: {
+      type: String,
+      trim: true,
+    },
 
-    service: { type: String },
+    carrier: {
+      type: String,
+      trim: true,
+    },
 
-    trackingNumber: { type: String, index: true, sparse: true },
+    carrierSlug: {
+      type: String,
+      index: true,
+      sparse: true,
+      trim: true,
+      lowercase: true,
+    },
 
-    labelUrl: { type: String },
+    service: {
+      type: String,
+      trim: true,
+    },
 
-    customerEmail: { type: String, index: true, sparse: true },
+    trackingNumber: {
+      type: String,
+      index: true,
+      sparse: true,
+      trim: true,
+    },
 
-    packageIds: [{ type: Schema.Types.ObjectId, ref: "Package" }],
-    userId: { type: Schema.Types.ObjectId, ref: "User" },
-checkoutUrl: { type: String, default: null },
-invoiceNo: { type: String, default: null },
-paymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment", default: null },
-    // ✅ Matches your union type (snake_case)
+    labelUrl: {
+      type: String,
+    },
+
     status: {
       type: String,
-      default: "draft",
       enum: [
         "draft",
         "rated",
@@ -175,44 +494,66 @@ paymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment", default: null
         "exception",
         "cancelled",
       ],
+      default: "draft",
       index: true,
     },
 
-    // 👇 Tracking timeline events
     events: {
-      type: [
-        {
-          code: { type: String },
-          status: { type: String, required: true },
-          description: { type: String },
-          location: { type: String },
-          createdAt: { type: Date, default: Date.now },
-        },
-      ],
+      type: [ShipmentEventSchema],
       default: [],
     },
 
-    ratesSnapshot: { type: Array },
+    ratesSnapshot: {
+      type: [Schema.Types.Mixed],
+      default: [],
+    },
 
-    activity: [
-      {
-        at: { type: Date, default: Date.now },
-        type: {
-          type: String,
-          default: "status",
-          required: false,
-        },
-        payload: Schema.Types.Mixed,
-      },
-    ],
+    activity: {
+      type: [ShipmentActivitySchema],
+      default: [],
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// Helpful indexes for dashboards + live widgets
-ShipmentSchema.index({ status: 1, createdAt: -1 });
-ShipmentSchema.index({ updatedAt: -1 });
-ShipmentSchema.index({ providerShipmentId: 1 }, { sparse: true });
+ShipmentSchema.index({
+  status: 1,
+  createdAt: -1,
+});
+
+ShipmentSchema.index({
+  paymentStatus: 1,
+  createdAt: -1,
+});
+
+ShipmentSchema.index({
+  updatedAt: -1,
+});
+
+ShipmentSchema.index({
+  providerShipmentId: 1,
+});
+
+ShipmentSchema.index({
+  userId: 1,
+  createdAt: -1,
+});
+
+ShipmentSchema.index({
+  customerEmail: 1,
+  createdAt: -1,
+});
+
+ShipmentSchema.index({
+  packageIds: 1,
+});
+
+ShipmentSchema.index({
+  trackingNumber: 1,
+  createdAt: -1,
+});
 
 export const Shipment =
   (mongoose.models.Shipment as mongoose.Model<IShipment>) ||

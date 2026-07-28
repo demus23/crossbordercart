@@ -12,12 +12,16 @@ const FALLBACK_RATES: Record<string, number> = { USD: 0.2723, GBP: 0.2139 };
 // Only allow these shipment fields to be updated
 const allowed = [
   "status",
+  "paymentStatus",
+  "trackingNumber",
+  "carrier",
+  "carrierSlug",
+  "service",
+  "speed",
   "from",
   "to",
   "weightKg",
   "dims",
-  "carrier",
-  "service",
   "priceAED",
   "currency",
 ] as const;
@@ -32,7 +36,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Optional currency display: ?currency=USD|GBP|AED (default AED)
     const displayCurrency = String(req.query.currency || "AED").toUpperCase();
 
-    const sh = await Shipment.findById(id).lean();
+    const sh = await Shipment.findById(id)
+  .populate({
+    path: "packageIds",
+    select:
+      "tracking courier weightKg value status shipmentTracking shipmentId",
+  })
+  .populate({
+    path: "userId",
+    select:
+      "name email phone suiteId addresses",
+  })
+  .lean();
+  
     if (!sh) return res.status(404).json({ ok: false, error: "Shipment not found" });
 
     // Load FX (AED base)
@@ -55,7 +71,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       [displayCurrency]: convert(priceAED, displayCurrency),
     };
 
-    return res.json({ ok: true, shipment: sh, price, displayCurrency });
+    const shipment: any = sh;
+
+return res.json({
+  ok: true,
+
+  shipment,
+
+  customer: shipment.userId || null,
+
+  packages: shipment.packageIds || [],
+
+  totals: {
+    packageCount:
+      shipment.packageIds?.length || 0,
+
+    totalWeight:
+      shipment.weightKg || 0,
+
+    shippingPriceAED:
+      shipment.priceAED || 0,
+
+    paymentStatus:
+      shipment.paymentStatus || "unpaid",
+
+    shipmentStatus:
+      shipment.status,
+  },
+
+  price,
+
+  displayCurrency,
+});
   }
 
   if (req.method === "PATCH") {
@@ -72,6 +119,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         $set[k] = body[k];
       }
     }
+
+    const existing = await Shipment.findById(id);
+
+if (!existing) {
+  return res.status(404).json({
+    ok: false,
+    error: "Shipment not found",
+  });
+}
+
+if (
+  body.status &&
+  body.status !== existing.status
+) {
+ existing.activity = existing.activity ?? [];
+
+existing.activity.push({
+  at: new Date(),
+  type: "status_changed",
+  payload: {
+    from: existing.status,
+    to: body.status,
+  },
+});
+
+  existing.status = body.status as any;
+}
 
     const sh = await Shipment.findByIdAndUpdate(id, { $set }, { new: true }).lean();
     if (!sh) return res.status(404).json({ ok: false, error: "Shipment not found" });

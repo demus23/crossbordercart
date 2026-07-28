@@ -68,6 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         tracking,
         courier,
         value,
+        weightKg,  
         status,     // accepts many variants; normalized below
         userEmail,
         suiteId,
@@ -97,6 +98,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (typeof userEmail === "string") setUpdate.userEmail = userEmail.trim().toLowerCase();
       if (typeof location === "string") setUpdate.location = location.trim();
       setUpdate.value = coercedValue;
+
+      if (weightKg !== undefined) {
+  const w = Number(weightKg);
+
+  if (!Number.isNaN(w) && w >= 0) {
+    setUpdate.weightKg = w;
+  }
+}
 
       const normalized = normalizeStatus(status);
 

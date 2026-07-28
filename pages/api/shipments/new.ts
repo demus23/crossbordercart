@@ -1,11 +1,14 @@
 // pages/api/shipments/new.ts
 import type { NextApiRequest, NextApiResponse } from "next";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import mongoose from "mongoose";
 import { dbConnect } from "@/lib/mongoose";
 import { Shipment, ShipmentStatus } from "@/lib/models/Shipment";
 import PackageModel from "@/lib/models/Package";
 import { Rate, IRate } from "@/lib/models/Rate";
 import { calculateShippingPrice } from "@/lib/pricing";
+
 
 type Address = {
   name?: string;
@@ -104,6 +107,25 @@ async function findPackage(input: string) {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+
+  const session: any = await getServerSession(
+  req,
+  res,
+  authOptions as any
+);
+
+const role = session?.user?.role;
+
+if (
+  !session?.user?.id ||
+  !["admin", "superadmin"].includes(role)
+) {
+  return res.status(401).json({
+    ok: false,
+    error: "Unauthorized",
+  });
+}
+
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "Method Not Allowed" });
   }
@@ -153,40 +175,117 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const currency = (body.currency || "AED").toUpperCase();
     const status = (body.status as ShipmentStatus) || ("draft" as ShipmentStatus);
 
-    const packageInput =
-      typeof body.packageId === "string" && body.packageId.trim()
-        ? body.packageId.trim()
-        : typeof body.trackingNumber === "string"
-        ? body.trackingNumber.trim()
-        : "";
+    const requestedPackageIds = Array.from(
+  new Set(
+    (Array.isArray(body.packageIds) ? body.packageIds : [])
+      .filter(
+        (id): id is string =>
+          typeof id === "string" && isValidObjectId(id)
+      )
+  )
+);
 
-    const linkedPackage = await findPackage(packageInput);
-    const linkedPackageId = linkedPackage?._id || null;
+if (requestedPackageIds.length === 0) {
+  return res.status(400).json({
+    ok: false,
+    error: "At least one valid package is required.",
+  });
+}
 
-    const finalPackageIds = linkedPackageId
-      ? [linkedPackageId]
-      : Array.isArray(body.packageIds)
-      ? body.packageIds.filter((id) => typeof id === "string" && isValidObjectId(id))
-      : [];
+const linkedPackages = await PackageModel.find({
+  _id: { $in: requestedPackageIds },
+}).lean();
 
-    const finalUserId =
-      linkedPackage?.userId ||
-      linkedPackage?.user ||
-      linkedPackage?.ownerId ||
-      (body.userId && isValidObjectId(body.userId) ? body.userId : null);
+if (linkedPackages.length !== requestedPackageIds.length) {
+  return res.status(400).json({
+    ok: false,
+    error: "One or more selected packages could not be found.",
+  });
+}
 
-    const finalCustomerEmail =
-      linkedPackage?.customerEmail ||
-      linkedPackage?.userEmail ||
-      linkedPackage?.email ||
-      body.customerEmail ||
-      null;
+const alreadyShippedPackage = linkedPackages.find(
+  (pkg: any) => pkg.shipmentId
+);
 
-    const finalSuiteId =
-      linkedPackage?.suiteId ||
-      linkedPackage?.suite ||
-      linkedPackage?.suiteNumber ||
-      null;
+if (alreadyShippedPackage) {
+  return res.status(409).json({
+    ok: false,
+    error: `Package ${
+      (alreadyShippedPackage as any).tracking || ""
+    } already belongs to a shipment.`,
+  });
+}
+
+const allowedStatuses = [
+  "Pending",
+  "Received",
+  "Processing",
+];
+
+const invalidStatusPackage = linkedPackages.find(
+  (pkg: any) => !allowedStatuses.includes(pkg.status)
+);
+
+if (invalidStatusPackage) {
+  return res.status(400).json({
+    ok: false,
+    error: `Package ${
+      (invalidStatusPackage as any).tracking || ""
+    } cannot be shipped because its status is ${
+      (invalidStatusPackage as any).status || "unknown"
+    }.`,
+  });
+}
+
+const packageUserIds = Array.from(
+  new Set(
+    linkedPackages
+      .map((pkg: any) => String(pkg.user || ""))
+      .filter(Boolean)
+  )
+);
+
+if (packageUserIds.length !== 1) {
+  return res.status(400).json({
+    ok: false,
+    error:
+      "Selected packages belong to different customers. Create separate shipments.",
+  });
+}
+
+const finalPackageIds = linkedPackages.map(
+  (pkg: any) => pkg._id
+);
+
+const firstPackage: any = linkedPackages[0];
+
+const finalUserId = firstPackage.user;
+
+const finalCustomerEmail =
+  firstPackage.userEmail ||
+  body.customerEmail ||
+  null;
+
+const finalSuiteId =
+  firstPackage.suiteId ||
+  null;
+
+// Always calculate weight from the selected packages
+const packageWeight = linkedPackages.reduce(
+  (total: number, pkg: any) =>
+    total + Number(pkg.weightKg || 0),
+  0
+);
+
+if (packageWeight <= 0) {
+  return res.status(400).json({
+    ok: false,
+    error:
+      "Selected packages must have a valid weight before creating a shipment.",
+  });
+}
+
+weight = Number(packageWeight.toFixed(2));
 
     // ✅ AUTO PRICING
     const destinationCode = normalizeCountryCode(to.country);
@@ -195,20 +294,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       active: true,
     }).lean()) as IRate | null;
 
-    let finalPriceAED = Number(body.priceAED || 0);
-    let pricingBreakdown: any = null;
+    if (!rate) {
+  return res.status(400).json({
+    ok: false,
+    error: `No active shipping rate found for ${destinationCode}.`,
+  });
+}
 
-    if (rate) {
-      pricingBreakdown = calculateShippingPrice({
-        weightKg: weight,
-        pricePerKg: rate.pricePerKg,
-        fuelPercent: rate.fuelPercent,
-        profitPercent: rate.profitPercent,
-        stripePercent: rate.stripePercent,
-      });
+    const pricingBreakdown = calculateShippingPrice({
+  weightKg: weight,
+  pricePerKg: rate.pricePerKg,
+  fuelPercent: rate.fuelPercent,
+  profitPercent: rate.profitPercent,
+  stripePercent: rate.stripePercent,
+});
 
-      finalPriceAED = pricingBreakdown.total;
-    }
+const finalPriceAED = pricingBreakdown.total;
 
     const shipment = await Shipment.create({
       from,
@@ -220,7 +321,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       service: body.service,
 
       trackingNumber: generateTrackingNumber(),
-      packageTrackingNumber: body.trackingNumber?.trim() || packageInput || null,
+      packageTrackingNumber:
+  linkedPackages
+    .map((pkg: any) => pkg.tracking)
+    .filter(Boolean)
+    .join(", ") || null,
       status,
 
       priceAED: finalPriceAED,
@@ -230,7 +335,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       userEmail: finalCustomerEmail,
 
       packageIds: finalPackageIds,
-      packageId: linkedPackageId,
+      packageId: finalPackageIds[0] || null,
       userId: finalUserId,
       user: finalUserId,
       suiteId: finalSuiteId,
@@ -259,30 +364,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       activity: [],
     });
 
-    if (linkedPackageId) {
-      await PackageModel.findByIdAndUpdate(linkedPackageId, {
-        $set: {
-          shipmentId: shipment._id,
-          shipmentTracking: shipment.trackingNumber,
-          shipmentCarrier: shipment.carrier || null,
-          shipmentStatus: shipment.status || "draft",
-          status: "Shipped",
-          lastNote: "Shipment created",
-          lastLocation: shipment.from?.city || "Dubai",
-          updatedAt: new Date(),
-        },
-      });
-    }
+    await PackageModel.updateMany(
+  {
+    _id: { $in: finalPackageIds },
+    $or: [
+      { shipmentId: { $exists: false } },
+      { shipmentId: null },
+    ],
+  },
+  {
+    $set: {
+      shipmentId: shipment._id,
+      shipmentTracking: shipment.trackingNumber,
+      shipmentCarrier: shipment.carrier || null,
+      status: "Shipped",
+      lastNote: "Shipment created",
+      lastLocation: shipment.from?.city || "Dubai",
+      shippedAt: new Date(),
+    },
+  }
+);
 
     return res.status(200).json({
       ok: true,
       id: shipment._id,
       priceAED: finalPriceAED,
       pricingBreakdown,
-      autoPriced: !!rate,
+      autoPriced: true,
       destinationCode,
-      linkedPackageFound: !!linkedPackage,
-      linkedPackageId: linkedPackageId ? String(linkedPackageId) : null,
+      linkedPackageFound: finalPackageIds.length > 0,
+      linkedPackageIds: finalPackageIds.map(String),
+      packageCount: finalPackageIds.length,
     });
   } catch (err: any) {
     console.error("Error creating shipment", err);

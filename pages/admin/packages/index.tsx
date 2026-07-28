@@ -33,6 +33,7 @@ type Package = {
   tracking: string;
   courier: string;
   value: number;
+  weightKg?: number;
   status: string;
   userEmail?: string;
   suiteId?: string;
@@ -59,7 +60,11 @@ type TrackingEvent = {
 type PackageUpdate = Pick<
   Package,
   "tracking" | "courier" | "status" | "userEmail" | "suiteId" | "location"
-> & { value: number; note?: string };
+> & {
+  value: number;
+  weightKg: number;
+  note?: string;
+};
 
 type PackageCreate = Omit<PackageUpdate, "note">;
 
@@ -87,6 +92,7 @@ const emptyForm = {
   tracking: "",
   courier: "",
   value: "",
+  weightKg: "",
   status: "Pending" as CanonicalStatus,
   userEmail: "",
   suiteId: "",
@@ -149,13 +155,7 @@ export default function AdminPackagesPage() {
   const [evBusy, setEvBusy] = useState(false);
 
 
-  // Access control
-  const role = getRole(session?.user);
-  if (sessionStatus === "loading") return <div>Loading...</div>;
-  if (sessionStatus === "unauthenticated" || !["admin", "superadmin"].includes(role ?? "")) {
-    if (typeof window !== "undefined") router.push("/login");
-    return <div>Redirecting...</div>;
-  }
+  
 
   // Fetch packages from server with filters/paging
   const refresh = () => {
@@ -181,6 +181,14 @@ export default function AdminPackagesPage() {
   };
   useEffect(refresh, [page, perPage, sort, searchDebounced, statusFilter, suiteFilter]);
 
+  // Access control
+  const role = getRole(session?.user);
+  if (sessionStatus === "loading") return <div>Loading...</div>;
+  if (sessionStatus === "unauthenticated" || !["admin", "superadmin"].includes(role ?? "")) {
+    if (typeof window !== "undefined") router.push("/login");
+    return <div>Redirecting...</div>;
+  }
+
   // The server already returns a page slice
   const paged = packages;
   const pageCount = Math.max(1, pages);
@@ -195,6 +203,7 @@ export default function AdminPackagesPage() {
       tracking: addForm.tracking,
       courier: addForm.courier,
       value: Number(addForm.value),
+      weightKg: Number(addForm.weightKg || 0),
       status: addForm.status,
       userEmail: addForm.userEmail || undefined,
       suiteId: addForm.suiteId || undefined,
@@ -222,6 +231,7 @@ export default function AdminPackagesPage() {
       tracking: pkg.tracking,
       courier: pkg.courier,
       value: (pkg.value ?? 0).toString(),
+      weightKg: String(pkg.weightKg ?? 0),
       status: (pkg.status as CanonicalStatus) || "Pending",
       userEmail: pkg.userEmail || "",
       suiteId: pkg.suiteId || "",
@@ -238,6 +248,7 @@ export default function AdminPackagesPage() {
       tracking: editForm.tracking,
       courier: editForm.courier,
       value: Number(editForm.value),
+      weightKg: Number(editForm.weightKg || 0),
       status: editForm.status,
       userEmail: editForm.userEmail || undefined,
       suiteId: editForm.suiteId || undefined,
@@ -446,9 +457,9 @@ export default function AdminPackagesPage() {
   variant="primary"
   disabled={selectedPackages.length === 0}
   onClick={() => {
-    router.push(
-      `/admin/shipments/new?packages=${selectedPackages.join(",")}`
-    );
+   router.push(
+  `/dashboard/shipments?packages=${selectedPackages.join(",")}`
+);
   }}
 >
   Create Shipment ({selectedPackages.length})
@@ -464,6 +475,7 @@ export default function AdminPackagesPage() {
               <th>Tracking #</th>
               <th>Courier</th>
               <th>Value</th>
+              <th>Weight</th>
               <th>User Email</th>
               <th>Suite</th>
               <th>Status</th>
@@ -495,6 +507,7 @@ export default function AdminPackagesPage() {
                 <td>{pkg.tracking}</td>
                 <td>{pkg.courier}</td>
                 <td>{typeof pkg.value === "number" ? pkg.value : Number(pkg.value) || 0}</td>
+                <td>{Number(pkg.weightKg || 0).toFixed(2)} kg</td>
                 <td>{pkg.userEmail || "—"}</td>
                 <td>{pkg.suiteId || "—"}</td>
                 <td>{renderStatusBadge(pkg.status)}</td>
@@ -645,6 +658,24 @@ export default function AdminPackagesPage() {
                 required
               />
             </Form.Group>
+
+            <Form.Group className="mb-3">
+  <Form.Label>Weight (kg)*</Form.Label>
+  <Form.Control
+    type="number"
+    min={0}
+    step="0.01"
+    value={addForm.weightKg}
+    onChange={(e) =>
+      setAddForm((f) => ({
+        ...f,
+        weightKg: e.target.value,
+      }))
+    }
+    required
+  />
+</Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label>User Email</Form.Label>
               <Form.Control
@@ -730,6 +761,24 @@ export default function AdminPackagesPage() {
                 required
               />
             </Form.Group>
+
+            <Form.Group className="mb-3">
+  <Form.Label>Weight (kg)*</Form.Label>
+  <Form.Control
+    type="number"
+    min={0}
+    step="0.01"
+    value={editForm.weightKg}
+    onChange={(e) =>
+      setEditForm((f) => ({
+        ...f,
+        weightKg: e.target.value,
+      }))
+    }
+    required
+  />
+</Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label>User Email</Form.Label>
               <Form.Control

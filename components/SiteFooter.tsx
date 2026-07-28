@@ -123,7 +123,7 @@ export default function SiteFooter() {
 
              <div style={socialsRow}>
   <a
-    href="https://wa.me/971588178057"
+    href="https://wa.me/971525350353"
     target="_blank"
     rel="noreferrer"
     style={socialIcon}
@@ -133,7 +133,7 @@ export default function SiteFooter() {
   </a>
 
   <a
-    href="https://www.facebook.com/profile.php?id=61574342094222"
+    href="https://www.facebook.com/crossbordercartuae"
     target="_blank"
     rel="noreferrer"
     style={socialIcon}
@@ -143,24 +143,24 @@ export default function SiteFooter() {
   </a>
 
   <a
-    href="https://instagram.com/YOUR_USERNAME"
-    target="_blank"
-    rel="noreferrer"
-    style={socialIcon}
-    aria-label="Instagram"
-  >
-    <FaInstagram size={20} />
-  </a>
+    href="https://www.instagram.com/crossbordercart"
+  target="_blank"
+  rel="noreferrer"
+  style={socialIcon}
+  aria-label="Instagram"
+>
+  <FaInstagram size={20} />
+</a>
 
-  <a
-    href="https://www.tiktok.com/@YOUR_USERNAME"
-    target="_blank"
-    rel="noreferrer"
-    style={socialIcon}
-    aria-label="TikTok"
-  >
-    <FaTiktok size={20} />
-  </a>
+<a
+  href="https://www.tiktok.com/@crossbordercart"
+  target="_blank"
+  rel="noreferrer"
+  style={socialIcon}
+  aria-label="TikTok"
+>
+  <FaTiktok size={20} />
+</a>
 </div>
             </div>
           </div>

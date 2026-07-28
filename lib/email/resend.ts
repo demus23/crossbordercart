@@ -1,3 +1,4 @@
+//lib\email\resend.ts
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import * as React from "react";

@@ -1,6 +1,7 @@
 // pages/dashboard/shipments.tsx
 import { useEffect, useState, FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { getSession } from "next-auth/react";
 import type { GetServerSideProps } from "next";
 import { Modal, Button, Form } from "react-bootstrap";
@@ -57,6 +58,37 @@ type Shipment = {
 
 };
 
+function normalizeCountryCode(value?: string) {
+  const country = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  const countryMap: Record<string, string> = {
+    kenya: "KE",
+    uganda: "UG",
+    ethiopia: "ET",
+    nigeria: "NG",
+    ghana: "GH",
+    angola: "AO",
+    zambia: "ZM",
+    rwanda: "RW",
+    tanzania: "TZ",
+    eritrea: "ER",
+    "united arab emirates": "AE",
+    uae: "AE",
+  };
+
+  if (countryMap[country]) {
+    return countryMap[country];
+  }
+
+  if (country.length === 2) {
+    return country.toUpperCase();
+  }
+
+  return country.toUpperCase();
+}
+
 export default function DashboardShipmentsPage() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loadingList, setLoadingList] = useState(false);
@@ -70,13 +102,41 @@ export default function DashboardShipmentsPage() {
   courier: string;
   value: number;
   weightKg: number;
+
   suiteId: string;
   userEmail: string;
+
+  userId: string;
+  status: string;
+
+  customer?: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+    suiteId: string;
+
+    address?: {
+      label?: string;
+      line1: string;
+      city?: string;
+      country?: string;
+      postalCode?: string;
+    } | null;
+  };
 };
 
 const [availablePackages, setAvailablePackages] = useState<WarehousePackage[]>([]);
 const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
+useEffect(() => {
+  if (selectedPackages.length === 0) return;
 
+  const totalWeight = availablePackages
+    .filter((p) => selectedPackages.includes(p._id))
+    .reduce((sum, p) => sum + (Number(p.weightKg) || 0), 0);
+
+  setWeight(Number(totalWeight.toFixed(2)));
+}, [selectedPackages, availablePackages]);
 
   // Form state
   const [fromName, setFromName] = useState("Warehouse 1");
@@ -97,7 +157,7 @@ const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
   const [speed, setSpeed] = useState("express");
   const [carrier, setCarrier] = useState("Aramex");
   const [service, setService] = useState("Express");
-  const [priceAED, setPriceAED] = useState(25);
+  const [priceAED, setPriceAED] = useState(0);
   const [currency, setCurrency] = useState("AED");
   
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -109,6 +169,15 @@ const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [carrierSlug, setCarrierSlug] = useState("aramex"); // aftership slug style
   const [trackingNumber, setTrackingNumber] = useState("");
+  const router = useRouter();
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+  const [pricingBreakdown, setPricingBreakdown] = useState<any>(null);
+  const [selectedCustomerEmail, setSelectedCustomerEmail] = useState("");
+  const [selectedSuiteId, setSelectedSuiteId] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerSelectionError, setCustomerSelectionError] =
+  useState<string | null>(null);
 
 
 
@@ -276,6 +345,135 @@ const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
   window.location.href = "/api/admin/shipments/export";
 };
 
+useEffect(() => {
+  if (!router.isReady) return;
+  if (availablePackages.length === 0) return;
+
+  const raw = router.query.packages;
+
+  if (typeof raw !== "string" || !raw.trim()) return;
+
+  const ids = raw
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+  setSelectedPackages(ids);
+
+  const selected = availablePackages.filter((p) =>
+    ids.includes(p._id)
+  );
+
+  const totalWeight = selected.reduce(
+    (sum, p) => sum + (Number(p.weightKg) || 0),
+    0
+  );
+
+  setWeight(Number(totalWeight.toFixed(2)));
+}, [router.isReady, router.query.packages, availablePackages]);
+
+useEffect(() => {
+  const selected = availablePackages.filter((pkg) =>
+    selectedPackages.includes(pkg._id)
+  );
+
+  if (selected.length === 0) {
+    setCustomerSelectionError(null);
+    return;
+  }
+
+  // Make sure all selected packages belong to one customer
+  const customerIds = [
+    ...new Set(
+      selected.map((pkg) => pkg.customer?.id).filter(Boolean)
+    ),
+  ];
+
+  if (customerIds.length > 1) {
+    setCustomerSelectionError(
+      "Please select packages from only one customer."
+    );
+    return;
+  }
+
+  setCustomerSelectionError(null);
+
+  const customer = selected[0].customer;
+
+  if (!customer) return;
+
+  setToName(customer.name || "");
+  setSelectedCustomerEmail(customer.email || "");
+  setSelectedSuiteId(customer.suiteId || "");
+  setCustomerPhone(customer.phone || "");
+
+  if (customer.address) {
+    setToLine1(customer.address.line1 || "");
+    setToCity(customer.address.city || "");
+    setToCountry(
+  normalizeCountryCode(customer.address.country)
+);
+  }
+}, [selectedPackages, availablePackages]);
+
+
+useEffect(() => {
+  const countryCode = toCountry.trim().toUpperCase();
+
+  if (!countryCode || weight <= 0) {
+    setPriceAED(0);
+    setPricingBreakdown(null);
+    return;
+  }
+
+  const controller = new AbortController();
+
+  const calculatePrice = async () => {
+    setPricingLoading(true);
+    setPricingError(null);
+
+    try {
+      const params = new URLSearchParams({
+        countryCode,
+        weightKg: String(weight),
+      });
+
+      const res = await fetch(
+        `/api/pricing/calculate?${params.toString()}`,
+        {
+          signal: controller.signal,
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Unable to calculate shipping price");
+      }
+
+      const total = Number(data.breakdown?.total || 0);
+
+      setPriceAED(total);
+      setPricingBreakdown(data.breakdown);
+    } catch (err: any) {
+      if (err?.name === "AbortError") return;
+
+      setPriceAED(0);
+      setPricingBreakdown(null);
+      setPricingError(err?.message || "Unable to calculate shipping price");
+    } finally {
+      setPricingLoading(false);
+    }
+  };
+
+  const timer = setTimeout(calculatePrice, 300);
+
+  return () => {
+    clearTimeout(timer);
+    controller.abort();
+  };
+}, [weight, toCountry]);
+
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "2rem 1rem" }}>
       <h1 style={{ fontSize: "1.8rem", marginBottom: "1rem" }}>
@@ -363,6 +561,72 @@ const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
     </select>
   </div>
 </div>
+
+{selectedPackages.length > 0 && (
+  <div className="card mb-3">
+    <div className="card-body">
+      <h5 className="card-title">
+        Consolidated Packages ({selectedPackages.length})
+      </h5>
+
+      {availablePackages
+        .filter((pkg) => selectedPackages.includes(pkg._id))
+        .map((pkg) => (
+          <div
+            key={pkg._id}
+            className="d-flex justify-content-between border-bottom py-2"
+          >
+            <div>
+              <strong>{pkg.tracking}</strong>
+              <div className="text-muted small">
+                {pkg.courier} · {pkg.userEmail || "No email"}
+              </div>
+            </div>
+
+            <div>{pkg.weightKg || 0} kg</div>
+          </div>
+        ))}
+    </div>
+  </div>
+)}
+
+{selectedPackages.length > 0 && !customerSelectionError && (
+  <div className="card mb-3">
+    <div className="card-body">
+      <h5 className="card-title">Customer Information</h5>
+
+      <div>
+        <strong>{toName || "Unknown Customer"}</strong>
+      </div>
+
+      <div className="text-muted">
+        {selectedCustomerEmail}
+      </div>
+
+      <div className="text-muted">
+        📦 Suite: {selectedSuiteId}
+      </div>
+
+      {customerPhone && (
+        <div className="text-muted">
+          📞 {customerPhone}
+        </div>
+      )}
+
+      <div className="mt-2">
+        {toLine1}
+        {toCity ? `, ${toCity}` : ""}
+        {toCountry ? `, ${toCountry}` : ""}
+      </div>
+    </div>
+  </div>
+)}
+
+{customerSelectionError && (
+  <div className="alert alert-danger">
+    {customerSelectionError}
+  </div>
+)}
 
       {/* CREATE SHIPMENT FORM */}
       <section
@@ -485,44 +749,87 @@ const [selectedPackages, setSelectedPackages] = useState<string[]>([]);
     placeholder="Enter tracking number (optional for now)"
   />
 </div>
+<div>
+  <label>Calculated Price (AED)</label>
+  <input
+    type="number"
+    value={Number.isFinite(priceAED) ? priceAED : ""}
+    readOnly
+  />
 
-          <div>
-            <label>Price (AED)</label>
-            <input
-  type="number"
-  value={Number.isFinite(priceAED) ? priceAED : ""}
-  onChange={(e) => setPriceAED(e.target.value === "" ? 0 : Number(e.target.value))}
-/>
-          </div>
+  {pricingLoading && (
+    <div className="small text-muted mt-1">
+      Calculating price...
+    </div>
+  )}
+
+  {pricingError && (
+    <div className="small text-danger mt-1">
+      {pricingError}
+    </div>
+  )}
+</div>
           <div>
             <label>Currency</label>
             <input value={currency} onChange={(e) => setCurrency(e.target.value)} required />
           </div>
-                    <div>
-            <label>Package ID (optional)</label>
-            <input
-              value={packageId}
-              onChange={(e) => setPackageId(e.target.value)}
-              placeholder="Paste Package _id from Admin › Packages"
-            />
-          </div>
+                   
 
 
           <div style={{ marginTop: "0.75rem" }}>
+            {pricingBreakdown && (
+  <div
+    style={{
+      gridColumn: "1 / -1",
+      padding: "1rem",
+      border: "1px solid #d1d5db",
+      borderRadius: 10,
+      background: "#f9fafb",
+    }}
+  >
+    <strong>Price breakdown</strong>
+
+    <div>Base shipping: AED {Number(pricingBreakdown.base || 0).toFixed(2)}</div>
+    <div>Fuel charge: AED {Number(pricingBreakdown.fuel || 0).toFixed(2)}</div>
+    <div>Profit: AED {Number(pricingBreakdown.profit || 0).toFixed(2)}</div>
+    <div>Payment fee: AED {Number(pricingBreakdown.stripeFee || 0).toFixed(2)}</div>
+
+    <div style={{ marginTop: 8, fontWeight: 700 }}>
+      Total: AED {Number(pricingBreakdown.total || 0).toFixed(2)}
+    </div>
+  </div>
+)}
             <button
               type="submit"
-              disabled={creating}
+              disabled={
+  creating ||
+  pricingLoading ||
+  priceAED <= 0 ||
+  selectedPackages.length === 0 ||
+  Boolean(customerSelectionError)
+}
               style={{
                 padding: "0.5rem 1.2rem",
                 borderRadius: 999,
                 border: "none",
                 fontWeight: 600,
-                cursor: creating ? "default" : "pointer",
+                cursor:
+  creating ||
+  pricingLoading ||
+  priceAED <= 0 ||
+  selectedPackages.length === 0 ||
+  customerSelectionError
+    ? "not-allowed"
+    : "pointer",
                 background: creating ? "#9ca3af" : "#0f766e",
                 color: "white",
               }}
             >
-              {creating ? "Creating..." : "Create Shipment"}
+              {creating
+  ? "Creating..."
+  : pricingLoading
+  ? "Calculating..."
+  : "Create Shipment"}
             </button>
           </div>
         </form>
