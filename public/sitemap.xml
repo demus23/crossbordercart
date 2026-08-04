@@ -53,17 +53,66 @@
     <priority>0.3</priority>
   </url>
 
-  <!--
-    COUNTRY PAGES — pattern confirmed as /ship-to/[slug]
-    Slugs come from lib/africaShippingData.ts and are still unknown.
-    Once you visit crossbordercart.com/ship-to live, copy the real slugs
-    and add them here in this format:
-
-    <url>
-      <loc>https://crossbordercart.com/ship-to/nigeria</loc>
-      <changefreq>monthly</changefreq>
-      <priority>0.9</priority>
-    </url>
-  -->
+  <!-- Country pages -->
+  <url>
+    <loc>https://crossbordercart.com/ship-to/kenya</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/uganda</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/tanzania</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/rwanda</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/ethiopia</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/somalia</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/nigeria</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/ghana</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/south-africa</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/zambia</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/egypt</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://crossbordercart.com/ship-to/morocco</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
 
 </urlset>
