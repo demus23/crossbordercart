@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "925609560895",
+    "project_id": "cross-border-cart",
+    "storage_bucket": "cross-border-cart.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:925609560895:android:5770c319014405d519a18a",
+        "android_client_info": {
+          "package_name": "com.crossbordercart.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKHmjyR1npVRdxg97ix1O3sg4Nh_nd0J8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

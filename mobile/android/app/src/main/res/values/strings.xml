@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cross Border Cart</string>
+    <string name="title_activity_main">Cross Border Cart</string>
+    <string name="package_name">com.crossbordercart.app</string>
+    <string name="custom_url_scheme">com.crossbordercart.app</string>
+</resources>
