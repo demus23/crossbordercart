@@ -30,6 +30,14 @@ export interface IPaymentMethod {
   isDefault?: boolean;
 }
 
+export interface IPushToken {
+  _id?: mongoose.Types.ObjectId;
+  deviceToken: string;                           // FCM registration token
+  platform: "ios" | "android" | "web" | string;
+  createdAt?: Date;
+  lastActive?: Date;
+}
+
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -47,6 +55,7 @@ export interface IUser extends Document {
   stores?: IStore[];
   documents?: IUserDocumentFile[];
   paymentMethods?: IPaymentMethod[];
+  pushTokens?: IPushToken[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -91,6 +100,16 @@ const PaymentMethodSchema = new Schema<IPaymentMethod>(
   // keep subdoc _id (default)
 );
 
+const PushTokenSchema = new Schema<IPushToken>(
+  {
+    deviceToken: { type: String, required: true },
+    platform: { type: String, required: true, enum: ["ios", "android", "web"] },
+    createdAt: { type: Date, default: Date.now },
+    lastActive: { type: Date, default: Date.now },
+  },
+  // keep subdoc _id (default) so a single token can be pruned/updated by id
+);
+
 const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
@@ -108,6 +127,7 @@ const UserSchema = new Schema<IUser>(
     stores: { type: [StoreSchema], default: [] },
     documents: { type: [UserDocumentFileSchema], default: [] },
     paymentMethods: { type: [PaymentMethodSchema], default: [] },
+    pushTokens: { type: [PushTokenSchema], default: [] },
      trackingEmails: { type: Boolean, default: true },
   },
   { timestamps: true }

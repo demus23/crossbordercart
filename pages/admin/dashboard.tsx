@@ -495,16 +495,16 @@ export default function AdminDashboard() {
               <address className="mb-2">
                 <strong>Warehouse</strong>
                 <br />
-                Suite 305, Business Bay, Dubai, UAE
+                Al Mamazar, Dubai, UAE
                 <br />
-                +971-50-123-4567
+                +971-52-535-0353
               </address>
               <Button
                 variant="outline-primary"
                 size="sm"
                 onClick={() =>
                   navigator.clipboard.writeText(
-                    "Suite 305, Business Bay, Dubai, UAE"
+                    "Al Mamzar, Dubai, UAE"
                   )
                 }
                 aria-label="Copy address to clipboard"

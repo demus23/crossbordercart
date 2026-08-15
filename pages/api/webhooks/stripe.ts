@@ -10,6 +10,7 @@ import { Shipment } from "@/lib/models/Shipment";
 
 import { sendEmail } from "@/lib/email/resend";
 import OrderConfirmationEmail from "@/emails/OrderConfirmation";
+import { sendShipmentNotification } from "@/lib/notifications/sendShipmentNotification";
 
 export const config = {
   api: { bodyParser: false },
@@ -43,6 +44,13 @@ async function markShipmentPaid({
     return;
   }
 
+  // checkout.session.completed and payment_intent.succeeded can both fire
+  // for the same payment, and both call this function — check the paid
+  // state *before* updating so we only notify on the actual
+  // unpaid -> paid transition, not on every event that lands here.
+  const beforeShipment: any = await Shipment.findById(resolvedShipmentId).select("isPaid").lean();
+  const wasAlreadyPaid = Boolean(beforeShipment?.isPaid);
+
   const updatedShipment = await Shipment.findByIdAndUpdate(
     resolvedShipmentId,
     {
@@ -57,6 +65,29 @@ async function markShipmentPaid({
     },
     { new: true }
   ).exec();
+
+  if (updatedShipment) {
+  updatedShipment.activity = updatedShipment.activity || [];
+
+  updatedShipment.activity.push({
+    at: new Date(),
+    type: "payment_received",
+    payload: {
+      invoiceNo,
+      stripeCheckoutSessionId,
+      stripePaymentIntentId,
+    },
+  });
+
+  await updatedShipment.save();
+
+  if (!wasAlreadyPaid) {
+    await sendShipmentNotification("payment_confirmed", {
+      userId: updatedShipment.userId,
+      context: { trackingNumber: updatedShipment.trackingNumber },
+    });
+  }
+}
 
   console.log("✅ Shipment auto-paid:", updatedShipment?._id);
 }
@@ -291,7 +322,7 @@ export default async function handler(
                 trackUrl,
                 brandName: "Cross Border Cart",
                 brandUrl: "https://crossbordercart.com",
-                supportEmail: "support.crossbordercart@gmail.com",
+                supportEmail: "support@crossbordercart.com",
               }),
             });
 

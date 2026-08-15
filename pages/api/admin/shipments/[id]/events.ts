@@ -3,22 +3,62 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/dbConnect";
-import { Shipment } from "@/lib/models/Shipment";
+import { Shipment, ShipmentStatus } from "@/lib/models/Shipment";
+import PackageModel from "@/lib/models/Package";
 import { errorMessage } from "@/utils/errors";
 
 function buildShipmentOrQuery(idOrTracking: string) {
   const or: any[] = [];
 
-  // if it looks like a valid ObjectId, allow search by _id
   if (mongoose.Types.ObjectId.isValid(idOrTracking)) {
     or.push({ _id: idOrTracking });
   }
 
-  // always allow search by trackingNumber
   or.push({ trackingNumber: idOrTracking });
 
-  // if somehow neither, just return impossible query to be safe
   return or.length > 0 ? { $or: or } : { _id: null };
+}
+
+const allowedStatuses: ShipmentStatus[] = [
+  "draft",
+  "rated",
+  "label_purchased",
+  "in_transit",
+  "out_for_delivery",
+  "delivered",
+  "return_to_sender",
+  "exception",
+  "cancelled",
+];
+
+const paymentLockedStatuses: ShipmentStatus[] = [
+  "in_transit",
+  "out_for_delivery",
+  "delivered",
+];
+
+function packageStatusFromShipment(status: ShipmentStatus) {
+  switch (status) {
+    case "delivered":
+      return "Delivered";
+
+    case "in_transit":
+    case "out_for_delivery":
+    case "label_purchased":
+      return "Shipped";
+
+    case "cancelled":
+    case "return_to_sender":
+      return "Cancelled";
+
+    case "exception":
+    case "rated":
+      return "Processing";
+
+    case "draft":
+    default:
+      return "Pending";
+  }
 }
 
 export default async function handler(
@@ -27,18 +67,21 @@ export default async function handler(
 ) {
   try {
     await dbConnect();
-  } catch (e) {
-    console.error("DB error in shipment events API:", e);
-    return res
-      .status(500)
-      .json({ ok: false, error: "Database connection error" });
+  } catch (error) {
+    console.error("DB error in shipment events API:", error);
+
+    return res.status(500).json({
+      ok: false,
+      error: "Database connection error",
+    });
   }
 
   const { id } = req.query as { id?: string };
+
   if (!id) {
     return res.status(400).json({
       ok: false,
-      error: "Shipment identifier (:id in the route) is required",
+      error: "Shipment identifier is required",
     });
   }
 
@@ -46,32 +89,45 @@ export default async function handler(
 
   if (req.method === "POST") {
     try {
-      const { status, description = "", location = "", code } = req.body || {};
-      
+      const {
+        status,
+        description = "",
+        location = "",
+        code,
+      } = req.body || {};
 
       if (!status) {
-        return res
-          .status(400)
-          .json({ ok: false, error: "status is required" });
+        return res.status(400).json({
+          ok: false,
+          error: "status is required",
+        });
       }
 
-            const shipment = await Shipment.findOne(query);
+      if (!allowedStatuses.includes(status as ShipmentStatus)) {
+        return res.status(400).json({
+          ok: false,
+          error: "Invalid shipment status",
+        });
+      }
+
+      const normalizedStatus = status as ShipmentStatus;
+
+      const shipment = await Shipment.findOne(query);
+
       if (!shipment) {
-        return res
-          .status(404)
-          .json({ ok: false, error: "Shipment not found" });
+        return res.status(404).json({
+          ok: false,
+          error: "Shipment not found",
+        });
       }
-      if (!shipment.isPaid && ["in_transit", "out_for_delivery", "delivered"].includes(status)) {
-  return res.status(400).json({
-    error: "Payment required before shipment can proceed",
-  });
-}
 
-      const lockedStatuses = ["in_transit", "out_for_delivery", "delivered"];
+      const isPaid =
+        shipment.paymentStatus === "paid" ||
+        shipment.isPaid === true;
 
       if (
-        lockedStatuses.includes(status) &&
-        shipment.paymentStatus !== "paid"
+        paymentLockedStatuses.includes(normalizedStatus) &&
+        !isPaid
       ) {
         return res.status(403).json({
           ok: false,
@@ -79,60 +135,146 @@ export default async function handler(
         });
       }
 
+      const now = new Date();
+
       const event = {
-        status,
-        description,
-        location,
-        code,
-        createdAt: new Date(),
+        status: normalizedStatus,
+        description: String(description || "").trim(),
+        location: String(location || "").trim(),
+        code: code ? String(code).trim() : undefined,
+        createdAt: now,
       };
 
-      // @ts-ignore – mongoose typing is not perfect here
-      shipment.events = shipment.events || [];
-      // @ts-ignore
+      shipment.events = shipment.events ?? [];
       shipment.events.push(event);
 
-      // keep main status in sync with last event
-      // @ts-ignore
-      shipment.status = status;
+      shipment.activity = shipment.activity ?? [];
+      shipment.activity.push({
+        at: now,
+        type: "event_added",
+        payload: {
+          status: normalizedStatus,
+          location: event.location,
+          description: event.description,
+          code: event.code,
+        },
+      });
+
+      shipment.status = normalizedStatus;
 
       await shipment.save();
 
-      return res.status(201).json({ ok: true, event });
-    } catch (e: unknown) {
-      console.error("Error adding shipment event:", e);
+      const linkedPackageIds = Array.from(
+        new Set(
+          [
+            ...(shipment.packageIds || []).map((packageId) =>
+              String(packageId)
+            ),
+            shipment.packageId
+              ? String(shipment.packageId)
+              : "",
+          ].filter(Boolean)
+        )
+      );
+
+      if (linkedPackageIds.length > 0) {
+        const packageStatus =
+          packageStatusFromShipment(normalizedStatus);
+
+        const packageUpdate: Record<string, any> = {
+          shipmentTracking: shipment.trackingNumber || null,
+          shipmentCarrier: shipment.carrier || null,
+          status: packageStatus,
+          lastLocation: event.location || "",
+          lastNote:
+            event.description ||
+            `Shipment status changed to ${normalizedStatus}`,
+          updatedAt: now,
+        };
+
+        if (normalizedStatus === "delivered") {
+          packageUpdate.deliveredAt = now;
+        }
+
+        if (
+          normalizedStatus === "in_transit" ||
+          normalizedStatus === "out_for_delivery"
+        ) {
+          packageUpdate.shippedAt = now;
+        }
+
+        await PackageModel.updateMany(
+          {
+            _id: {
+              $in: linkedPackageIds,
+            },
+          },
+          {
+            $set: packageUpdate,
+          }
+        );
+      }
+
+      return res.status(201).json({
+        ok: true,
+        event,
+        shipment,
+      });
+    } catch (error: unknown) {
+      console.error("Error adding shipment event:", error);
+
       return res.status(500).json({
         ok: false,
-        error: errorMessage(e) || "Failed to create event",
+        error:
+          errorMessage(error) ||
+          "Failed to create event",
       });
     }
   }
 
   if (req.method === "GET") {
     try {
-      const shipment = await Shipment.findOne(query).select("events");
+      const shipment = await Shipment.findOne(query)
+        .select("events status trackingNumber")
+        .lean();
+
       if (!shipment) {
-        return res
-          .status(404)
-          .json({ ok: false, error: "Shipment not found" });
+        return res.status(404).json({
+          ok: false,
+          error: "Shipment not found",
+        });
       }
 
-      // @ts-ignore
-      const events = (shipment.events || []).slice().sort(
-        (a: any, b: any) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      const events = (shipment.events || [])
+        .slice()
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt).getTime() -
+            new Date(a.createdAt).getTime()
+        );
 
-      return res.status(200).json({ ok: true, events });
-    } catch (e: unknown) {
-      console.error("Error fetching shipment events:", e);
+      return res.status(200).json({
+        ok: true,
+        status: shipment.status,
+        trackingNumber: shipment.trackingNumber,
+        events,
+      });
+    } catch (error: unknown) {
+      console.error("Error fetching shipment events:", error);
+
       return res.status(500).json({
         ok: false,
-        error: errorMessage(e) || "Failed to fetch events",
+        error:
+          errorMessage(error) ||
+          "Failed to fetch events",
       });
     }
   }
 
-  res.setHeader("Allow", "GET, POST");
-  return res.status(405).end("Method Not Allowed");
+  res.setHeader("Allow", ["GET", "POST"]);
+
+  return res.status(405).json({
+    ok: false,
+    error: `Method ${req.method} not allowed`,
+  });
 }

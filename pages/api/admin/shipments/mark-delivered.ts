@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import dbConnect from "@/lib/dbConnect";
 import mongoose from "mongoose";
+import { Shipment } from "@/lib/models/Shipment";
+import { sendShipmentNotification, shipmentStatusToEvent } from "@/lib/notifications/sendShipmentNotification";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = (await getServerSession(req, res, authOptions as any)) as any;
@@ -19,17 +21,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   await dbConnect();
-  const db = mongoose.connection.db;
-  if (!db) return res.status(500).json({ ok: false, error: "DB not ready" });
 
   const filter: any = shipmentId
     ? { $or: [{ _id: new mongoose.Types.ObjectId(String(shipmentId)) }, { shipmentId: String(shipmentId) }] }
     : { trackingNumber: String(trackingNumber) };
 
-  const result = await db.collection("shipments").updateOne(filter, {
-    $set: { status: String(status), updatedAt: new Date() },
-  });
+  // Use the Shipment model (not a raw collection update) so we get the
+  // previous status back and can trigger a notification off it.
+  const before = await Shipment.findOne(filter).select("status").lean();
+  if (!before) return res.status(404).json({ ok: false, error: "Shipment not found" });
 
-  if (!result.matchedCount) return res.status(404).json({ ok: false, error: "Shipment not found" });
+  const updated = await Shipment.findOneAndUpdate(
+    filter,
+    { $set: { status: String(status), updatedAt: new Date() } },
+    { new: true }
+  ).select("userId trackingNumber status").lean();
+
+  if (!updated) return res.status(404).json({ ok: false, error: "Shipment not found" });
+
+  if ((before as any).status !== (updated as any).status) {
+    const event = shipmentStatusToEvent((updated as any).status);
+    if (event) {
+      await sendShipmentNotification(event, {
+        userId: (updated as any).userId,
+        context: { trackingNumber: (updated as any).trackingNumber },
+      });
+    }
+  }
+
   return res.status(200).json({ ok: true });
 }

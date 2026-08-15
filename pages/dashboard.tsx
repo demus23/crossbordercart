@@ -893,6 +893,21 @@ Mamzar / Dubai, UAE
                   <span className="d-none d-sm-inline">Switch to Admin</span>
                 </a>
               )}
+<a
+  href="/dashboard/my-shipments"
+  className="btn btn-outline-success d-inline-flex align-items-center gap-2"
+>
+  <FiTruck />
+  <span className="d-none d-sm-inline">My Shipments</span>
+</a>
+
+<a
+  href="/charges"
+  className="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
+>
+  <FiFileText />
+  <span className="d-none d-sm-inline">My Invoices</span>
+</a>
 
               <a
                 href="/charges"
@@ -1158,14 +1173,30 @@ Mamzar / Dubai, UAE
                   </Table>
                 )}
 
-                <div className="d-flex gap-2">
-                  <Button size="sm" variant="outline-secondary" onClick={refetchPackages}>
-                    Refresh
-                  </Button>
-                  <a href="/mypackages" className="btn btn-sm btn-outline-primary">
-                    View all packages
-                  </a>
-                </div>
+                <div className="d-flex gap-2 flex-wrap">
+  <Button
+    size="sm"
+    variant="outline-secondary"
+    onClick={refetchPackages}
+  >
+    Refresh
+  </Button>
+
+  <a
+    href="/mypackages"
+    className="btn btn-sm btn-outline-primary"
+  >
+    View all packages
+  </a>
+
+  <a
+    href="/dashboard/my-shipments"
+    className="btn btn-sm btn-success"
+  >
+    <FiTruck className="me-1" />
+    My Shipments
+  </a>
+</div>
               </Card.Body>
             </Card>
 

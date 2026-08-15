@@ -10,7 +10,7 @@ export default function ServerError() {
           <Link href="/" style={{padding:'10px 16px',borderRadius:12,background:'#22c55e',color:'#0b1220',fontWeight:600}}>
             Go home
           </Link>
-          <a href="mailto:support.crossbordercart@gmail.com" style={{padding:'10px 16px',borderRadius:12,background:'#334155',color:'#e2e8f0',fontWeight:600}}>
+          <a href="mailto:support@crossbordercart.com" style={{padding:'10px 16px',borderRadius:12,background:'#334155',color:'#e2e8f0',fontWeight:600}}>
             Contact support
           </a>
         </div>

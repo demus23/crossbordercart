@@ -6,6 +6,7 @@ import EmailToken from "@/lib/models/EmailToken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -35,10 +36,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (password !== confirmPassword) {
-  return res.status(400).json({ error: "Passwords do not match." });
-}
+    return res.status(400).json({ error: "Passwords do not match." });
+  }
 
-  // simple password rule (same as before)
   const PASS = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
   if (!PASS.test(password)) {
     return res.status(400).json({
@@ -46,13 +46,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  // already registered?
   const exists = await UserModel.findOne({ email });
   if (exists) {
     return res.status(409).json({ error: "Email already registered." });
   }
 
-  // generate unique suite
   let suiteId = "";
   let existsSuite = true;
   while (existsSuite) {
@@ -62,7 +60,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const hashed = await bcrypt.hash(password, 10);
 
-  // build addresses
   const addresses: any[] = [];
   if (address1 || address2 || city || state || postalCode || country) {
     addresses.push({
@@ -76,7 +73,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  // 1) create user
   const user = await UserModel.create({
     email,
     name: `${firstName} ${lastName}`,
@@ -90,9 +86,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ...(addresses.length ? { addresses } : {}),
   });
 
-  // 2) create email token in EmailToken collection (this is what your /api/auth/email/verify expects)
   const token = crypto.randomBytes(32).toString("hex");
-  const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 mins
+  const expires = new Date(Date.now() + 30 * 60 * 1000);
 
   await EmailToken.create({
     userId: user._id,
@@ -102,8 +97,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     expiresAt: expires,
   });
 
-  // 3) send email
-  // choose the base URL from env
   const baseUrl =
     process.env.APP_ORIGIN ||
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -112,6 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
 
   await sendVerificationEmail(user.email, verifyUrl);
+  await sendAdminNotification(user);
 
   return res.status(201).json({ success: true, suiteId: user.suiteId });
 }
@@ -143,5 +137,17 @@ async function sendVerificationEmail(to: string, verifyUrl: string) {
         <p>This link expires in 30 minutes.</p>
       </div>
     `,
+  });
+}
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+async function sendAdminNotification(user: any) {
+  if (!resend) return;
+  await resend.emails.send({
+    from: "Cross Border Cart <no-reply@crossbordercart.com>",
+    to: "support@crossbordercart.com",
+    subject: `New signup: ${user.name}`,
+    text: `New user signed up.\n\nName: ${user.name}\nEmail: ${user.email}\nCountry: ${user.country}\nSuite ID: ${user.suiteId}`,
   });
 }

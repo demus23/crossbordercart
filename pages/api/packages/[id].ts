@@ -155,7 +155,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               receivedAt: new Date().toLocaleString(),
               trackUrl: `${appUrl}/track?tracking=${encodeURIComponent(trackingValue)}`,
               brandName: "Cross Border Cart",
-              supportEmail: "support.crossbordercart@gmail.com",
+              supportEmail: "support@crossbordercart.com",
             }),
           });
 

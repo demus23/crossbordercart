@@ -94,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       city: "Dubai",
       country: "AE",
       phone: "+971-52-535-0353",
-      email: "support.crossbordercart@gmail.com",
+      email: "support@crossbordercart.com",
     },
     to: {
       name: session.user.name || "Customer",

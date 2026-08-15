@@ -33,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await resend.emails.send({
       from: "Cross Border Cart <no-reply@crossbordercart.com>",
-      to: "support.crossbordercart@gmail.com",
+      to: "support@crossbordercart.com",
       replyTo: session.user.email,
       subject: `[Support] ${topic}`,
       text: `

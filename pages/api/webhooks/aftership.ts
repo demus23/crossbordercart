@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "crypto";
 import { dbConnect } from "@/lib/mongoose";
 import { Shipment, ShipmentStatus } from "@/lib/models/Shipment";
+import { sendShipmentNotification, shipmentStatusToEvent } from "@/lib/notifications/sendShipmentNotification";
 
 // IMPORTANT: need raw body for signature verification
 export const config = {
@@ -183,15 +184,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
   }
 
-  const shipment = await Shipment.findOneAndUpdate(match, update, { new: true });
+  const before = await Shipment.findOne(match).select("status userId").lean();
+
+  let shipment = await Shipment.findOneAndUpdate(match, update, { new: true });
 
   // If not found by (trackingNumber + slug), fallback to trackingNumber only
   if (!shipment && slug) {
-    await Shipment.findOneAndUpdate(
+    shipment = await Shipment.findOneAndUpdate(
       { trackingNumber },
       update,
       { new: true }
     );
+  }
+
+  // Note: AfterShip tags don't include a distinct "customs" category — carriers
+  // report that as free-text within a checkpoint under the "InTransit" tag, so
+  // there's no dedicated customs status in the Shipment schema to trigger off
+  // today. If a customs push is wanted later, match on checkpoint description text.
+  if (shipment && (!before || (before as any).status !== shipment.status)) {
+    const event = shipmentStatusToEvent(shipment.status);
+    if (event) {
+      await sendShipmentNotification(event, {
+        userId: shipment.userId,
+        context: { trackingNumber: shipment.trackingNumber },
+      });
+    }
   }
 
   // Always respond 200 to stop retries after successful verification + processing

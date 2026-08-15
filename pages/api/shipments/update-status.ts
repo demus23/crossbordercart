@@ -5,6 +5,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import dbConnect from "@/lib/dbConnect";
 import { Shipment, type ShipmentStatus } from "@/lib/models/Shipment";
 import PackageModel from "@/lib/models/Package";
+import { sendShipmentNotification, shipmentStatusToEvent } from "@/lib/notifications/sendShipmentNotification";
 
 type AdminStatus = "Picked Up" | "In Transit" | "Out for Delivery" | "Delivered" | "Problem";
 
@@ -54,16 +55,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const newStatus: ShipmentStatus = mapAdminToShipmentStatus(status);
   const now = new Date();
+  const previousStatus = shipment.status; // capture before reassigning — was previously logged as itself
 
   shipment.status = newStatus;
   shipment.activity = shipment.activity || [];
   shipment.activity.push({
     at: now,
     type: "status_change",
-    payload: { from: shipment.status, to: newStatus },
+    payload: { from: previousStatus, to: newStatus },
   });
 
   await shipment.save();
+
+  if (previousStatus !== newStatus) {
+    const event = shipmentStatusToEvent(newStatus);
+    if (event) {
+      await sendShipmentNotification(event, {
+        userId: shipment.userId,
+        context: { trackingNumber: shipment.trackingNumber },
+      });
+    }
+  }
 
   await PackageModel.updateMany(
     { tracking: shipment._id.toString() },

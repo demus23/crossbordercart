@@ -9,6 +9,7 @@ import { Payment } from "@/lib/models/Payment";
 import { Shipment } from "@/lib/models/Shipment";
 import { Activity } from "@/lib/models/Activity";
 import User from "@/lib/models/User";
+import { sendShipmentNotification } from "@/lib/notifications/sendShipmentNotification";
 
 type CounterDoc = {
   _id: string;
@@ -314,6 +315,18 @@ export default async function handler(
           checkoutUrl: checkout.url,
         },
       }).exec();
+
+      // This is the moment a real, payable checkout link exists for the
+      // customer — the right point to notify, not shipment creation itself
+      // (which can sit unpriced/unpayable for a while before this runs).
+      await sendShipmentNotification("payment_required", {
+        userId: finalUserId,
+        context: {
+          trackingNumber: finalShipment?.trackingNumber,
+          amount: amountMajor,
+          currency: finalCurrency,
+        },
+      });
     }
 
     try {

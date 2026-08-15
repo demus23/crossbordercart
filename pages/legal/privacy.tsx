@@ -177,7 +177,7 @@ date.
           us at:
         </p>
         <p style={pStyle}>
-          Email: support.crossbordercart@gmail.com
+          Email: support@crossbordercart.com
           <br />
           
         </p>

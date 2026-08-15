@@ -86,10 +86,10 @@ export default function ContactPage() {
                     For shipment help, billing questions, and account support.
                   </p>
                   <a
-                    href="mailto:support.crossbordercart@gmail.com"
+                    href="mailto:support@crossbordercart.com"
                     className="fw-semibold text-decoration-none"
                   >
-                    support.crossbordercart@gmail.com
+                    support@crossbordercart.com
                   </a>
                 </div>
               </div>
@@ -301,10 +301,10 @@ export default function ContactPage() {
                       Support email
                     </p>
                     <a
-                      href="mailto:support.crossbordercart@gmail.com"
+                      href="mailto:support@crossbordercart.com"
                       className="text-decoration-none fw-semibold"
                     >
-                      support.crossbordercart@gmail.com
+                      support@crossbordercart.com
                     </a>
                   </div>
 

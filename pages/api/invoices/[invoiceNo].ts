@@ -53,7 +53,7 @@ td,th{border-top:1px solid #eee;padding:10px 6px;text-align:left}
   <div class="hdr">
     <div>
       <div class="brand">CrossBorderCart</div>
-      <div class="muted">Business Bay, Dubai, UAE</div>
+      <div class="muted">Al Mamazar, Dubai, UAE</div>
     </div>
     <div style="text-align:right">
       <div><strong>Invoice</strong> ${inv.invoiceNo}</div>
@@ -90,7 +90,7 @@ function streamPdf(res: NextApiResponse, inv: InvoiceDoc) {
 
   doc.fontSize(18).fillColor("#0ea5a2").text("CrossBorderCart");
   doc.moveDown(0.2);
-  doc.fontSize(10).fillColor("#666").text("Business Bay, Dubai, UAE");
+  doc.fontSize(10).fillColor("#666").text("Al Mamazar, Dubai, UAE");
   doc.moveDown();
 
   doc.fillColor("#000").fontSize(14).text(`Invoice ${inv.invoiceNo}`, { align: "right" });

@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import { Shipment } from "@/lib/models/Shipment";
 import { sendMail } from "@/lib/email/nodemailer";
 import { errorMessage } from "@/utils/errors";
+import { sendShipmentNotification, shipmentStatusToEvent } from "@/lib/notifications/sendShipmentNotification";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // ✅ Only admin/superadmin can call this
@@ -53,6 +54,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await sh.save();
 
+    if (prevStatus !== status) {
+      const event = shipmentStatusToEvent(status);
+      if (event) {
+        await sendShipmentNotification(event, {
+          userId: sh.userId,
+          context: { trackingNumber: sh.trackingNumber },
+        });
+      }
+    }
+
     // ✅ Decide recipient
     const recipient =
       String(
@@ -74,7 +85,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const service = sh.service || "-";
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-    const trackingUrl = `${baseUrl}/track?code=${encodeURIComponent(tracking)}`;
+    // Pre-existing bug fixed here: /track.tsx only reads ?no=/?id=/?tracking=/
+    // ?trackingNo= — it never recognized ?code=, so this link previously sent
+    // customers to a blank search box instead of their shipment.
+    // /track/[trackingNo] is the actual per-shipment page (same one used by
+    // dashboard/my-shipments.tsx and the app's push notification deep link).
+    const trackingUrl = `${baseUrl}/track/${encodeURIComponent(tracking)}`;
 
     const html = `
       <div style="font-family:Arial,sans-serif;line-height:1.5">

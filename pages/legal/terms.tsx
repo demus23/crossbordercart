@@ -201,7 +201,7 @@ of that jurisdiction.
           If you have any questions about these Terms, please contact us at:
         </p>
         <p style={pStyle}>
-          Email: support.crossbordercart@gmail.com
+          Email: support@crossbordercart.com
           <br />
           
         </p>

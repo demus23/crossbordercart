@@ -12,6 +12,7 @@ import { sendEmail } from "@/lib/email/resend";
 import PackageReceivedEmail from "@/emails/PackageReceivedEmail";
 import PackageShippedEmail from "@/emails/PackageShippedEmail";
 import PackageDeliveredEmail from "@/emails/PackageDeliveredEmail";
+import { sendShipmentNotification } from "@/lib/notifications/sendShipmentNotification";
 
 const { ObjectId } = mongoose.Types;
 
@@ -214,7 +215,7 @@ if (becameReceived && updated.userEmail) {
           : new Date().toLocaleString(),
           trackUrl: `${appUrl}/track?tracking=${encodeURIComponent(trackingNo)}`,
           brandName: "Cross Border Cart",
-          supportEmail: "support.crossbordercart@gmail.com",
+          supportEmail: "support@crossbordercart.com",
         }),
       });
 
@@ -237,6 +238,36 @@ if (becameReceived && updated.userEmail) {
   }
 } else {
   console.log("Skipped package email block");
+}
+
+// ===============================
+// 📱 PACKAGE RECEIVED PUSH + CONSOLIDATION-READY PUSH
+// ===============================
+// Separate from the email block above (and not gated on updated.userEmail
+// being set) since push only needs the user id, not an email address.
+if (becameReceived && updated.user) {
+  await sendShipmentNotification("package_received", {
+    userId: updated.user,
+    context: { packageTracking: updated.tracking || existing.tracking },
+  });
+
+  // Count packages that are received/processing and not yet attached to a
+  // shipment — i.e. eligible for consolidation right now.
+  const eligibleCount = await col.countDocuments({
+    user: updated.user,
+    status: { $in: ["Received", "Processing"] },
+    $or: [{ shipmentId: { $exists: false } }, { shipmentId: null }],
+  });
+
+  // Notify only on the crossing (2 -> 3), not on every receipt after —
+  // this package is the one that just made the count eligible, so
+  // eligibleCount - 1 is what the count was immediately before it.
+  if (eligibleCount >= 3 && eligibleCount - 1 < 3) {
+    await sendShipmentNotification("ready_to_consolidate", {
+      userId: updated.user,
+      context: { count: eligibleCount },
+    });
+  }
 }
 
 // ===============================
@@ -279,7 +310,7 @@ if (becameShipped && updated.userEmail) {
            : new Date().toLocaleString(),
           trackUrl: `${appUrl}/track?tracking=${encodeURIComponent(trackingNo)}`,
           brandName: "Cross Border Cart",
-          supportEmail: "support.crossbordercart@gmail.com",
+          supportEmail: "support@crossbordercart.com",
         }),
       });
 
@@ -339,7 +370,7 @@ if (becameDelivered && updated.userEmail) {
            : new Date().toLocaleString(),
           location: updated.location || existing.location || "Destination",
           brandName: "Cross Border Cart",
-          supportEmail: "support.crossbordercart@gmail.com",
+          supportEmail: "support@crossbordercart.com",
         }),
       });
 

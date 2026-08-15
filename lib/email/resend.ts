@@ -35,7 +35,7 @@ export async function sendEmail({
     to,
     subject,
     html: rendered,
-    replyTo: "support.crossbordercart@gmail.com",
+    replyTo: "support@crossbordercart.com",
   });
 
   if (error) throw error;

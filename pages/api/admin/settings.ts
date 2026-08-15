@@ -51,7 +51,7 @@ let settings: Settings = {
     secondaryColor: "#16a34a",
   },
   email: {
-    supportEmail: "support.crossbordercart@gmail.com",
+    supportEmail: "support@crossbordercart.com",
     smtpHost: "",
     smtpUser: "",
     smtpPass: "",

@@ -9,6 +9,7 @@ import Script from "next/script";
 import { SessionProvider } from "next-auth/react";
 import { MantineProvider } from "@mantine/core";
 import { ToastContainer } from "react-toastify";
+import CapacitorNative from "../components/CapacitorNative";
 
 const GA_MEASUREMENT_ID = "G-3H0471HBRN";
 
@@ -39,6 +40,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
       <MantineProvider>
         <SessionProvider session={pageProps.session}>
+          <CapacitorNative />
           <Component {...pageProps} />
           <ToastContainer position="top-right" autoClose={3000} />
         </SessionProvider>

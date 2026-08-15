@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import dbConnect from "@/lib/dbConnect";
 import { Shipment } from "@/lib/models/Shipment";
+import { sendShipmentNotification } from "@/lib/notifications/sendShipmentNotification";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = (await getServerSession(req, res, authOptions as any)) as any;
@@ -36,6 +37,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const sh = await Shipment.findByIdAndUpdate(shipmentId, update, { new: true }).lean();
   if (!sh) {
     return res.status(404).json({ ok: false, error: "Shipment not found" });
+  }
+
+  if (paidFlag) {
+    await sendShipmentNotification("payment_confirmed", {
+      userId: (sh as any).userId,
+      context: { trackingNumber: (sh as any).trackingNumber },
+    });
   }
 
   return res.status(200).json({ ok: true, shipment: sh });
