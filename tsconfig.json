@@ -30,6 +30,7 @@
     "node_modules",
     "mantine-test/**",
     "scripts/**",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "mobile/**"
   ]
 }
