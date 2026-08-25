@@ -90,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const shipment = await Shipment.create({
     from: {
       name: "CrossBorderCart Warehouse",
-      line1: "Mamzar / Dubai",
+      line1: "Mamzar Onyx Tower / Dubai",
       city: "Dubai",
       country: "AE",
       phone: "+971-52-535-0353",

@@ -14,6 +14,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
+import("@capacitor/browser")
 
 export default function CapacitorNative() {
   const router = useRouter();
@@ -74,18 +75,41 @@ export default function CapacitorNative() {
       // dashboard/my-shipments.tsx's "Track Shipment" link) — /track.tsx is
       // a different page (a search box keyed on ?no=/?id=/?tracking=, not
       // ?code=), so this must stay a path segment, not a query param.
-      PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-        const data = action.notification?.data as
-          | { event?: string; trackingNumber?: string; packageTracking?: string }
-          | undefined;
+      PushNotifications.addListener(
+  "pushNotificationActionPerformed",
+  async (action) => {
+       const data = action.notification?.data as
+  | {
+      event?: string;
+      trackingNumber?: string;
+      packageTracking?: string;
+      checkoutUrl?: string;
+    }
+  | undefined;
 
-        if (!data) return;
+if (!data) return;
 
-        if (data.trackingNumber) {
-          router.push(`/track/${encodeURIComponent(data.trackingNumber)}`);
-        } else if (data.packageTracking) {
-          router.push("/mypackages");
-        }
+// 💳 Payment notification -> open Stripe Checkout
+if (data.event === "payment_required" && data.checkoutUrl) {
+  const { Browser } = await import("@capacitor/browser");
+
+  await Browser.open({
+    url: data.checkoutUrl,
+  });
+
+  return;
+}
+
+// 📦 Package notification -> My Packages
+if (data.packageTracking) {
+  router.push("/mypackages");
+  return;
+}
+
+// 🚚 Shipment status notification -> tracking
+if (data.trackingNumber) {
+  router.push(`/track/${encodeURIComponent(data.trackingNumber)}`);
+}
       });
 
       listenersAttached = true;

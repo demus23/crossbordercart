@@ -325,6 +325,7 @@ export default async function handler(
           trackingNumber: finalShipment?.trackingNumber,
           amount: amountMajor,
           currency: finalCurrency,
+          checkoutUrl: checkout.url,
         },
       });
     }

@@ -806,7 +806,7 @@ export default function DashboardPage() {
     }
   };
 
-  const virtualAddress = `CrossBorderCart Warehouse
+  const virtualAddress = `CrossBorderCart Warehouse (Mamzar Onyx Tower)
 ${profile?.suiteId ? `Suite ${profile.suiteId}` : "Suite —"}
 Mamzar / Dubai, UAE
 +971-52-535-0353`;
