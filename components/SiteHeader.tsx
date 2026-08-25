@@ -4,28 +4,36 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/router";
 
+/* Matches the homepage design system: deep navy + brass gold. */
 const colors = {
-  mint: "#22c55e",
+  navy: "#0F2340",
+  navyDeep: "#081527",
+  gold: "#C9A227",
+  goldDark: "#A8841A",
+  goldSoft: "#F3E7C9",
+  ink: "#1C2436",
+  muted: "#68707F",
+  line: "#EAE3D2",
 };
 
 const headerShell: React.CSSProperties = {
   position: "sticky",
   top: 0,
   zIndex: 60,
-  background: "rgba(255,255,255,0.92)",
+  background: "rgba(255,255,255,0.94)",
   backdropFilter: "blur(10px)",
-  boxShadow: "0 4px 18px rgba(15, 23, 42, 0.06)",
+  borderBottom: `1px solid ${colors.line}`,
 };
 
 const nav: React.CSSProperties = {
   maxWidth: 1200,
   margin: "0 auto",
-  padding: "10px 14px",
+  padding: "12px 16px",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
   gap: 10,
-  position: "relative", // ✅ for dropdown positioning
+  position: "relative",
 };
 
 const navLeft: React.CSSProperties = {
@@ -35,25 +43,41 @@ const navLeft: React.CSSProperties = {
   minWidth: 0,
 };
 
-const brandName: React.CSSProperties = {
-  fontWeight: 800,
-  fontSize: 16,
-  color: "#0f172a",
+const brandStack: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  lineHeight: 1.1,
+};
+
+const brandCBC: React.CSSProperties = {
+  fontWeight: 900,
+  fontSize: 17,
+  color: colors.navy,
+  letterSpacing: "-0.01em",
   whiteSpace: "nowrap",
+};
+
+const brandFull: React.CSSProperties = {
+  fontWeight: 500,
+  fontSize: 10.5,
+  color: colors.muted,
+  whiteSpace: "nowrap",
+  letterSpacing: "0.02em",
 };
 
 const navLinkBase: React.CSSProperties = {
   fontSize: 13,
-  color: "#475569",
+  color: colors.muted,
   textDecoration: "none",
   fontWeight: 600,
   padding: "6px 0px",
   whiteSpace: "nowrap",
+  borderBottom: "2px solid transparent",
 };
 
 const navBtnBase: React.CSSProperties = {
   borderRadius: 999,
-  padding: "9px 16px",
+  padding: "10px 18px",
   fontWeight: 700,
   fontSize: 13,
   textDecoration: "none",
@@ -66,7 +90,7 @@ const navBtnBase: React.CSSProperties = {
 const desktopRow: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 18,
+  gap: 20,
 };
 
 const rightRow: React.CSSProperties = {
@@ -76,7 +100,7 @@ const rightRow: React.CSSProperties = {
 };
 
 const hamburgerBtn: React.CSSProperties = {
-  display: "none", // will be enabled via small inline logic below
+  display: "none",
   border: 0,
   background: "transparent",
   padding: 10,
@@ -87,20 +111,13 @@ const hamburgerBtn: React.CSSProperties = {
 const bar: React.CSSProperties = {
   height: 2,
   width: 22,
-  background: "#0f172a",
+  background: colors.navy,
   borderRadius: 999,
 };
 
-function NavLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const router = useRouter();
-  const active =
-    router.pathname === href || router.pathname.startsWith(href + "/");
+  const active = router.pathname === href || router.pathname.startsWith(href + "/");
 
   return (
     <Link
@@ -108,8 +125,8 @@ function NavLink({
       style={{
         ...navLinkBase,
         ...(active && {
-          color: "#0f172a",
-          borderBottom: `2px solid ${colors.mint}`,
+          color: colors.navy,
+          borderBottom: `2px solid ${colors.gold}`,
         }),
       }}
     >
@@ -121,7 +138,6 @@ function NavLink({
 export default function SiteHeader() {
   const [open, setOpen] = useState(false);
 
-  // close on route change
   const router = useRouter();
   useEffect(() => {
     const close = () => setOpen(false);
@@ -132,41 +148,41 @@ export default function SiteHeader() {
   return (
     <header style={headerShell}>
       <nav style={nav}>
-        {/* Left: Logo + brand */}
+        {/* Left: Logo — CBC dominant, "Cross Border Cart" secondary */}
         <div style={navLeft}>
           <Link
             href="/"
-            style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}
+            style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, textDecoration: "none" }}
           >
-            <div style={{ position: "relative", width: 42, height: 42, flex: "0 0 auto" }}>
+            <div style={{ position: "relative", width: 40, height: 40, flex: "0 0 auto" }}>
               <Image
                 src="/cross-border-cart-logo.png"
-                alt="Cross Border Cart logo"
+                alt="CBC logo"
                 fill
                 style={{ objectFit: "contain" }}
               />
             </div>
-            <span style={brandName}>
-              C<span style={{ color: colors.mint }}>r</span>oss Border Cart
-            </span>
+            <div style={brandStack}>
+              <span style={brandCBC}>CBC</span>
+              <span style={brandFull}>Cross Border Cart</span>
+            </div>
           </Link>
         </div>
 
         {/* Desktop center links */}
         <div className="siteheader-desktop" style={desktopRow}>
-          <NavLink href="/why">Why Cross Border Cart</NavLink>
           <NavLink href="/how-it-works">How it works</NavLink>
-          <NavLink href="/stores">Stores</NavLink>
-          <NavLink href="/pricing">Pricing</NavLink>
-          <NavLink href="/faq">FAQ</NavLink>
-           <NavLink href="/about">About</NavLink>
+          <NavLink href="/shipping">Shipping rates</NavLink>
+          <NavLink href="/destinations">Destinations</NavLink>
+          <NavLink href="/track">Track package</NavLink>
+          <NavLink href="/faq">Help</NavLink>
         </div>
 
         {/* Desktop right buttons */}
         <div className="siteheader-desktop" style={rightRow}>
           <Link
             href="/login"
-            style={{ ...navBtnBase, border: "1px solid #cbd5f5", color: "#0f172a", background: "#fff" }}
+            style={{ ...navBtnBase, border: `1.5px solid ${colors.line}`, color: colors.navy, background: "#fff" }}
           >
             Log in
           </Link>
@@ -174,12 +190,12 @@ export default function SiteHeader() {
             href="/signup"
             style={{
               ...navBtnBase,
-              background: colors.mint,
-              color: "#022c22",
-              boxShadow: "0 10px 25px rgba(34, 197, 158, 0.35)",
+              background: `linear-gradient(155deg, ${colors.gold}, ${colors.goldDark})`,
+              color: "#fff",
+              boxShadow: "0 10px 22px -10px rgba(169,132,26,0.55)",
             }}
           >
-            Get started
+            Get My UAE Address
           </Link>
         </div>
 
@@ -207,23 +223,23 @@ export default function SiteHeader() {
               right: 10,
               top: "62px",
               background: "#fff",
-              border: "1px solid #e2e8f0",
+              border: `1px solid ${colors.line}`,
               borderRadius: 16,
               padding: 12,
-              boxShadow: "0 16px 40px rgba(15,23,42,0.12)",
+              boxShadow: "0 16px 40px rgba(15,35,64,0.14)",
               display: "flex",
               flexDirection: "column",
               gap: 10,
               zIndex: 80,
             }}
           >
-            <NavLink href="/why">Why Cross Border Cart</NavLink>
             <NavLink href="/how-it-works">How it works</NavLink>
-            <NavLink href="/stores">Stores</NavLink>
-            <NavLink href="/pricing">Pricing</NavLink>
-            <NavLink href="/faq">FAQ</NavLink>
+            <NavLink href="/shipping">Shipping rates</NavLink>
+            <NavLink href="/destinations">Destinations</NavLink>
+            <NavLink href="/track">Track package</NavLink>
+            <NavLink href="/faq">Help</NavLink>
 
-            <div style={{ height: 1, background: "#e2e8f0", margin: "6px 0" }} />
+            <div style={{ height: 1, background: colors.line, margin: "6px 0" }} />
 
             <Link
               href="/login"
@@ -231,8 +247,8 @@ export default function SiteHeader() {
                 ...navBtnBase,
                 width: "100%",
                 borderRadius: 14,
-                border: "1px solid #cbd5f5",
-                color: "#0f172a",
+                border: `1.5px solid ${colors.line}`,
+                color: colors.navy,
                 background: "#fff",
                 padding: "12px 14px",
               }}
@@ -245,18 +261,17 @@ export default function SiteHeader() {
                 ...navBtnBase,
                 width: "100%",
                 borderRadius: 14,
-                background: colors.mint,
-                color: "#022c22",
+                background: `linear-gradient(155deg, ${colors.gold}, ${colors.goldDark})`,
+                color: "#fff",
                 padding: "12px 14px",
               }}
             >
-              Get started
+              Get My UAE Address
             </Link>
           </div>
         )}
       </nav>
 
-      {/* Tiny CSS to hide/show desktop vs mobile */}
       <style jsx>{`
         @media (max-width: 860px) {
           :global(.siteheader-desktop) {
