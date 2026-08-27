@@ -1,4 +1,10 @@
-// pages/about.tsx
+// pages/about.tsx — CBC design system v2 (was Bootstrap + teal, now navy/gold)
+// Same content structure as the original (hero, 4-step summary, "why we
+// built it", CTA, testimonials) — reskinned to match the rest of the site.
+// NOTE: keeps the existing Testimonials component import. Worth checking
+// whether it shows real customer testimonials — if it's placeholder content
+// like the ones removed from the homepage earlier, it should either be
+// replaced with ReviewsSection (used elsewhere on the site) or removed.
 import React from "react";
 import Head from "next/head";
 import Link from "next/link";
@@ -6,255 +12,178 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import Testimonials from "@/components/marketing/Testimonials";
 
+const C = {
+  navy: "#0F2340",
+  navyDeep: "#081527",
+  gold: "#C9A227",
+  goldDark: "#A8841A",
+  goldSoft: "#F3E7C9",
+  ivory: "#FBF8F2",
+  bg: "#FFFFFF",
+  ink: "#1C2436",
+  muted: "#68707F",
+  line: "#EAE3D2",
+};
+
+const shadowSm = "0 2px 10px -4px rgba(15,35,64,0.10)";
+const shadowMd = "0 14px 34px -14px rgba(15,35,64,0.20)";
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+      <span style={{ width: 22, height: 1, background: C.gold }} />
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "2.5px", color: C.goldDark, textTransform: "uppercase" }}>{children}</span>
+    </div>
+  );
+}
+
+const STEPS = [
+  { step: "1", title: "Create your free account", text: "Sign up and receive your personal CBC Dubai address and customer suite number." },
+  { step: "2", title: "Shop from online stores", text: "Use your CBC address as the delivery address when buying from eligible UAE stores." },
+  { step: "3", title: "We receive and prepare", text: "We receive your parcels, log them into your dashboard, and help you consolidate where eligible." },
+  { step: "4", title: "Ship to your country", text: "Choose your shipping option, complete payment, and track delivery from our warehouse to your destination." },
+];
+
 export default function AboutPage() {
   return (
     <>
       <Head>
-        <title>About Us | Cross Border Cart</title>
-        <meta
-          name="description"
-          content="Learn about Cross Border Cart, how our parcel forwarding service works, and why we built it for shoppers and resellers."
-        />
+        <title>About Us | CBC (Cross Border Cart)</title>
+        <meta name="description" content="Learn about CBC, how our package forwarding service works, and why we built it for shoppers across Africa." />
       </Head>
 
       <SiteHeader />
 
-      <main
-        style={{
-          background:
-            "linear-gradient(180deg, #f8fbff 0%, #ffffff 45%, #f8fafc 100%)",
-          minHeight: "100vh",
-        }}
-      >
-        {/* Hero */}
-        <section className="py-5 bg-white border-bottom">
-          <div className="container">
-            <div className="row align-items-center gy-4">
-              <div className="col-lg-7">
-                <span
-                  className="d-inline-flex align-items-center rounded-pill px-3 py-2 mb-3"
-                  style={{
-                    background: "#ecfeff",
-                    color: "#0f766e",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    border: "1px solid #ccfbf1",
-                  }}
-                >
-                  About Cross Border Cart
-                </span>
+      <main style={{ background: C.bg, minHeight: "100vh", fontFamily: "Inter, system-ui, -apple-system, sans-serif", color: C.ink }}>
 
-                <h1 className="display-5 fw-bold mb-3" style={{ color: "#0f172a" }}>
-                  Shop the world. <span style={{ color: "#0f766e" }}>We handle the rest.</span>
-                </h1>
-
-                <p className="lead text-muted">
-                  Cross Border Cart is your bridge between global online stores
-                  and your home country. We give you a UAE delivery address,
-                  receive your orders, help you consolidate shipments, and send
-                  them to you with full tracking and transparent pricing.
-                </p>
-
-                <ul className="list-unstyled text-muted mb-4" style={{ lineHeight: 1.9 }}>
-                  <li>✓ Personal UAE shipping address</li>
-                  <li>✓ Parcel receiving and consolidation</li>
-                  <li>✓ Delivery to Africa and beyond</li>
-                  <li>✓ Clear pricing and live shipment tracking</li>
-                </ul>
-
-                <div className="d-flex flex-wrap gap-2">
-                  <Link href="/signup" className="btn btn-dark rounded-pill px-4">
-                    Create your free account
-                  </Link>
-                  <Link href="/how-it-works" className="btn btn-outline-secondary rounded-pill px-4">
-                    How it works
-                  </Link>
-                </div>
+        {/* ═══ HERO ═══ */}
+        <section style={{ background: `linear-gradient(180deg, ${C.ivory} 0%, #fff 100%)`, padding: "clamp(44px, 6vw, 64px) clamp(16px, 4vw, 40px)" }}>
+          <div className="about-hero-grid" style={{ maxWidth: 1140, margin: "0 auto", alignItems: "center" }}>
+            <div>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.goldSoft, border: `1px solid ${C.gold}`, color: C.goldDark, fontSize: 12, fontWeight: 700, padding: "7px 15px", borderRadius: 99, marginBottom: 20 }}>
+                About CBC
+              </span>
+              <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(2rem, 4.5vw, 3rem)", fontWeight: 600, lineHeight: 1.15, color: C.navy, marginBottom: 18 }}>
+                Shop the world.<br /><span style={{ color: C.goldDark, fontStyle: "italic" }}>We handle the rest.</span>
+              </h1>
+              <p style={{ fontSize: 16, color: C.muted, lineHeight: 1.75, maxWidth: 480, marginBottom: 22 }}>
+                CBC is your bridge between UAE online stores and your home country. We give you a Dubai delivery address, receive your orders, help you consolidate eligible shipments, and send them on with tracking and transparent pricing.
+              </p>
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 26px", display: "flex", flexDirection: "column", gap: 9 }}>
+                {["Personal CBC Dubai address", "Package receiving and consolidation", "Delivery to Africa, with more destinations coming", "Real quotes and shipment tracking"].map((t) => (
+                  <li key={t} style={{ fontSize: 14, color: C.ink, display: "flex", alignItems: "center", gap: 9 }}>
+                    <span style={{ color: C.goldDark, fontWeight: 900 }}>✓</span>{t}
+                  </li>
+                ))}
+              </ul>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <Link href="/signup" style={{ background: `linear-gradient(155deg, ${C.gold}, ${C.goldDark})`, color: "#fff", fontWeight: 700, fontSize: 15, padding: "14px 26px", borderRadius: 12, textDecoration: "none" }}>
+                  Create your free account
+                </Link>
+                <Link href="/how-it-works" style={{ background: "#fff", color: C.navy, border: `1.5px solid ${C.line}`, fontWeight: 700, fontSize: 15, padding: "14px 24px", borderRadius: 12, textDecoration: "none" }}>
+                  How it works
+                </Link>
               </div>
+            </div>
 
-              <div className="col-lg-5">
-                <div
-                  className="card shadow-sm border-0"
-                  style={{ borderRadius: 20, overflow: "hidden" }}
-                >
-                  <div
-                    className="px-4 py-3"
-                    style={{
-                      background:
-                        "linear-gradient(90deg, #0f172a 0%, #1e293b 100%)",
-                      color: "#fff",
-                    }}
-                  >
-                    <h5 className="mb-1">Example live shipment</h5>
-                    <p className="small mb-0" style={{ color: "rgba(255,255,255,0.8)" }}>
-                      A simple example of how a tracked shipment looks
-                    </p>
-                  </div>
-
-                  <div className="card-body p-4">
-                    <p className="mb-1 fw-semibold">ABC2345 · In transit</p>
-                    <p className="small text-muted mb-3">
-                      From Dubai, UAE → Nairobi, Kenya
-                    </p>
-
-                    <div className="progress mb-2" style={{ height: 8 }}>
-                      <div
-                        className="progress-bar"
-                        role="progressbar"
-                        style={{ width: "65%", backgroundColor: "#0f766e" }}
-                        aria-valuenow={65}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                      />
-                    </div>
-
-                    <p className="small text-muted mb-0">
-                      Consolidated electronics and fashion order with active
-                      tracking and shipment updates.
-                    </p>
-                  </div>
+            {/* Example shipment card — clearly illustrative, matches the honesty
+                pattern used elsewhere (Package Control card on the homepage) */}
+            <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 20, boxShadow: shadowMd, overflow: "hidden" }}>
+              <div style={{ background: `linear-gradient(155deg, ${C.navy}, ${C.navyDeep})`, padding: "16px 22px" }}>
+                <div style={{ color: "#fff", fontWeight: 800, fontSize: 15, marginBottom: 3 }}>Example shipment</div>
+                <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 12.5 }}>What a tracked CBC shipment looks like</div>
+              </div>
+              <div style={{ padding: 22 }}>
+                <div style={{ fontWeight: 800, color: C.navy, fontSize: 15, marginBottom: 3 }}>CBC-20487 · In transit</div>
+                <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Dubai, UAE → Nairobi, Kenya</div>
+                <div style={{ height: 7, background: C.ivory, borderRadius: 99, overflow: "hidden", marginBottom: 14 }}>
+                  <div style={{ width: "65%", height: "100%", background: `linear-gradient(90deg, ${C.gold}, ${C.goldDark})`, borderRadius: 99 }} />
                 </div>
+                <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: 0 }}>
+                  Consolidated fashion and electronics order with active tracking and status updates.
+                </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* How it works summary */}
-        <section className="py-5" style={{ background: "#f8fafc" }}>
-          <div className="container">
-            <div className="text-center mb-4">
-              <h2 className="h3 fw-bold mb-2" style={{ color: "#0f172a" }}>
-                How Cross Border Cart works
-              </h2>
-              <p className="text-muted mb-0">
-                A simple parcel forwarding process designed for both shoppers and resellers.
-              </p>
+        {/* ═══ HOW IT WORKS SUMMARY ═══ */}
+        <section style={{ padding: "64px clamp(16px, 4vw, 40px)", background: C.ivory }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 36 }}>
+              <h2 style={{ fontSize: "clamp(1.5rem, 3vw, 2.1rem)", fontWeight: 900, letterSpacing: "-0.01em", color: C.navy, marginBottom: 8 }}>How CBC works</h2>
+              <p style={{ fontSize: 14.5, color: C.muted }}>A simple forwarding process designed for shoppers, start to finish.</p>
             </div>
-
-            <div className="row g-4">
-              {[
-                {
-                  step: "1",
-                  title: "Create your free account",
-                  text: "Sign up and receive your personal UAE warehouse address and customer suite number.",
-                },
-                {
-                  step: "2",
-                  title: "Shop from online stores",
-                  text: "Use your Cross Border Cart address as the shipping address when buying from supported stores.",
-                },
-                {
-                  step: "3",
-                  title: "We receive and prepare",
-                  text: "We receive your parcels, log them into your dashboard, and help you consolidate where available.",
-                },
-                {
-                  step: "4",
-                  title: "Ship to your country",
-                  text: "Choose your shipping option, complete payment, and track delivery from our warehouse to your destination.",
-                },
-              ].map((item) => (
-                <div key={item.step} className="col-md-6 col-xl-3">
-                  <div
-                    className="card h-100 border-0 shadow-sm"
-                    style={{ borderRadius: 20 }}
-                  >
-                    <div className="card-body p-4">
-                      <div
-                        className="fw-bold d-inline-flex align-items-center justify-content-center mb-3"
-                        style={{
-                          width: 38,
-                          height: 38,
-                          borderRadius: "999px",
-                          background: "rgba(15,118,110,0.12)",
-                          color: "#0f766e",
-                        }}
-                      >
-                        {item.step}
-                      </div>
-
-                      <h5 className="card-title">{item.title}</h5>
-                      <p className="card-text small text-muted">{item.text}</p>
-                    </div>
-                  </div>
+            <div className="about-steps-grid">
+              {STEPS.map((item) => (
+                <div key={item.step} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 18, padding: 24, boxShadow: shadowSm }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: "50%",
+                    background: `linear-gradient(155deg, ${C.navy}, ${C.navyDeep})`, border: `2px solid ${C.gold}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 800, fontSize: 15, color: C.gold, marginBottom: 16,
+                  }}>{item.step}</div>
+                  <div style={{ fontSize: 15.5, fontWeight: 800, color: C.navy, marginBottom: 8 }}>{item.title}</div>
+                  <p style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.65, margin: 0 }}>{item.text}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Why we built it */}
-        <section className="py-5 bg-white">
-          <div className="container">
-            <div className="row gy-4 align-items-center">
-              <div className="col-lg-6">
-                <h2 className="h3 fw-bold mb-3" style={{ color: "#0f172a" }}>
-                  Built for shoppers in Africa and emerging markets
-                </h2>
-
-                <p className="text-muted">
-                  Many websites do not ship directly to African countries, or
-                  they charge very high delivery fees. Cross Border Cart was
-                  created to make international shopping more accessible,
-                  affordable, and reliable.
-                </p>
-
-                <p className="text-muted mb-0">
-                  Our goal is to make the experience simple from the first order
-                  to final delivery, with clear communication, fair pricing, and
-                  better visibility at every stage of shipment.
-                </p>
-              </div>
-
-              <div className="col-lg-6">
-                <div
-                  className="card border-0 shadow-sm"
-                  style={{ borderRadius: 20 }}
-                >
-                  <div className="card-body p-4">
-                    <h5 className="card-title mb-3">Why customers choose us</h5>
-                    <ul className="small text-muted mb-0 ps-3" style={{ lineHeight: 1.9 }}>
-                      <li>Dedicated suite ID for each customer</li>
-                      <li>Warehouse operations based in Dubai, UAE</li>
-                      <li>Email and customer support assistance</li>
-                      <li>Tracking visibility inside the dashboard</li>
-                      <li>Designed for both personal shoppers and resellers</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
+        {/* ═══ WHY WE BUILT IT ═══ */}
+        <section style={{ padding: "64px clamp(16px, 4vw, 40px)", background: "#fff" }}>
+          <div className="about-why-grid" style={{ maxWidth: 1100, margin: "0 auto", alignItems: "center" }}>
+            <div>
+              <Eyebrow>Why CBC</Eyebrow>
+              <h2 style={{ fontSize: "clamp(1.4rem, 2.8vw, 1.9rem)", fontWeight: 900, letterSpacing: "-0.01em", color: C.navy, marginBottom: 16 }}>
+                Built for shoppers across Africa
+              </h2>
+              <p style={{ fontSize: 14.5, color: C.muted, lineHeight: 1.8, marginBottom: 14 }}>
+                Many online stores don't ship directly to African countries, or charge very high delivery fees when they do. CBC was built to make shopping UAE stores more accessible, affordable, and reliable — without the guesswork.
+              </p>
+              <p style={{ fontSize: 14.5, color: C.muted, lineHeight: 1.8 }}>
+                Our goal is to keep the experience simple from your first order to final delivery — clear communication, honest pricing, and real visibility at every stage of your shipment.
+              </p>
+            </div>
+            <div style={{ background: C.ivory, border: `1px solid ${C.line}`, borderRadius: 20, padding: 28 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.navy, marginBottom: 16 }}>Why customers choose CBC</div>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  "Dedicated suite ID for each customer",
+                  "Warehouse operations based in Dubai, UAE",
+                  "WhatsApp and email support",
+                  "Tracking visibility inside your dashboard",
+                  "Built for personal shoppers, with more services planned",
+                ].map((t) => (
+                  <li key={t} style={{ fontSize: 13.5, color: C.ink, display: "flex", alignItems: "center", gap: 9 }}>
+                    <span style={{ color: C.goldDark, fontWeight: 900 }}>✓</span>{t}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="py-5" style={{ background: "#f8fafc" }}>
-          <div className="container">
-            <div
-              className="text-center shadow-sm"
-              style={{
-                background: "#ffffff",
-                borderRadius: 24,
-                padding: "40px 24px",
-                border: "1px solid #e5e7eb",
-              }}
-            >
-              <h2 className="h3 fw-bold mb-3" style={{ color: "#0f172a" }}>
-                Ready to start shipping smarter?
-              </h2>
-              <p className="text-muted mb-4" style={{ maxWidth: 680, margin: "0 auto" }}>
-                Open your free account, get your UAE shipping address, and start
-                managing your cross-border orders with more clarity and control.
-              </p>
-
-              <div className="d-flex justify-content-center flex-wrap gap-2">
-                <Link href="/signup" className="btn btn-dark rounded-pill px-4">
-                  Create free account
-                </Link>
-                <Link href="/contact" className="btn btn-outline-secondary rounded-pill px-4">
-                  Contact us
-                </Link>
-              </div>
+        {/* ═══ CTA ═══ */}
+        <section style={{ padding: "60px clamp(16px, 4vw, 40px) 70px", background: C.ivory }}>
+          <div style={{
+            maxWidth: 900, margin: "0 auto", textAlign: "center",
+            background: `linear-gradient(155deg, ${C.navy}, ${C.navyDeep})`,
+            borderRadius: 24, padding: "clamp(32px, 5vw, 48px)", color: "#fff",
+            boxShadow: shadowMd,
+          }}>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 600, marginBottom: 12 }}>Ready to start shipping smarter?</h2>
+            <p style={{ fontSize: 14.5, color: "rgba(255,255,255,0.78)", lineHeight: 1.7, marginBottom: 26, maxWidth: 480, marginLeft: "auto", marginRight: "auto" }}>
+              Open your free account, get your CBC Dubai address, and start managing your orders with more clarity and control.
+            </p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <Link href="/signup" style={{ background: `linear-gradient(155deg, ${C.gold}, ${C.goldDark})`, color: "#fff", fontWeight: 700, fontSize: 15, padding: "14px 28px", borderRadius: 12, textDecoration: "none" }}>
+                Create free account
+              </Link>
+              <Link href="/contact" style={{ background: "rgba(255,255,255,0.08)", color: "#fff", border: "1.5px solid rgba(255,255,255,0.3)", fontWeight: 700, fontSize: 15, padding: "14px 24px", borderRadius: 12, textDecoration: "none" }}>
+                Contact us
+              </Link>
             </div>
           </div>
         </section>
@@ -263,6 +192,20 @@ export default function AboutPage() {
       </main>
 
       <SiteFooter />
+
+      <style jsx global>{`
+        .about-hero-grid  { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; }
+        .about-steps-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .about-why-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+        @media (max-width: 860px) {
+          .about-hero-grid  { grid-template-columns: 1fr; }
+          .about-steps-grid { grid-template-columns: repeat(2, 1fr); }
+          .about-why-grid   { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 560px) {
+          .about-steps-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </>
   );
 }

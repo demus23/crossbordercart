@@ -1,118 +1,120 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Updated sitemap covering every real page built so far.
+  IMPORTANT before deploying:
+  - This assumes your homepage is at "/" and lastmod dates reflect when each
+    page was last substantively edited in this project — adjust if that
+    doesn't match your actual deploy history.
+  - Nav links like /how-it-works, /shipping, /destinations (index), /track,
+    /faq, /why exist in SiteHeader.tsx but the PAGES themselves may not be
+    built yet. Do NOT list a URL here until the page is live, or Search
+    Console will flag it as a 404 / soft-404. Add each one as you build it.
+  - If you already had a sitemap.xml with other real URLs (blog posts,
+    legacy pages, etc.), merge those in — this file only includes what was
+    built during this project.
+-->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
-  <!-- Core pages -->
   <url>
     <loc>https://crossbordercart.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+
   <url>
-    <loc>https://crossbordercart.com/ship-to</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/shipping-calculator</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/pricing</loc>
+    <loc>https://crossbordercart.com/login</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/how-it-works</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/why</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/faq</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/shipping</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/terms</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/privacy</loc>
-    <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
 
-  <!-- Country pages -->
   <url>
-    <loc>https://crossbordercart.com/ship-to/kenya</loc>
+    <loc>https://crossbordercart.com/signup</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://crossbordercart.com/consolidation</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://crossbordercart.com/request-item</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Destinations -->
+  <url>
+    <loc>https://crossbordercart.com/destinations/ethiopia</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
+  <!-- Add one <url> block per country as you build each destination page,
+       e.g. /destinations/nigeria, /destinations/kenya, /destinations/ghana -->
+
+  <!-- Guides hub -->
   <url>
-    <loc>https://crossbordercart.com/ship-to/uganda</loc>
+    <loc>https://crossbordercart.com/guides</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Guides — Shopping -->
+  <url>
+    <loc>https://crossbordercart.com/guides/shop-uae-ship-to-ethiopia</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://crossbordercart.com/ship-to/tanzania</loc>
+    <loc>https://crossbordercart.com/guides/shop-uae-ship-to-nigeria</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Guides — Shipping -->
+  <url>
+    <loc>https://crossbordercart.com/guides/how-package-forwarding-works</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://crossbordercart.com/ship-to/rwanda</loc>
+    <loc>https://crossbordercart.com/guides/package-consolidation-explained</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://crossbordercart.com/ship-to/ethiopia</loc>
+    <loc>https://crossbordercart.com/guides/actual-vs-volumetric-weight</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://crossbordercart.com/ship-to/somalia</loc>
+    <loc>https://crossbordercart.com/guides/ship-electronics-from-dubai</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://crossbordercart.com/ship-to/nigeria</loc>
+    <loc>https://crossbordercart.com/guides/what-cant-be-shipped-from-uae</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Guides — Deals & Sales (time-sensitive; keep "Last updated" on the page in sync with any edits) -->
+  <url>
+    <loc>https://crossbordercart.com/guides/best-times-to-shop-uae-sales</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://crossbordercart.com/ship-to/ghana</loc>
+    <loc>https://crossbordercart.com/guides/dubai-shopping-festival-guide</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://crossbordercart.com/ship-to/south-africa</loc>
+    <loc>https://crossbordercart.com/guides/ramadan-eid-sales-uae</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/ship-to/zambia</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/ship-to/egypt</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://crossbordercart.com/ship-to/morocco</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <priority>0.5</priority>
   </url>
 
 </urlset>

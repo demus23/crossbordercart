@@ -169,11 +169,63 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* ═══ NEW: Recent Shipments card ═══
-   PLACEHOLDER DATA — replace with real completed shipments before this goes
-   live. Never include customer names, phone numbers, or addresses — route,
-   weight, and status only. Swap RECENT_SHIPMENTS for a real API/DB pull
-   (e.g. GET /api/recent-shipments filtered to isPublicSafe/delivered) when ready. */
+/* ═══ NEW: sample address card with real copy-to-clipboard.
+   Values shown are an illustrative example, not an assigned real address —
+   each customer's actual address and suite ID are generated on signup. ═══ */
+function AddressCard() {
+  const [copied, setCopied] = useState(false);
+  const SAMPLE = "Amina W. (CBC-10482), CBC Receiving Centre – Example, Dubai, United Arab Emirates";
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(SAMPLE);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard API unavailable — fail silently, button just won't confirm
+    }
+  };
+
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 20, boxShadow: shadowMd, overflow: "hidden", maxWidth: 400, margin: "0 auto", width: "100%" }}>
+      <div style={{ background: `linear-gradient(155deg, ${C.navy}, ${C.navyDeep})`, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ color: "#fff", fontWeight: 800, fontSize: 13.5 }}>Your CBC Dubai address</span>
+        <img src="https://flagcdn.com/w40/ae.png" alt="" width={22} height={16} style={{ borderRadius: 3 }} />
+      </div>
+      <div style={{ padding: 22 }}>
+        {[
+          ["Name", "Amina W. (CBC-10482)"],
+          ["Address", "CBC Receiving Centre – Example"],
+          ["City", "Dubai"],
+          ["Country", "United Arab Emirates"],
+          ["Phone", "Provided after signup"],
+        ].map(([k, v], i, arr) => (
+          <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: i < arr.length - 1 ? `1px dashed ${C.line}` : "none", fontSize: 13.5 }}>
+            <span style={{ color: C.muted }}>{k}</span>
+            <span style={{ fontWeight: 700, color: C.navy, textAlign: "right" }}>{v}</span>
+          </div>
+        ))}
+        <button
+          onClick={handleCopy}
+          style={{
+            width: "100%", marginTop: 16, background: copied ? C.goldSoft : C.ivory,
+            color: C.goldDark, border: `1.5px dashed ${C.gold}`, borderRadius: 10,
+            padding: 12, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+          }}
+        >
+          {copied ? "✓ Copied!" : "📋 Copy address — paste it at checkout"}
+        </button>
+        <p style={{ fontSize: 11, color: C.muted, opacity: 0.75, textAlign: "center", marginTop: 12, marginBottom: 0 }}>
+          Example address shown. Your actual CBC address and suite ID are generated when you create an account.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ DISABLED along with the Recent Shipments section below — see that
+   block's comment for why. Uncomment together when real data is ready.
+
 type Shipment = { fromCode: string; fromCity: string; toCode: string; toCity: string; weight: string; status: string };
 const RECENT_SHIPMENTS: Shipment[] = [
   { fromCode: "ae", fromCity: "Dubai", toCode: "er", toCity: "Asmara", weight: "3.4 kg", status: "Delivered" },
@@ -197,6 +249,7 @@ function ShipmentCard({ s }: { s: Shipment }) {
     </div>
   );
 }
+*/
 
 /* ═══ NEW: Consolidation flow diagram ═══ */
 function FlowNode({ icon, label, sub, dark }: { icon: string; label: string; sub?: string; dark?: boolean }) {
@@ -250,15 +303,20 @@ function ShipRow({ item }: { item: ShipRule }) {
    MAIN PAGE
 ═══════════════════════════════════════════ */
 export default function HomePage() {
+  // Real store names shown as plain text with a neutral icon — deliberately
+  // NOT using each brand's actual logo or trademarked colors, since that could
+  // read as an official partnership. Paired with an explicit disclaimer below
+  // the grid. Swap/expand this list as you confirm which retailers you want
+  // to highlight; these are simply well-known examples.
   const CATEGORIES = [
-    { emoji: "📱", name: "Electronics" },
-    { emoji: "👗", name: "Fashion & Beauty" },
-    { emoji: "🛋️", name: "Home & Living" },
-    { emoji: "🏋️", name: "Sports & Fitness" },
-    { emoji: "🧸", name: "Toys & Baby" },
-    { emoji: "📚", name: "Books & Media" },
-    { emoji: "💊", name: "Health & Wellness" },
-    { emoji: "🛒", name: "Groceries & Essentials" },
+    { emoji: "📦", name: "Amazon.ae" },
+    { emoji: "✨", name: "Noon" },
+    { emoji: "👗", name: "SHEIN" },
+    { emoji: "👖", name: "Zara" },
+    { emoji: "🛍️", name: "Namshi" },
+    { emoji: "🛋️", name: "IKEA" },
+    { emoji: "👟", name: "Adidas" },
+    { emoji: "💄", name: "Sephora" },
   ];
 
   const FEATURED_COUNTRIES = [
@@ -284,18 +342,18 @@ export default function HomePage() {
   return (
     <div style={{ background: C.bg, minHeight: "100vh", overflowX: "hidden", fontFamily: "Inter, system-ui, -apple-system, sans-serif", color: C.ink }}>
       <Head>
-        <title>CBC (Cross Border Cart) – Shop from Dubai, delivered to Africa</title>
-        <meta name="description" content="CBC gives you a free UAE shipping address so you can shop from Dubai stores and have your packages delivered to your door in Africa." />
+        <title>CBC – Shop Online & Ship to Africa from Dubai</title>
+        <meta name="description" content="Get your CBC UAE shopping address, shop from online stores that deliver to the UAE, consolidate eligible packages, and ship to supported destinations across Africa." />
         <meta name="keywords" content="CBC, Cross Border Cart, UAE shipping address, Dubai to Africa, package forwarding, ship to Kenya, ship to Ethiopia, ship to Nigeria" />
         <meta name="robots" content="index,follow" />
         <meta property="og:type" content="website" />
-        <meta property="og:title" content="CBC – Shop from Dubai, delivered to Africa" />
-        <meta property="og:description" content="Free UAE address. Shop any Dubai store. We receive, combine and ship your packages to your door in Africa." />
+        <meta property="og:title" content="CBC – Shop Online. Ship to Africa." />
+        <meta property="og:description" content="Your CBC UAE address for online shopping, package consolidation and international delivery across supported African destinations." />
         <meta property="og:image" content={`${SITE_URL}/og-cross-border-cart.png`} />
         <meta property="og:url" content={SITE_URL} />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="CBC – Shop from Dubai, delivered to Africa" />
-        <meta name="twitter:description" content="Free UAE address. Shop any Dubai store. We deliver to your door in Africa." />
+        <meta name="twitter:title" content="CBC – Shop Online. Ship to Africa." />
+        <meta name="twitter:description" content="Your CBC UAE address for online shopping, package consolidation and international delivery across supported African destinations." />
         <meta name="twitter:image" content={`${SITE_URL}/og-cross-border-cart.png`} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -309,13 +367,13 @@ export default function HomePage() {
         <div className="hero-grid" style={{ maxWidth: 1160, margin: "0 auto", alignItems: "center" }}>
           <div>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8, background: C.goldSoft, border: `1px solid ${C.gold}`, color: C.goldDark, fontSize: 12, fontWeight: 700, padding: "7px 15px", borderRadius: 99, marginBottom: 22 }}>
-              📦 CBC — Shop in UAE. We deliver to Africa.
+              📦 CBC — Shop Online. We deliver to Africa, with more destinations coming.
             </span>
             <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: "clamp(2.3rem, 5.5vw, 3.7rem)", fontWeight: 600, lineHeight: 1.1, letterSpacing: "-0.01em", marginBottom: 20, color: C.navy }}>
-              Shop UAE.<br />Deliver to <span style={{ color: C.goldDark, fontStyle: "italic" }}>Africa.</span>
+              Shop Online.<br />Ship to <span style={{ color: C.goldDark, fontStyle: "italic" }}>Africa.</span>
             </h1>
             <p style={{ fontSize: 17, color: C.muted, lineHeight: 1.7, maxWidth: 460, marginBottom: 30 }}>
-              Get your free CBC address in Dubai, shop from your favourite UAE stores, and let us handle the journey to your door.
+              Get your CBC UAE address, shop from online stores that deliver to the UAE, and let CBC handle the journey to your destination.
             </p>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 28 }}>
               <Link href="/signup" style={{ background: `linear-gradient(155deg, ${C.gold}, ${C.goldDark})`, color: "#fff", fontWeight: 700, fontSize: 15, padding: "15px 28px", borderRadius: 12, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, boxShadow: "0 10px 24px -10px rgba(169,132,26,0.55)" }}>
@@ -349,18 +407,42 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ═══ 1b. NEW — YOUR SHOPPING ADDRESS IN DUBAI ═══ */}
+      <section style={{ padding: "56px clamp(16px, 4vw, 40px)", background: "#fff" }}>
+        <div className="addr-grid" style={{ maxWidth: 1100, margin: "0 auto", alignItems: "center" }}>
+          <div>
+            <Eyebrow>Receive</Eyebrow>
+            <h2 style={{ fontFamily: "Inter, sans-serif", fontSize: "clamp(1.5rem, 3vw, 2.1rem)", fontWeight: 900, letterSpacing: "-0.01em", color: C.navy, marginBottom: 14 }}>
+              Your Shopping Address in Dubai
+            </h2>
+            <p style={{ fontSize: 15, color: C.muted, lineHeight: 1.75, marginBottom: 18 }}>
+              When you create a CBC account, you get a personal Dubai address. Use it as the delivery address at checkout on any store that can ship there — your packages arrive at our warehouse, not your inbox full of tracking confusion.
+            </p>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 9 }}>
+              {["One address for every order", "Photographed the moment it arrives", "Yours to reuse for every future purchase"].map((t) => (
+                <li key={t} style={{ fontSize: 13.5, color: C.ink, display: "flex", alignItems: "center", gap: 9 }}>
+                  <span style={{ color: C.goldDark, fontWeight: 900 }}>✓</span>{t}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <AddressCard />
+        </div>
+      </section>
+
       {/* ═══ 2. HOW IT WORKS ═══ */}
       <section style={{ padding: "88px clamp(16px, 4vw, 40px) 60px", background: "#fff" }}>
         <div style={{ maxWidth: 1120, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 52 }}>
             <Eyebrow>Simple &amp; Secure</Eyebrow>
-            <h2 style={{ fontFamily: "Inter, sans-serif", fontSize: "clamp(1.7rem, 3.5vw, 2.5rem)", fontWeight: 900, letterSpacing: "-0.01em", color: C.navy, marginBottom: 8 }}>From UAE Shopping to Your Door</h2>
-            <p style={{ fontSize: 15, color: C.muted }}>Shopping in the UAE is easy. Getting it to Africa is even easier.</p>
+            <h2 style={{ fontFamily: "Inter, sans-serif", fontSize: "clamp(1.7rem, 3.5vw, 2.5rem)", fontWeight: 900, letterSpacing: "-0.01em", color: C.navy, marginBottom: 8 }}>From Online Shopping to Your Door</h2>
+            <p style={{ fontSize: 15, color: C.muted }}>Shop online. Getting it from your CBC UAE address to your destination is the part we handle.</p>
           </div>
           <div style={{ position: "relative" }}>
             <div className="steps-connector" style={{ position: "absolute", top: 32, left: "10%", right: "10%", height: 1, background: `linear-gradient(90deg, transparent, ${C.gold}88 15%, ${C.gold}88 85%, transparent)` }} />
             <div className="steps-5-grid">
-              <Step n="1" icon="🛍️" title="Shop" desc="Shop from your favourite UAE stores." />
+              <Step n="1" icon="🛍️" title="Shop" desc="Shop from eligible online stores that deliver to your CBC UAE address." />
               <Step n="2" icon="📍" title="Send to CBC" desc="Use your personal CBC UAE address at checkout." />
               <Step n="3" icon="🏬" title="We Receive" desc="Your purchases arrive at our Dubai warehouse." />
               <Step n="4" icon="📦" title="Consolidate & Ship" desc="We can consolidate eligible packages into one shipment to simplify delivery and potentially reduce shipping costs." />
@@ -375,7 +457,16 @@ export default function HomePage() {
         <LandedCostCalculator />
       </div>
 
-      {/* ═══ 4. NEW — RECENT CBC SHIPMENTS ═══ */}
+      {/*
+        ═══ 4. RECENT CBC SHIPMENTS — TEMPORARILY DISABLED ═══
+        This section is commented out on purpose. RECENT_SHIPMENTS (defined
+        near the top of this file) is still placeholder data, but the section
+        copy told visitors "only real, completed shipments are shown here" —
+        that's a direct contradiction and shouldn't ship live.
+
+        To re-enable: replace RECENT_SHIPMENTS with real completed shipments
+        (or wire it to a real API/DB call), then uncomment this block.
+
       <section style={{ padding: "72px clamp(16px, 4vw, 40px)", background: C.ivory }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 34 }}>
@@ -396,6 +487,7 @@ export default function HomePage() {
           </p>
         </div>
       </section>
+      */}
 
       {/* ═══ 5. NEW — CONSOLIDATION ═══ */}
       <section style={{ padding: "76px clamp(16px, 4vw, 40px)", background: "#fff" }}>
@@ -418,7 +510,7 @@ export default function HomePage() {
             <FlowNode icon="✈️" label="Delivered to You" dark />
           </div>
           <p style={{ fontSize: 15, color: C.muted, lineHeight: 1.7, maxWidth: 540, margin: "36px auto 16px", textAlign: "center" }}>
-            Send eligible purchases from different UAE stores to your CBC address. Once they arrive, you can request consolidation before international shipping.
+            Send eligible purchases from different online stores to your CBC UAE address. Once they arrive, you can request consolidation before international shipping.
           </p>
           <div style={{ textAlign: "center" }}>
             <Link href="/consolidation" style={{ fontSize: 13.5, fontWeight: 700, color: C.goldDark, textDecoration: "none", borderBottom: `1px solid ${C.gold}88`, paddingBottom: 2 }}>
@@ -478,22 +570,41 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ 7. SHOP UAE CATEGORIES ═══ */}
+      {/* ═══ 7. SHOP WITHOUT BORDERS (was "Shop from UAE stores") ═══ */}
       <section style={{ padding: "72px clamp(16px, 4vw, 40px)", background: "#fff" }}>
         <div style={{ maxWidth: 1120, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 36 }}>
-            <Eyebrow>What you can order</Eyebrow>
-            <h2 style={{ fontFamily: "Inter, sans-serif", fontSize: "clamp(1.5rem, 3vw, 2.1rem)", fontWeight: 900, letterSpacing: "-0.01em", color: C.navy, marginBottom: 8 }}>Shop from UAE stores</h2>
-            <p style={{ fontSize: 14, color: C.muted, maxWidth: 480, margin: "0 auto" }}>
-              Use your CBC Dubai address when shopping with participating UAE retailers and marketplaces — here are a few popular categories as examples.
+            <Eyebrow>Shop Without Borders</Eyebrow>
+            <h2 style={{ fontFamily: "Inter, sans-serif", fontSize: "clamp(1.5rem, 3vw, 2.1rem)", fontWeight: 900, letterSpacing: "-0.01em", color: C.navy, marginBottom: 8 }}>Shop Online. We'll Handle the Rest.</h2>
+            <p style={{ fontSize: 14, color: C.muted, maxWidth: 560, margin: "0 auto" }}>
+              Shop from eligible online stores that can deliver to your CBC Dubai address. From fashion and electronics to beauty, home and more — send your purchases to CBC and we'll handle the next step.
             </p>
           </div>
           <div className="cats-4-grid">
             {CATEGORIES.map((s) => <CategoryCard key={s.name} icon={s.emoji} name={s.name} />)}
           </div>
-          <p style={{ fontSize: 11.5, color: C.muted, opacity: 0.8, textAlign: "center", marginTop: 22 }}>
-            Categories shown as examples only. CBC is not affiliated with or endorsed by any specific retailer.
+
+          <p style={{ fontSize: 11.5, color: C.muted, opacity: 0.8, textAlign: "center", maxWidth: 620, margin: "20px auto 0", lineHeight: 1.7 }}>
+            Popular examples — not an exhaustive list. Retailer names shown are for reference only; CBC is not affiliated with or endorsed by these retailers, and delivery availability can vary or change.
           </p>
+
+          {/* Request an Item — visually distinct from the category grid above */}
+          <div style={{
+            marginTop: 34, background: `linear-gradient(155deg, ${C.navy}, ${C.navyDeep})`,
+            borderRadius: 20, padding: "clamp(24px, 4vw, 36px)", color: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, flex: "1 1 320px" }}>
+              <span style={{ fontSize: 30, flexShrink: 0 }}>🔎</span>
+              <div>
+                <div style={{ fontSize: 16.5, fontWeight: 800, marginBottom: 4 }}>Can't find what you're looking for?</div>
+                <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.78)", lineHeight: 1.6 }}>Tell us what you're looking for and we'll help you check available sourcing options.</div>
+              </div>
+            </div>
+            <Link href="/request-item" style={{ background: `linear-gradient(155deg, ${C.gold}, ${C.goldDark})`, color: "#fff", fontWeight: 700, fontSize: 14, padding: "13px 24px", borderRadius: 10, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}>
+              Request an Item →
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -612,6 +723,7 @@ export default function HomePage() {
         body { background: #ffffff !important; }
 
         .hero-grid      { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; }
+        .addr-grid      { display: grid; grid-template-columns: 1fr 0.85fr; gap: 48px; }
         .steps-5-grid   { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; position: relative; }
         .cats-4-grid    { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         .trust-3-grid   { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
@@ -619,6 +731,7 @@ export default function HomePage() {
 
         @media (max-width: 860px) {
           .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+          .addr-grid { grid-template-columns: 1fr; gap: 32px; }
         }
         @media (max-width: 640px) {
           .steps-5-grid    { grid-template-columns: 1fr; gap: 32px; }
