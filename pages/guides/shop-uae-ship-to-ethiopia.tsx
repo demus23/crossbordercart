@@ -40,7 +40,7 @@ export default function Guide() {
       </ul>
 
       <div className="callout">
-        CBC gives you a free UAE address, photographs every package that arrives, and lets you consolidate eligible orders before shipping to Ethiopia. <Link className="inline-link" href="/destinations/ethiopia">See the full Ethiopia shipping page →</Link>
+        CBC gives you a free UAE address, photographs every package that arrives, and lets you consolidate eligible orders before shipping to Ethiopia. <Link className="inline-link" href="/ship-to/ethiopia">See the full Ethiopia shipping page →</Link>
       </div>
 
       <h2>A realistic first order</h2>
