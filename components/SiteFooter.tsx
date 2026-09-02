@@ -2,6 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { FaWhatsapp, FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
+import { trackClarityEvent } from "@/lib/clarity";
 
 const footerShell: React.CSSProperties = {
   marginTop: 80,
@@ -128,6 +129,7 @@ export default function SiteFooter() {
     rel="noreferrer"
     style={socialIcon}
     aria-label="WhatsApp"
+    onClick={() => trackClarityEvent("whatsapp_click_footer")}
   >
     <FaWhatsapp size={20} />
   </a>

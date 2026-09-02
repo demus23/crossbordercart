@@ -12,6 +12,7 @@ import { ToastContainer } from "react-toastify";
 import CapacitorNative from "../components/CapacitorNative";
 
 const GA_MEASUREMENT_ID = "G-3H0471HBRN";
+const CLARITY_PROJECT_ID = process.env.NEXT_PUBLIC_CLARITY_ID;
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   return (
@@ -47,6 +48,20 @@ export default function MyApp({ Component, pageProps }: AppProps) {
           gtag('config', '${GA_MEASUREMENT_ID}');
         `}
       </Script>
+
+      {/* Microsoft Clarity (heatmaps + session recordings).
+          No-ops until NEXT_PUBLIC_CLARITY_ID is set. */}
+      {CLARITY_PROJECT_ID && (
+        <Script id="clarity-init" strategy="afterInteractive">
+          {`
+            (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", "${CLARITY_PROJECT_ID}");
+          `}
+        </Script>
+      )}
 
       <MantineProvider>
         <SessionProvider session={pageProps.session}>
