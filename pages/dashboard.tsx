@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/router";
 import { useSession, signOut } from "next-auth/react";
 import { api, getAxiosErrorMessage } from "@/lib/api";
+import SEO from "@/components/SEO";
 
 import {
   Alert,
@@ -820,6 +821,12 @@ Mamzar / Dubai, UAE
   }
 
   return (
+     <>
+    <SEO
+      title="My Dashboard | Cross Border Cart"
+      noindex
+    />
+
     <div style={{ minHeight: "100vh", background: LIGHT_BG }}>
       <header
         style={{
@@ -1599,5 +1606,6 @@ Mamzar / Dubai, UAE
         </Modal.Body>
       </Modal>
     </div>
+    </>
   );
 }

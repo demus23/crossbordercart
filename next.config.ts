@@ -4,10 +4,27 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
 
+  // SEO: force www.crossbordercart.com → crossbordercart.com
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "www.crossbordercart.com",
+          },
+        ],
+        destination: "https://crossbordercart.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
-        source: "/(.*)",
+        source: "/:path*",
         headers: [
           {
             key: "X-Frame-Options",

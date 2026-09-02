@@ -6,7 +6,7 @@
 // like the ones removed from the homepage earlier, it should either be
 // replaced with ReviewsSection (used elsewhere on the site) or removed.
 import React from "react";
-import Head from "next/head";
+import SEO from "@/components/SEO";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -47,10 +47,11 @@ const STEPS = [
 export default function AboutPage() {
   return (
     <>
-      <Head>
-        <title>About Us | CBC (Cross Border Cart)</title>
-        <meta name="description" content="Learn about CBC, how our package forwarding service works, and why we built it for shoppers across Africa." />
-      </Head>
+      <SEO
+  title="About Us | CBC (Cross Border Cart)"
+  description="Learn about CBC, how our package forwarding service works, and why we built it for shoppers across Africa."
+  path="/about"
+/>
 
       <SiteHeader />
 

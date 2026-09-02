@@ -17,11 +17,20 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   return (
     <>
       <Head>
+        {/* Default/fallback title.
+            Individual public pages should override this. */}
         <title>Cross Border Cart</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-        {/* Browser tab icon */}
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1"
+        />
+
+        <link
+          rel="icon"
+          href="/favicon.svg"
+          type="image/svg+xml"
+        />
       </Head>
 
       {/* Google Analytics (GA4) */}
@@ -29,6 +38,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         strategy="afterInteractive"
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
       />
+
       <Script id="ga4-init" strategy="afterInteractive">
         {`
           window.dataLayer = window.dataLayer || [];
@@ -41,8 +51,13 @@ export default function MyApp({ Component, pageProps }: AppProps) {
       <MantineProvider>
         <SessionProvider session={pageProps.session}>
           <CapacitorNative />
+
           <Component {...pageProps} />
-          <ToastContainer position="top-right" autoClose={3000} />
+
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+          />
         </SessionProvider>
       </MantineProvider>
     </>
