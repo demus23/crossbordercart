@@ -18,6 +18,11 @@ const nextConfig = {
         destination: "https://crossbordercart.com/:path*",
         permanent: true,
       },
+      {
+  source: "/shipping",
+  destination: "/shipping-calculator",
+  permanent: true,
+},
     ];
   },
 

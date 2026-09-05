@@ -219,7 +219,7 @@ export default function HowItWorksPage() {
           </p>
 
           <div style={ctaRow}>
-            <Link href="/register" style={primaryBtn}>
+            <Link href="/signup" style={primaryBtn}>
               Create Free Account
             </Link>
             <Link href="/pricing" style={secondaryBtn}>

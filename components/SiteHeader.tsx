@@ -172,7 +172,7 @@ export default function SiteHeader() {
         {/* Desktop center links */}
         <div className="siteheader-desktop" style={desktopRow}>
           <NavLink href="/how-it-works">How it works</NavLink>
-          <NavLink href="/shipping">Shipping rates</NavLink>
+          <NavLink href="/shipping-calculator">Shipping rates</NavLink>
           <NavLink href="/ship-to">Destinations</NavLink>
           <NavLink href="/guides">Shopping Guides</NavLink>
           <NavLink href="/track">Track package</NavLink>
@@ -235,7 +235,7 @@ export default function SiteHeader() {
             }}
           >
             <NavLink href="/how-it-works">How it works</NavLink>
-            <NavLink href="/shipping">Shipping rates</NavLink>
+            <NavLink href="/shipping-calculator">Shipping rates</NavLink>
             <NavLink href="/ship-to">Destinations</NavLink>
             <NavLink href="/guides">Shopping Guides</NavLink>
             <NavLink href="/track">Track package</NavLink>
