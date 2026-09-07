@@ -194,10 +194,10 @@ export default function TrackPage() {
   return (
     <>
       <Head>
-        <title>Track your shipment | MyUS Delivery</title>
+        <title>Track your shipment | Cross Border Cart</title>
         <meta
           name="description"
-          content="Track any MyUS Delivery shipment in real-time."
+          content="Track any Cross Border Cart shipment in real-time."
         />
         <meta name="robots" content="noindex" />
       </Head>

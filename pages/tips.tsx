@@ -1,6 +1,7 @@
 import type { NextPage } from "next";
 import MarketingLayout from "@/components/marketing/MarketingLayout";
 import { Container, Row, Col, Card, Badge } from "react-bootstrap";
+import SEO from "@/components/SEO";
 
 type Tip = {
   id: number;
@@ -67,6 +68,12 @@ const levelVariant: Record<Tip["level"], string> = {
 
 const TipsPage: NextPage = () => {
   return (
+     <>
+      <SEO
+        title="Shipping Tips & Guides | Cross Border Cart"
+        description="Practical shipping tips from Cross Border Cart covering packing, volumetric weight, consolidation, customs and shipment tracking."
+        path="/tips"
+      />
     <MarketingLayout>
       {/* Hero */}
       <section className="py-5 bg-light border-bottom">
@@ -163,6 +170,7 @@ const TipsPage: NextPage = () => {
         </Row>
       </Container>
     </MarketingLayout>
+    </>
   );
 };
 

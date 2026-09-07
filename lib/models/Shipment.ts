@@ -111,6 +111,11 @@ export interface IShipment {
   service?: string;
 
   trackingNumber?: string;
+
+  currentLocation?: string | null;
+  shippedAt?: Date | null;
+  deliveredAt?: Date | null;
+
   labelUrl?: string;
 
   status: ShipmentStatus;
@@ -471,15 +476,31 @@ const ShipmentSchema = new Schema<IShipment>(
     },
 
     trackingNumber: {
-      type: String,
-      index: true,
-      sparse: true,
-      trim: true,
-    },
+  type: String,
+  index: true,
+  sparse: true,
+  trim: true,
+},
 
-    labelUrl: {
-      type: String,
-    },
+currentLocation: {
+  type: String,
+  default: null,
+  trim: true,
+},
+
+shippedAt: {
+  type: Date,
+  default: null,
+},
+
+deliveredAt: {
+  type: Date,
+  default: null,
+},
+
+labelUrl: {
+  type: String,
+},
 
     status: {
       type: String,

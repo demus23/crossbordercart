@@ -93,7 +93,7 @@ export default function AdminSidebar() {
         <LogOut size={20} /> Logout
       </button>
       <div style={{ fontSize: 13, color: "#fff6", marginTop: 12, marginBottom: 3 }}>
-        © {new Date().getFullYear()} MyUS Delivery Admin
+        © {new Date().getFullYear()} Cross Border Cart Admin
       </div>
     </aside>
   );

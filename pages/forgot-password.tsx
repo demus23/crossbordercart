@@ -1,6 +1,7 @@
 // pages/forgot-password.tsx
 import { useState } from "react";
 import Link from "next/link";
+import SEO from "@/components/SEO";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -54,6 +55,11 @@ export default function ForgotPassword() {
   }
 
   return (
+    <>
+    <SEO
+      title="Forgot Password | Cross Border Cart"
+      noindex
+    />
     <main style={{minHeight:"100vh",display:"grid",placeItems:"center",
       background:"linear-gradient(180deg,#60a5fa 0%,#8b5cf6 100%)",padding:24}}>
       <section style={{width:"100%",maxWidth:560,background:"#fff",borderRadius:20,
@@ -107,5 +113,6 @@ export default function ForgotPassword() {
         </form>
       </section>
     </main>
+     </>
   );
 }

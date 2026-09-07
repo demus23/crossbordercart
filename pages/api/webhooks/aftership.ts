@@ -1,72 +1,103 @@
 // pages/api/webhooks/aftership.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "crypto";
+
 import { dbConnect } from "@/lib/mongoose";
 import { Shipment, ShipmentStatus } from "@/lib/models/Shipment";
-import { sendShipmentNotification, shipmentStatusToEvent } from "@/lib/notifications/sendShipmentNotification";
 
-// IMPORTANT: need raw body for signature verification
+import {
+  sendShipmentNotification,
+  shipmentStatusToEvent,
+} from "@/lib/notifications/sendShipmentNotification";
+
 export const config = {
   api: {
     bodyParser: false,
   },
 };
 
-// Read raw request body
 async function readRawBody(req: NextApiRequest): Promise<Buffer> {
   const chunks: Buffer[] = [];
+
   for await (const chunk of req) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
+
   return Buffer.concat(chunks);
 }
 
-// Constant-time compare
 function safeEqual(a: string, b: string) {
   const ba = Buffer.from(a);
   const bb = Buffer.from(b);
-  if (ba.length !== bb.length) return false;
+
+  if (ba.length !== bb.length) {
+    return false;
+  }
+
   return crypto.timingSafeEqual(ba, bb);
 }
 
-/**
- * AfterShip Tracking webhook signature:
- * header: aftership-hmac-sha256
- * value: base64(HMAC_SHA256(rawBody, webhookSecret))
- * :contentReference[oaicite:1]{index=1}
- */
-function verifyAfterShipSignature(rawBody: Buffer, headerSig: string, secret: string) {
-  const digest = crypto.createHmac("sha256", secret).update(rawBody).digest("base64");
+function verifyAfterShipSignature(
+  rawBody: Buffer,
+  headerSig: string,
+  secret: string
+) {
+  const digest = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
+    .digest("base64");
+
   return safeEqual(digest, headerSig);
 }
 
-// Map AfterShip "tag" (delivery status category) to your ShipmentStatus union
-function mapAfterShipTagToStatus(tag?: string): ShipmentStatus {
-  const t = (tag || "").toLowerCase();
+function mapAfterShipTagToStatus(
+  tag?: string
+): ShipmentStatus | null {
+  const normalized = String(tag || "")
+    .replace(/[\s_-]/g, "")
+    .toLowerCase();
 
-  // Common AfterShip tags (varies by carrier/provider)
-  if (t.includes("delivered")) return "delivered";
-  if (t.includes("outfordelivery") || t.includes("out_for_delivery")) return "out_for_delivery";
-  if (t.includes("intransit") || t.includes("in_transit")) return "in_transit";
-  if (t.includes("exception") || t.includes("expired")) return "exception";
-  if (t.includes("return") || t.includes("returned")) return "return_to_sender";
+  switch (normalized) {
+    case "delivered":
+      return "delivered";
 
-  // "pending", "info_received", etc. -> keep early state
-  if (t.includes("pending") || t.includes("info")) return "label_purchased";
+    case "outfordelivery":
+      return "out_for_delivery";
 
-  // fallback
-  return "draft";
+    case "intransit":
+      return "in_transit";
+
+    case "exception":
+    case "expired":
+    case "attemptfail":
+      return "exception";
+
+    case "pending":
+    case "inforeceived":
+      return "label_purchased";
+
+    /*
+     * CBC currently has no dedicated available-for-pickup
+     * shipment status. Keep it as in transit rather than
+     * sending the shipment backwards.
+     */
+    case "availableforpickup":
+      return "in_transit";
+
+    default:
+      return null;
+  }
 }
 
-// Pull tracking info from different payload versions safely
 function extractTracking(msg: any) {
-  // Webhook specs say body has ts/event/event_id/msg :contentReference[oaicite:2]{index=2}
   const tracking =
     msg?.tracking ||
     msg?.data?.tracking ||
     msg?.trackings?.[0] ||
     msg?.tracking_update?.tracking ||
-    msg?.tracking_data?.tracking;
+    msg?.tracking_data?.tracking ||
+    msg;
 
   const trackingNumber =
     tracking?.tracking_number ||
@@ -86,131 +117,418 @@ function extractTracking(msg: any) {
     tracking?.delivery_status ||
     tracking?.current_status;
 
-  // checkpoints timeline
-  const checkpoints =
-    tracking?.checkpoints ||
-    tracking?.checkpoint ||
-    tracking?.events ||
-    [];
+  const checkpoints = Array.isArray(tracking?.checkpoints)
+    ? tracking.checkpoints
+    : Array.isArray(tracking?.events)
+    ? tracking.events
+    : [];
 
-  return { tracking, trackingNumber, slug, tag, checkpoints };
+  return {
+    tracking,
+    trackingNumber,
+    slug,
+    tag,
+    checkpoints,
+  };
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+function getCheckpointDate(checkpoint: any) {
+  const raw =
+    checkpoint?.checkpoint_time ||
+    checkpoint?.created_at ||
+    checkpoint?.time;
+
+  if (!raw) {
+    return new Date();
+  }
+
+  const parsed = new Date(raw);
+
+  return Number.isNaN(parsed.getTime())
+    ? new Date()
+    : parsed;
+}
+
+function getCheckpointLocation(checkpoint: any) {
+  if (!checkpoint) {
+    return "";
+  }
+
+  if (checkpoint.location) {
+    return String(checkpoint.location);
+  }
+
+  return [
+    checkpoint.city,
+    checkpoint.state,
+    checkpoint.country_region_name ||
+      checkpoint.country_name ||
+      checkpoint.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "Method Not Allowed" });
+    res.setHeader("Allow", "POST");
+
+    return res.status(405).json({
+      ok: false,
+      error: "Method Not Allowed",
+    });
   }
 
   const secret = process.env.AFTERSHIP_WEBHOOK_SECRET;
+
   if (!secret) {
-    // Don’t silently accept webhooks with no verification configured
-    return res.status(500).json({ ok: false, error: "Missing AFTERSHIP_WEBHOOK_SECRET" });
+    console.error(
+      "[AfterShip] Missing AFTERSHIP_WEBHOOK_SECRET"
+    );
+
+    return res.status(500).json({
+      ok: false,
+      error: "Missing AFTERSHIP_WEBHOOK_SECRET",
+    });
   }
 
-  // 1) Read raw body
-  const rawBody = await readRawBody(req);
+  let rawBody: Buffer;
 
-  // 2) Verify signature
+  try {
+    rawBody = await readRawBody(req);
+  } catch (error) {
+    console.error("[AfterShip] Failed reading body:", error);
+
+    return res.status(400).json({
+      ok: false,
+      error: "Unable to read request body",
+    });
+  }
+
   const headerSig =
-    (req.headers["aftership-hmac-sha256"] as string) ||
-    (req.headers["AfterShip-Hmac-Sha256"] as string);
+    req.headers["aftership-hmac-sha256"];
 
-  if (!headerSig) {
-    return res.status(401).json({ ok: false, error: "Missing aftership-hmac-sha256 header" });
+  const signature = Array.isArray(headerSig)
+    ? headerSig[0]
+    : headerSig;
+
+  if (!signature) {
+    return res.status(401).json({
+      ok: false,
+      error: "Missing aftership-hmac-sha256 header",
+    });
   }
 
-  const ok = verifyAfterShipSignature(rawBody, headerSig, secret);
-  if (!ok) {
-    return res.status(401).json({ ok: false, error: "Invalid webhook signature" });
+  if (
+    !verifyAfterShipSignature(
+      rawBody,
+      signature,
+      secret
+    )
+  ) {
+    console.warn("[AfterShip] Invalid webhook signature");
+
+    return res.status(401).json({
+      ok: false,
+      error: "Invalid webhook signature",
+    });
   }
 
-  // 3) Parse JSON
-  let payload: any = null;
+  let payload: any;
+
   try {
     payload = JSON.parse(rawBody.toString("utf8"));
   } catch {
-    return res.status(400).json({ ok: false, error: "Invalid JSON body" });
+    return res.status(400).json({
+      ok: false,
+      error: "Invalid JSON body",
+    });
   }
 
-  // 4) Extract msg + tracking info
-  const msg = payload?.msg || payload?.data?.msg || payload;
-  const { trackingNumber, slug, tag, checkpoints } = extractTracking(msg);
+  const webhookEventId =
+    payload?.event_id ||
+    payload?.eventId;
 
+  const webhookType =
+    payload?.event ||
+    "tracking_update";
+
+  const msg =
+    payload?.msg ??
+    payload?.data?.msg ??
+    payload;
+
+  const {
+    trackingNumber,
+    slug,
+    tag,
+    checkpoints,
+  } = extractTracking(msg);
+
+  console.log("[AfterShip] webhook:", {
+    webhookEventId,
+    webhookType,
+    trackingNumber,
+    slug,
+    tag,
+  });
+
+  /*
+   * Some webhook types such as EDD revisions may not
+   * contain the normal tracking status information.
+   */
   if (!trackingNumber) {
-    return res.status(400).json({ ok: false, error: "Missing tracking number in webhook payload" });
+    console.warn(
+      "[AfterShip] No tracking number. Ignoring webhook:",
+      webhookType
+    );
+
+    return res.status(200).json({
+      ok: true,
+      ignored: true,
+      reason: "No tracking number",
+    });
   }
 
   await dbConnect();
 
-  // 5) Determine new status
-  const newStatus: ShipmentStatus = mapAfterShipTagToStatus(tag);
-
-  // 6) Convert checkpoints -> your events[] (append only newest item if possible)
-  // We’ll try to take the last checkpoint from array.
-  const last = Array.isArray(checkpoints) && checkpoints.length > 0
-    ? checkpoints[checkpoints.length - 1]
+  /*
+   * Find the CBC shipment first.
+   *
+   * Try carrier slug + tracking number, then tracking
+   * number alone.
+   */
+  let shipment = slug
+    ? await Shipment.findOne({
+        trackingNumber,
+        carrierSlug: slug,
+      })
     : null;
 
-  const newEvent = last
-    ? {
-        code: last?.tag || last?.subtag || last?.code || undefined,
-        status: last?.message || last?.status || tag || "Update",
-        description: last?.description || last?.checkpoint_description || undefined,
-        location: last?.location || last?.city || undefined,
-        createdAt: last?.checkpoint_time ? new Date(last.checkpoint_time) : new Date(),
-      }
-    : null;
-
-  // 7) Update shipment by trackingNumber (and slug if you store it)
-  // Prefer match with carrierSlug if present
-  const match: any = slug
-    ? { trackingNumber, carrierSlug: slug }
-    : { trackingNumber };
-
-  const update: any = {
-    $set: {
-      status: newStatus,
-      updatedAt: new Date(),
-    },
-  };
-
-  // push event (keep last 50)
-  if (newEvent) {
-    update.$push = {
-      events: {
-        $each: [newEvent],
-        $slice: -50,
-      },
-    };
+  if (!shipment) {
+    shipment = await Shipment.findOne({
+      trackingNumber,
+    });
   }
 
-  const before = await Shipment.findOne(match).select("status userId").lean();
+  if (!shipment) {
+    console.warn(
+      "[AfterShip] CBC shipment not found:",
+      trackingNumber
+    );
 
-  let shipment = await Shipment.findOneAndUpdate(match, update, { new: true });
+    /*
+     * Valid webhook, but nothing exists in CBC yet.
+     * Returning 200 prevents pointless AfterShip retries.
+     */
+    return res.status(200).json({
+      ok: true,
+      ignored: true,
+      reason: "Shipment not found",
+    });
+  }
 
-  // If not found by (trackingNumber + slug), fallback to trackingNumber only
-  if (!shipment && slug) {
-    shipment = await Shipment.findOneAndUpdate(
-      { trackingNumber },
-      update,
-      { new: true }
+  const previousStatus = shipment.status;
+
+  const mappedStatus =
+    mapAfterShipTagToStatus(tag);
+
+  /*
+   * IMPORTANT:
+   * Unknown AfterShip statuses must NEVER reset a shipment
+   * to Draft.
+   */
+  const newStatus =
+    mappedStatus ?? previousStatus;
+
+  const lastCheckpoint =
+    Array.isArray(checkpoints) &&
+    checkpoints.length > 0
+      ? checkpoints[checkpoints.length - 1]
+      : null;
+
+  const checkpointHash =
+    lastCheckpoint?.hash ||
+    lastCheckpoint?.id ||
+    undefined;
+
+  const checkpointDescription =
+    lastCheckpoint?.message ||
+    lastCheckpoint?.description ||
+    lastCheckpoint?.checkpoint_description ||
+    lastCheckpoint?.subtag_message ||
+    String(tag || "Tracking update");
+
+  const checkpointLocation =
+    getCheckpointLocation(lastCheckpoint);
+
+  const checkpointDate =
+    getCheckpointDate(lastCheckpoint);
+
+  /*
+   * Prevent duplicate checkpoint events.
+   *
+   * Newer AfterShip webhook versions provide a
+   * checkpoints[].hash value which is ideal for this.
+   */
+  let duplicateEvent = false;
+
+  if (checkpointHash) {
+    duplicateEvent = (shipment.events || []).some(
+      (existing: any) =>
+        existing?.code === checkpointHash
+    );
+  } else if (lastCheckpoint) {
+    duplicateEvent = (shipment.events || []).some(
+      (existing: any) =>
+        existing?.status === newStatus &&
+        existing?.description ===
+          checkpointDescription &&
+        String(existing?.location || "") ===
+          checkpointLocation &&
+        new Date(
+          existing?.createdAt || 0
+        ).getTime() === checkpointDate.getTime()
     );
   }
 
-  // Note: AfterShip tags don't include a distinct "customs" category — carriers
-  // report that as free-text within a checkpoint under the "InTransit" tag, so
-  // there's no dedicated customs status in the Shipment schema to trigger off
-  // today. If a customs push is wanted later, match on checkpoint description text.
-  if (shipment && (!before || (before as any).status !== shipment.status)) {
-    const event = shipmentStatusToEvent(shipment.status);
-    if (event) {
-      await sendShipmentNotification(event, {
-        userId: shipment.userId,
-        context: { trackingNumber: shipment.trackingNumber },
-      });
+  shipment.status = newStatus;
+
+  /*
+   * Useful summary location for tracking pages.
+   */
+  if (checkpointLocation) {
+    shipment.currentLocation =
+      checkpointLocation;
+  }
+
+  if (
+    newStatus === "in_transit" ||
+    newStatus === "out_for_delivery"
+  ) {
+    if (!shipment.shippedAt) {
+      shipment.shippedAt = checkpointDate;
     }
   }
 
-  // Always respond 200 to stop retries after successful verification + processing
-  return res.status(200).json({ ok: true });
+  if (newStatus === "delivered") {
+    if (!shipment.deliveredAt) {
+      shipment.deliveredAt =
+        checkpointDate;
+    }
+  }
+
+  if (lastCheckpoint && !duplicateEvent) {
+    shipment.events =
+      shipment.events || [];
+
+    shipment.events.push({
+      /*
+       * Keep CBC's normalized shipment status here.
+       */
+      status: newStatus,
+
+      /*
+       * Use the AfterShip checkpoint hash as our
+       * deduplication code where available.
+       */
+      code:
+        checkpointHash ||
+        lastCheckpoint?.subtag ||
+        lastCheckpoint?.tag ||
+        undefined,
+
+      description:
+        checkpointDescription,
+
+      location:
+        checkpointLocation,
+
+      createdAt:
+        checkpointDate,
+    });
+
+    /*
+     * Keep timeline size manageable.
+     */
+    if (shipment.events.length > 50) {
+      shipment.events =
+        shipment.events.slice(-50);
+    }
+
+    shipment.activity =
+      shipment.activity || [];
+
+    shipment.activity.push({
+      at: checkpointDate,
+      type: "tracking_update",
+      payload: {
+        source: "aftership",
+        status: newStatus,
+        previousStatus,
+        trackingNumber,
+        carrierSlug: slug,
+        description:
+          checkpointDescription,
+        location:
+          checkpointLocation,
+      },
+    });
+  }
+
+  await shipment.save();
+
+  /*
+   * Notify customer only when the major CBC shipment
+   * status actually changes.
+   */
+  if (
+    previousStatus !== shipment.status
+  ) {
+    const notificationEvent =
+      shipmentStatusToEvent(
+        shipment.status
+      );
+
+    if (notificationEvent) {
+      try {
+        await sendShipmentNotification(
+          notificationEvent,
+          {
+            userId: shipment.userId,
+            context: {
+              trackingNumber:
+                shipment.trackingNumber,
+            },
+          }
+        );
+      } catch (error) {
+        /*
+         * Tracking must still be saved even when a push
+         * notification fails.
+         */
+        console.error(
+          "[AfterShip] notification failed:",
+          error
+        );
+      }
+    }
+  }
+
+  console.log(
+    `[AfterShip] ${trackingNumber}: ${previousStatus} -> ${shipment.status}`
+  );
+
+  return res.status(200).json({
+    ok: true,
+    trackingNumber,
+    previousStatus,
+    status: shipment.status,
+    eventAdded:
+      !!lastCheckpoint &&
+      !duplicateEvent,
+  });
 }
