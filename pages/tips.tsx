@@ -74,7 +74,9 @@ const TipsPage: NextPage = () => {
         description="Practical shipping tips from Cross Border Cart covering packing, volumetric weight, consolidation, customs and shipment tracking."
         path="/tips"
       />
-    <MarketingLayout>
+   <MarketingLayout>
+  
+
       {/* Hero */}
       <section className="py-5 bg-light border-bottom">
         <Container>

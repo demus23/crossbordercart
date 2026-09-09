@@ -13,7 +13,8 @@ export default function PrivacyPage() {
         path="/privacy"
       />
 
-      <MarketingLayout title="Privacy Policy">
+      <MarketingLayout>
+  
         <div className="py-5">
           <div className="container">
             <PrivacyContent />

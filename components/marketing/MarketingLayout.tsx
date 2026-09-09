@@ -1,31 +1,23 @@
 import { ReactNode } from "react";
-import Head from "next/head";
 import Link from "next/link";
 import { Container, Navbar, Nav } from "react-bootstrap";
 
 type MarketingLayoutProps = {
   children: ReactNode;
-  title?: string;
-  description?: string;
+  
 };
 
 export default function MarketingLayout({
   children,
-  title,
-  description,
+  
 }: MarketingLayoutProps) {
   const year = new Date().getFullYear();
-  const pageTitle = title ? `${title} | CrossBorderCart` : "CrossBorderCart";
-  const pageDescription =
-    description ||
+
     "CrossBorderCart helps you ship internationally with transparent pricing, tracking and reliable delivery.";
 
   return (
     <>
-      <Head>
-        <title>{pageTitle}</title>
-        <meta name="description" content={pageDescription} />
-      </Head>
+      
 
       <div className="d-flex flex-column min-vh-100">
         {/* Top navbar */}
@@ -60,9 +52,9 @@ export default function MarketingLayout({
   Calculator
 </Link>
 
-                <Link href="/dashboard" className="btn btn-primary ms-2">
-                  Sign in
-                </Link>
+               <Link href="/login" className="btn btn-primary ms-2">
+  Sign in
+</Link>
               </Nav>
             </Navbar.Collapse>
           </Container>

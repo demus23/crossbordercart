@@ -82,6 +82,10 @@ export default function GuideLayout({ title, category, categoryHref, dek, lastUp
         <title>{title} – CBC Shopping Guides</title>
         <meta name="description" content={metaDescription} />
         <meta name="robots" content="index,follow" />
+         <link
+    rel="canonical"
+    href={`${SITE_URL}/guides/${slug}`}
+  />
         <meta property="og:type" content="article" />
         <meta property="og:title" content={title} />
         <meta property="og:description" content={metaDescription} />

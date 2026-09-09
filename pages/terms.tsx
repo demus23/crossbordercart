@@ -13,7 +13,9 @@ export default function TermsPage() {
         path="/terms"
       />
 
-      <MarketingLayout title="Terms & Conditions">
+      <MarketingLayout>
+ 
+
         <div className="py-5">
           <div className="container">
             <TermsContent />
