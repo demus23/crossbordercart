@@ -4,7 +4,8 @@ import { Container, Navbar, Nav } from "react-bootstrap";
 
 type MarketingLayoutProps = {
   children: ReactNode;
-  
+   title?: string;
+  description?: string;
 };
 
 export default function MarketingLayout({
