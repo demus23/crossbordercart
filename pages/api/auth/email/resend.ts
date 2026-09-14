@@ -1,123 +1,434 @@
 // pages/api/auth/email/resend.ts
-import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../[...nextauth]";
+
+import type {
+  NextApiRequest,
+  NextApiResponse,
+} from "next";
+
 import dbConnect from "@/lib/dbConnect";
+
 import UserModel from "@/lib/models/User";
+
 import EmailToken from "@/lib/models/EmailToken";
-import type { IEmailToken } from "@/lib/models/EmailToken";
+
 import crypto from "crypto";
-import nodemailer from "nodemailer";
 
-const VERIFY_TTL_MIN = 60 * 24;    // 24h
-const RESEND_COOLDOWN_SEC = 60;    // 1 min
+import { Resend } from "resend";
 
-const isAdmin = (s: any) => s?.user?.role === "admin" || s?.user?.role === "superadmin";
+import type { IEmailToken } from "@/lib/models/EmailToken";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Method Not Allowed" });
+const VERIFY_TTL_MS =
+  24 *
+  60 *
+  60 *
+  1000;
+
+const RESEND_COOLDOWN_MS =
+  60 * 1000;
+
+const resend =
+  process.env.RESEND_API_KEY
+    ? new Resend(
+        process.env
+          .RESEND_API_KEY
+      )
+    : null;
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (
+    req.method !==
+    "POST"
+  ) {
+    res.setHeader(
+      "Allow",
+      "POST"
+    );
+
+    return res
+      .status(405)
+      .json({
+        error:
+          "Method Not Allowed",
+      });
   }
 
-  await dbConnect();
+  try {
+    await dbConnect();
 
-  const session = await getServerSession(req, res, authOptions);
-  if (!session) {
-    // Require a logged-in user for anti-abuse
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+    const email =
+      typeof req.body
+        ?.email ===
+      "string"
+        ? req.body.email
+            .trim()
+            .toLowerCase()
+        : "";
 
-  // Accept userId (admin only) OR email (self, or admin for others)
-  const bodyUserId = (req.body?.userId as string | undefined)?.trim();
-  const bodyEmail = (req.body?.email as string | undefined)?.trim()?.toLowerCase();
-
-  let targetUser = null;
-
-  if (bodyUserId) {
-    // Only admins can trigger by userId
-    if (!isAdmin(session)) return res.status(403).json({ error: "Forbidden" });
-    targetUser = await UserModel.findById(bodyUserId);
-  } else if (bodyEmail) {
-    // Self-serve for the same email; admins may target any email
-    if (!isAdmin(session) && bodyEmail !== (session.user?.email || "").toLowerCase()) {
-      return res.status(403).json({ error: "Forbidden" });
+    if (!email) {
+      return res
+        .status(400)
+        .json({
+          error:
+            "Email is required.",
+        });
     }
-    targetUser = await UserModel.findOne({ email: bodyEmail });
-  } else {
-    // Default to the session's own email
-    const selfEmail = (session.user?.email || "").toLowerCase();
-    if (!selfEmail) return res.status(400).json({ error: "Email is required." });
-    targetUser = await UserModel.findOne({ email: selfEmail });
-  }
 
-  // Always return 200 to avoid leaking existence
-  if (!targetUser) {
+    /*
+      Find account.
+
+      We still return a generic
+      response when it doesn't
+      exist so we don't reveal
+      registered accounts.
+    */
+
+    const user =
+      await UserModel.findOne({
+        email,
+      });
+
+    if (!user) {
+      return res
+        .status(200)
+        .json({
+          ok: true,
+          message:
+            "If this account exists, a verification email has been sent.",
+        });
+    }
+
+    /*
+      Already verified?
+    */
+
+    if (
+      user.emailVerified ===
+      true
+    ) {
+      return res
+        .status(200)
+        .json({
+          ok: true,
+          alreadyVerified:
+            true,
+          message:
+            "This email is already verified. You can sign in.",
+        });
+    }
+
+    /*
+      Find latest verification
+      token for cooldown.
+    */
+
+   const latestToken =
+  await EmailToken.findOne(
+    {
+      userId: user._id,
+      type: "verify",
+    }
+  )
+    .sort({
+      createdAt: -1,
+    })
+    .lean<IEmailToken | null>();
+
+    if (
+      latestToken &&
+      latestToken.createdAt
+    ) {
+      const age =
+        Date.now() -
+        new Date(
+          latestToken.createdAt
+        ).getTime();
+
+      if (
+        age <
+        RESEND_COOLDOWN_MS
+      ) {
+        const seconds =
+          Math.ceil(
+            (RESEND_COOLDOWN_MS -
+              age) /
+              1000
+          );
+
+        return res
+          .status(429)
+          .json({
+            error: `Please wait ${seconds} seconds before requesting another verification email.`,
+          });
+      }
+    }
+
+    /*
+      Remove old verification
+      tokens.
+    */
+
+    await EmailToken.deleteMany(
+      {
+        userId:
+          user._id,
+
+        type:
+          "verify",
+      }
+    );
+
+    /*
+      Create new token.
+    */
+
+    const token =
+      crypto
+        .randomBytes(
+          32
+        )
+        .toString(
+          "hex"
+        );
+
+    const expiresAt =
+      new Date(
+        Date.now() +
+          VERIFY_TTL_MS
+      );
+
+    await EmailToken.create(
+      {
+        userId:
+          user._id,
+
+        email:
+          user.email,
+
+        token,
+
+        type:
+          "verify",
+
+        expiresAt,
+      }
+    );
+
+    /*
+      Build verification URL.
+    */
+
+    const baseUrl =
+      process.env
+        .APP_ORIGIN ||
+      process.env
+        .NEXT_PUBLIC_APP_URL ||
+      process.env
+        .NEXT_PUBLIC_BASE_URL ||
+      "http://localhost:3000";
+
+    const verifyUrl =
+      `${baseUrl}/verify-email?token=${encodeURIComponent(
+        token
+      )}`;
+
+    /*
+      Send using RESEND.
+    */
+
+    await sendVerificationEmail(
+      user.email,
+      verifyUrl
+    );
+
+    /*
+      Useful in local dev only.
+    */
+
+    if (
+      /^true$/i.test(
+        process.env
+          .DEV_RETURN_VERIFY_LINK ||
+          ""
+      )
+    ) {
+      return res
+        .status(200)
+        .json({
+          ok: true,
+          verifyUrl,
+        });
+    }
+
     return res
       .status(200)
-      .json({ ok: true, note: "If that account exists, we've sent a verification link." });
+      .json({
+        ok: true,
+
+        message:
+          "Verification email sent.",
+      });
+  } catch (
+    error
+  ) {
+    console.error(
+      "Resend verification error:",
+      error
+    );
+
+    return res
+      .status(500)
+      .json({
+        error:
+          "Unable to send verification email right now.",
+      });
   }
-
-  if (targetUser.emailVerified) {
-    return res.status(200).json({ ok: true, alreadyVerified: true });
-  }
-
-  // Cooldown
-  const recent = await EmailToken.findOne({ userId: targetUser._id, type: "verify" })
-    .sort({ createdAt: -1 })
-    .lean<IEmailToken | null>();
-  if (recent && (Date.now() - new Date(recent.createdAt).getTime()) / 1000 < RESEND_COOLDOWN_SEC) {
-    return res.status(429).json({ error: "Please wait a moment before requesting again." });
-  }
-
-  // Clear previous verify tokens
-  await EmailToken.deleteMany({ userId: targetUser._id, type: "verify" });
-
-  // Create a fresh token
-  const token = crypto.randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + VERIFY_TTL_MIN * 60 * 1000);
-  await EmailToken.create({
-    userId: targetUser._id,
-    email: targetUser.email,
-    token,
-    type: "verify",
-    expiresAt,
-    usedAt: null,
-  });
-
-  // Build link (kept as your /verify-email page)
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const verifyUrl = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
-
-  await sendVerifyEmail(targetUser.email, verifyUrl);
-
-  // In dev, return link for convenience
-  if (/^true$/i.test(process.env.DEV_RETURN_VERIFY_LINK || "")) {
-    return res.status(200).json({ ok: true, verifyUrl });
-  }
-
-  return res.status(200).json({ ok: true });
 }
 
-async function sendVerifyEmail(to: string, verifyUrl: string) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: +(process.env.SMTP_PORT || 587),
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
+async function sendVerificationEmail(
+  to: string,
+  verifyUrl: string
+) {
+  if (!resend) {
+    throw new Error(
+      "RESEND_API_KEY is not configured."
+    );
+  }
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM || `"Cross Border Cart" <no-reply@crossbordercart.dev>`,
-    to,
-    subject: "Verify your email",
-    html: `
-      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif">
-        <h2>Verify your email</h2>
-        <p>Click the button below to verify your email address.</p>
-        <p><a href="${verifyUrl}" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none">Verify email</a></p>
-        <p>If the button doesn't work, copy and paste this link:</p>
-        <p><a href="${verifyUrl}">${verifyUrl}</a></p>
-      </div>
-    `,
-  });
+  const result =
+    await resend.emails.send(
+      {
+        from:
+          process.env
+            .EMAIL_FROM ||
+          "Cross Border Cart <no-reply@crossbordercart.com>",
+
+        to,
+
+        subject:
+          "Verify your Cross Border Cart email",
+
+        html: `
+          <div
+            style="
+              max-width:600px;
+              margin:0 auto;
+              padding:36px;
+              font-family:Arial,sans-serif;
+              color:#1C2436;
+              background:#ffffff;
+            "
+          >
+
+            <div
+              style="
+                font-size:13px;
+                font-weight:800;
+                color:#A8841A;
+                margin-bottom:12px;
+              "
+            >
+              CROSS BORDER CART
+            </div>
+
+            <h1
+              style="
+                margin:0 0 16px;
+                color:#0F2340;
+                font-size:28px;
+              "
+            >
+              Verify your email
+            </h1>
+
+            <p
+              style="
+                color:#68707F;
+                line-height:1.7;
+                font-size:15px;
+              "
+            >
+              Welcome to Cross Border Cart.
+              Please verify your email address
+              before signing in.
+            </p>
+
+            <a
+              href="${verifyUrl}"
+              style="
+                display:inline-block;
+                margin:18px 0 24px;
+                padding:14px 24px;
+                background:#C9A227;
+                color:#ffffff;
+                text-decoration:none;
+                border-radius:10px;
+                font-weight:800;
+              "
+            >
+              Verify my email
+            </a>
+
+            <p
+              style="
+                color:#68707F;
+                font-size:13px;
+                line-height:1.6;
+              "
+            >
+              This link expires in 24 hours.
+            </p>
+
+            <p
+              style="
+                color:#94A3B8;
+                font-size:12px;
+                line-height:1.6;
+              "
+            >
+              If the button does not work,
+              copy and paste this link:
+            </p>
+
+            <p
+              style="
+                word-break:break-all;
+                font-size:11px;
+              "
+            >
+              <a
+                href="${verifyUrl}"
+                style="color:#A8841A;"
+              >
+                ${verifyUrl}
+              </a>
+            </p>
+
+            <p
+              style="
+                margin-top:30px;
+                color:#94A3B8;
+                font-size:11px;
+              "
+            >
+              If you did not create this account,
+              you can ignore this message.
+            </p>
+
+          </div>
+        `,
+      }
+    );
+
+  if (
+    result.error
+  ) {
+    throw new Error(
+      result.error.message
+    );
+  }
+
+  return result.data;
 }
