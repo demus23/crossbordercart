@@ -23,6 +23,16 @@ const nextConfig = {
   destination: "/shipping-calculator",
   permanent: true,
 },
+{
+  source: "/legal/privacy",
+  destination: "/privacy",
+  permanent: true,
+},
+{
+  source: "/legal/terms",
+  destination: "/terms",
+  permanent: true,
+},
     ];
   },
 

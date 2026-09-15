@@ -1,5 +1,5 @@
 // pages/policies/refunds.tsx
-import Head from "next/head";
+import SEO from "@/components/SEO";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import React from "react";
@@ -56,13 +56,11 @@ const linkStyle: React.CSSProperties = {
 export default function RefundPolicyPage() {
   return (
     <div style={pageShell}>
-      <Head>
-        <title>Refund Policy | Cross Border Cart</title>
-        <meta
-          name="description"
-          content="Learn how Cross Border Cart handles refunds for shipping charges, service fees and shipment-related claims."
-        />
-      </Head>
+     <SEO
+  title="Refund Policy | Cross Border Cart"
+  description="Learn how Cross Border Cart handles refunds for shipping charges, service fees and shipment-related claims."
+  path="/policies/refunds"
+/>
 
       <SiteHeader />
 

@@ -1,6 +1,6 @@
 // pages/how-it-works.tsx
 import React from "react";
-import Head from "next/head";
+import SEO from "@/components/SEO";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -195,13 +195,11 @@ const infoCardText: React.CSSProperties = {
 export default function HowItWorksPage() {
   return (
     <div style={pageShell}>
-      <Head>
-        <title>How It Works | Cross Border Cart</title>
-        <meta
-          name="description"
-          content="Learn how Cross Border Cart works, from getting your UAE shipping address to receiving your parcels at home."
-        />
-      </Head>
+      <SEO
+  title="How It Works | Cross Border Cart"
+  description="Learn how Cross Border Cart works, from getting your UAE shipping address to receiving your parcels at home."
+  path="/how-it-works"
+/>
 
       <SiteHeader />
 

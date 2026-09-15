@@ -218,8 +218,10 @@ export default function TrackPage() {
   return (
     <>
       <Head>
-        <title>Track {trackingNo ? `#${trackingNo}` : ""} | Tracking</title>
-      </Head>
+  <title>Track {trackingNo ? `#${trackingNo}` : ""} | Cross Border Cart</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="googlebot" content="noindex, nofollow" />
+</Head>
 
       <Container className="py-4">
         <div className="d-flex align-items-center justify-content-between mb-3">
