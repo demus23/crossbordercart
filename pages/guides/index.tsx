@@ -74,6 +74,7 @@ const CATEGORIES: Category[] = [
     label: "Shipping Guides",
     icon: "📦",
     items: [
+      { title: "UAE Package Forwarding to Africa: How It Works, Costs & Countries We Serve", teaser: "The complete guide — process, real landed costs, and every country covered.", href: "/guides/uae-package-forwarding-to-africa", lastUpdated: "Sep 2026" },
       { title: "How Package Forwarding from Dubai Works", teaser: "The mechanics of a UAE address and forwarding, explained plainly.", href: "/guides/how-package-forwarding-works" },
       { title: "Package Consolidation Explained: When Can It Save Costs?", teaser: "When combining packages helps — and when it doesn't.", href: "/guides/package-consolidation-explained" },
       { title: "Actual Weight vs Volumetric Weight", teaser: "Why your shipping price can change even with the same box.", href: "/guides/actual-vs-volumetric-weight" },

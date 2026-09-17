@@ -231,6 +231,24 @@ export default function SiteFooter() {
           customers purchase from.
         </div>
 
+        <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.8 }}>
+          Cross Border Cart is operated by Semenawi Trade FZ LLC, a UAE-registered
+          company based in Ras Al Khaimah, United Arab Emirates.
+          <br />
+          Trade License No: 45009832 &middot; Registered in: United Arab Emirates
+          <br />
+          Customer Support (WhatsApp):{" "}
+          <a href="https://wa.me/971525350353" style={{ color: "#cbd5f5" }}>
+            +971 52 535 0353
+          </a>{" "}
+          &middot; Email:{" "}
+          <a href="mailto:support@crossbordercart.com" style={{ color: "#cbd5f5" }}>
+            support@crossbordercart.com
+          </a>
+          <br />
+          Warehouse/Receiving Location: Dubai, UAE
+        </div>
+
         <div style={footerBottom}>
           <div>
             © {new Date().getFullYear()} Cross Border Cart. All rights reserved.

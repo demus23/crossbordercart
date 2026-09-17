@@ -123,6 +123,7 @@ export default function ConsolidationPage() {
         <title>How Consolidation Works – CBC (Cross Border Cart)</title>
         <meta name="description" content="Learn how CBC package consolidation works: combine eligible purchases from different UAE stores into one shipment before it ships to Africa." />
         <meta name="robots" content="index,follow" />
+        <link rel="canonical" href={`${SITE_URL}/consolidation`} />
         <meta property="og:type" content="website" />
         <meta property="og:title" content="How Consolidation Works – CBC" />
         <meta property="og:description" content="Combine eligible purchases from different UAE stores into one shipment with CBC." />

@@ -33,6 +33,11 @@ const nextConfig = {
   destination: "/terms",
   permanent: true,
 },
+{
+  source: "/destinations/:country",
+  destination: "/ship-to/:country",
+  permanent: true,
+},
     ];
   },
 

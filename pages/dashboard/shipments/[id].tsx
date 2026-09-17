@@ -550,6 +550,24 @@ const timeline = [
 </button>
             )}
 
+            {!isPaid && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-success ms-2"
+                onClick={() => {
+                  if (
+                    confirm(
+                      "Mark this shipment as paid outside Stripe (cash, bank transfer, etc.)? This unlocks status updates including Delivered."
+                    )
+                  ) {
+                    handleMarkPaid();
+                  }
+                }}
+              >
+                Mark as Paid (Cash/Other)
+              </button>
+            )}
+
             {isPaid && shipment?.paidAt && (
               <small className="text-muted d-block">
                 Paid at: {new Date(shipment.paidAt).toLocaleString()}
