@@ -48,8 +48,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         (shipment.user && String(shipment.user) === sessionUserId) ||
         (sessionEmail &&
           [shipment.customerEmail, shipment.userEmail]
-            .filter(Boolean)
-            .some((e: string) => e.toLowerCase() === sessionEmail));
+            .filter((e): e is string => Boolean(e))
+            .some((e) => e.toLowerCase() === sessionEmail));
 
       if (!isAdmin && !isOwner) {
         return res.status(403).json({ message: "You can only review your own shipments" });
