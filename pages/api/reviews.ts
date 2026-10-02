@@ -1,4 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/pages/api/auth/[...nextauth]";
 import { dbConnect } from "@/lib/mongoose";
 import { Shipment } from "@/lib/models/Shipment";
 import { Review } from "@/lib/models/Review";
@@ -12,6 +14,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === "POST") {
+    // Must be signed in — prevents anyone who guesses/knows a shipmentId
+    // from posting a review that isn't theirs.
+    const session = (await getServerSession(req, res, authOptions as any)) as any;
+    if (!session?.user?.id) {
+      return res.status(401).json({ message: "Sign in to leave a review" });
+    }
+
     const { shipmentId, rating, comment, customerName, customerEmail } = req.body;
 
     if (!shipmentId || !rating) {
@@ -27,6 +36,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (!shipment) {
         return res.status(404).json({ message: "Shipment not found" });
+      }
+
+      // Only the shipment's own customer (matched by account, or by email as
+      // a fallback for admin-entered shipments) or an admin can review it.
+      const sessionUserId = String(session.user.id);
+      const sessionEmail = (session.user.email || "").toLowerCase();
+      const isAdmin = ["admin", "superadmin"].includes(session.user?.role || "");
+      const isOwner =
+        (shipment.userId && String(shipment.userId) === sessionUserId) ||
+        (shipment.user && String(shipment.user) === sessionUserId) ||
+        (sessionEmail &&
+          [shipment.customerEmail, shipment.userEmail]
+            .filter(Boolean)
+            .some((e: string) => e.toLowerCase() === sessionEmail));
+
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({ message: "You can only review your own shipments" });
       }
 
       // Optional: only allow review if shipment is delivered
