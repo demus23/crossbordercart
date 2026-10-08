@@ -1,5 +1,7 @@
 // pages/guides/shop-uae-ship-to-nigeria.tsx
+
 import Link from "next/link";
+
 import GuideLayout, { MidCTA } from "@/components/GuideLayout";
 
 export default function Guide() {
@@ -9,43 +11,147 @@ export default function Guide() {
       category="Shopping Guides"
       categoryHref="/guides"
       title="How to Shop Online in the UAE and Ship to Nigeria"
-      dek="A practical walkthrough for shopping UAE stores from Nigeria — from getting a Dubai address to receiving your package at home."
-      metaDescription="Step-by-step guide to shopping UAE online stores and shipping your purchases to Nigeria using a Dubai forwarding address."
+      dek="A practical guide to shopping UAE stores from Nigeria — from getting a Dubai delivery address to forwarding your packages to Nigeria."
+      metaDescription="Learn how to shop UAE online stores from Nigeria using a Dubai forwarding address, consolidate eligible packages and ship your purchases to Nigeria."
     >
       <p>
-        Many UAE retailers stock brands and products that are hard to find or expensive locally in Nigeria. The catch is that most of these stores only deliver within the UAE. A package forwarding address solves that by giving you a UAE delivery point that then ships onward to Nigeria.
+        Many UAE retailers stock brands and products that can be difficult
+        to find locally in Nigeria. But some UAE stores only deliver within
+        the UAE. A package forwarding service gives you a Dubai delivery
+        address so you can receive eligible purchases in the UAE and then
+        forward them to Nigeria.
       </p>
 
-      <h2>The basic idea</h2>
+      <h2>How to shop in the UAE and ship to Nigeria</h2>
+
       <p>
-        You sign up for a free forwarding address in Dubai, use it at checkout on any UAE store, and the retailer ships your order there like any normal domestic delivery. The forwarding company then repackages and ships your order internationally to your address in Nigeria.
+        You sign up for a forwarding address in Dubai and use that address
+        when shopping online. The retailer delivers your purchase to the UAE
+        address like a normal domestic order. Once the package arrives at the
+        forwarding warehouse, you can arrange onward shipping to Nigeria.
       </p>
 
       <h2>Step by step</h2>
+
       <ol>
-        <li><strong>Get your free Dubai address.</strong> Sign up with a forwarding service — this takes a few minutes.</li>
-        <li><strong>Shop UAE stores normally.</strong> Use your forwarding address at checkout instead of a Nigerian one.</li>
-        <li><strong>Check your package arrived.</strong> Look for photo confirmation once it reaches the Dubai warehouse.</li>
-        <li><strong>Combine orders if you have more than one.</strong> Consolidation can combine multiple packages into a single shipment before it heads to Nigeria.</li>
-        <li><strong>Get a real quote and ship.</strong> Pricing is based on your package's actual weight and size — pay and track it from there.</li>
+        <li>
+          <strong>Get your Dubai address.</strong> Create your forwarding
+          account and receive your UAE delivery address.
+        </li>
+
+        <li>
+          <strong>Shop UAE stores.</strong> Use your Dubai forwarding address
+          as the delivery address when checking out.
+        </li>
+
+        <li>
+          <strong>Wait for your package to arrive.</strong> Once your order
+          reaches the warehouse, you can review the package information
+          before international shipping.
+        </li>
+
+        <li>
+          <strong>Combine eligible orders if needed.</strong> If you ordered
+          from several stores, package consolidation can combine eligible
+          purchases before shipping to Nigeria.
+        </li>
+
+        <li>
+          <strong>Get your shipping quote.</strong> International shipping
+          cost can depend on the package's actual or volumetric weight,
+          destination and available carrier options.
+        </li>
+
+        <li>
+          <strong>Ship to Nigeria.</strong> Choose an available shipping
+          option and track your package after dispatch.
+        </li>
       </ol>
 
       <MidCTA />
 
+      <h2>Can I shop from Dubai and deliver to Nigeria?</h2>
+
+      <p>
+        Yes, a UAE package forwarding address can be used when an eligible
+        online store delivers within the UAE but does not offer direct
+        delivery to Nigeria. Your order is delivered to your Dubai forwarding
+        address first and then shipped internationally to Nigeria.
+      </p>
+
+      <h2>Why consolidate packages before shipping?</h2>
+
+      <p>
+        If you buy from several UAE stores, your purchases may arrive at
+        different times and in separate packages. Eligible orders can be
+        consolidated before international shipping, allowing you to manage
+        multiple purchases as one shipment.
+      </p>
+
+      <p>
+        Consolidation does not always mean a lower shipping price. The final
+        cost still depends on factors such as actual weight, volumetric
+        weight, destination and carrier pricing.
+      </p>
+
       <h2>Things worth knowing before you order</h2>
+
       <ul>
-        <li><strong>Not everything can be forwarded.</strong> Some products face carrier or customs restrictions — check first if you're ordering electronics, batteries, or anything unusual.</li>
-        <li><strong>Nigerian customs may apply duties</strong> on imported goods depending on the item and declared value — this is separate from the shipping fee itself.</li>
-        <li><strong>Buy sizes you're sure of.</strong> Once your order leaves the UAE, returning it to the original store is far more difficult than a local return would be.</li>
+        <li>
+          <strong>Not everything can be forwarded.</strong> Some products
+          have carrier, customs or transport restrictions. Check before
+          ordering batteries, liquids or other regulated items.
+        </li>
+
+        <li>
+          <strong>Nigerian customs may apply duties or taxes.</strong> These
+          can depend on the product, declared value and applicable import
+          rules and are separate from the forwarding charge.
+        </li>
+
+        <li>
+          <strong>Actual vs volumetric weight matters.</strong> A lightweight
+          but bulky package can sometimes be charged based on its dimensions
+          rather than only its scale weight.
+        </li>
+
+        <li>
+          <strong>Check sizes and specifications carefully.</strong>
+          International returns can be more complicated than domestic
+          returns.
+        </li>
       </ul>
 
       <div className="callout">
-        CBC provides a free UAE address, photographs every package on arrival, and can consolidate eligible orders before shipping to Nigeria. <Link className="inline-link" href="/ship-to/nigeria">See supported destinations →</Link>
+        CBC provides a UAE delivery address, photographs packages on arrival,
+        and allows eligible orders to be consolidated before shipping to
+        Nigeria.{" "}
+        <Link className="inline-link" href="/ship-to/nigeria">
+          See shipping from UAE to Nigeria →
+        </Link>
       </div>
 
       <h2>Starting with a small order</h2>
+
       <p>
-        If you haven't used a forwarding service before, start with one order you're confident about rather than several at once. That gives you a feel for how the warehouse notifies you, how consolidation works, and what the real shipping cost looks like — before you commit to anything bigger.
+        If you haven't used a forwarding service before, consider starting
+        with one relatively small order. This lets you see how the warehouse
+        receiving process works and understand the international shipping
+        quote before placing larger or multiple orders.
+      </p>
+
+      <h2>Ready to shop UAE stores from Nigeria?</h2>
+
+      <p>
+        Create your CBC account, get your UAE delivery address and use it for
+        eligible online purchases. Once your package arrives in Dubai, you
+        can arrange forwarding to Nigeria.
+      </p>
+
+      <p>
+        <Link className="inline-link" href="/signup">
+          Create your free CBC account →
+        </Link>
       </p>
     </GuideLayout>
   );
